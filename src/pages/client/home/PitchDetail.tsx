@@ -95,6 +95,20 @@ export default function PitchDetail() {
           </div>
         </div>
 
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold mb-2 text-green-700">
+            Mô tả sân
+          </h2>
+          {court?.description ? (
+            <div
+              className="prose max-w-none bg-white p-4 rounded-lg shadow-sm"
+              dangerouslySetInnerHTML={{ __html: court.description }}
+            />
+          ) : (
+            <p className="text-gray-500 italic">Chưa có mô tả cho sân này</p>
+          )}
+        </div>
+
         {/* MÔ TẢ */}
         {court.description && (
           <section className="mb-8">
