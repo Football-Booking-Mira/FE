@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
 
 interface Court {
   _id: string;
@@ -24,12 +22,15 @@ export default function CourtDetail() {
   const [error, setError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
 
+  // ✅ Gọi API lấy thông tin sân
   useEffect(() => {
     const fetchCourt = async () => {
       try {
         const res = await fetch(`http://localhost:3000/api/courts/${id}`);
         const data = await res.json();
-        if (!data.success) throw new Error(data.message);
+        if (!res.ok || !data.success)
+          throw new Error(data.message || "Lỗi tải dữ liệu");
+
         setCourt(data.data);
         setDescription(data.data.description || "");
       } catch (err: any) {
@@ -38,9 +39,11 @@ export default function CourtDetail() {
         setLoading(false);
       }
     };
+
     fetchCourt();
   }, [id]);
 
+  // ✅ Lưu mô tả mới
   const handleSave = async () => {
     try {
       const res = await fetch(`http://localhost:3000/api/courts/${id}`, {
@@ -49,15 +52,20 @@ export default function CourtDetail() {
         body: JSON.stringify({ description }),
       });
       const result = await res.json();
-      alert(result.message || "Cập nhật thành công!");
-    } catch (err) {
-      alert("Lỗi khi cập nhật sân bóng!");
+
+      if (!res.ok || !result.success)
+        throw new Error(result.message || "Không thể cập nhật mô tả");
+
+      alert("✅ Cập nhật mô tả thành công!");
+    } catch (err: any) {
+      alert("❌ Lỗi khi cập nhật: " + err.message);
     }
   };
 
-  if (loading) return <p className="text-center mt-10">Đang tải dữ liệu...</p>;
-  if (error) return <p className="text-center mt-10 text-red-500">{error}</p>;
-  if (!court) return <p className="text-center mt-10">Không tìm thấy sân</p>;
+  if (loading)
+    return <p className="p-6 text-gray-600">⏳ Đang tải dữ liệu...</p>;
+  if (error) return <p className="p-6 text-red-600">Lỗi: {error}</p>;
+  if (!court) return <p className="p-6 text-gray-600">Không tìm thấy sân</p>;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -119,12 +127,13 @@ export default function CourtDetail() {
         <h2 className="text-xl font-semibold text-green-700 mb-4">
           📝 Mô tả sân
         </h2>
-        <ReactQuill
-          theme="snow"
+
+        <textarea
           value={description}
-          onChange={setDescription}
+          onChange={(e) => setDescription(e.target.value)}
           placeholder="Nhập mô tả chi tiết về sân..."
-          className="bg-white"
+          rows={6}
+          className="w-full border rounded-lg px-3 py-2"
         />
 
         <button
