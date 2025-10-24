@@ -1,9 +1,12 @@
+import { RoleRoute } from "@/common/middlewares/RoleRoute";
 import { Outlet } from "react-router";
 
 const AdminLayout = () => {
   return (
     <>
-      <Outlet />
+      <RoleRoute requiredRoles={["admin"]} redirectTo="/login">
+        <Outlet />
+      </RoleRoute>
     </>
   );
 };
