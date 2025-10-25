@@ -2,6 +2,7 @@ import MainLayout from "@/layouts/MainLayout";
 import HomePage from "@/pages/client/home/HomePage";
 import PitchDetail from "@/pages/client/home/PitchDetail";
 import { VerifyPage } from "@/pages/auth/VerifyPage";
+import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
 import type { RouteObject } from "react-router";
 
@@ -25,6 +26,10 @@ export const PublicRoutes: RouteObject[] = [
       {
         path: "reset-password",
         element: <ResetPasswordPage />,
+      },
+      {
+        path: "verify-email",
+        element: <VerifyEmailPage />,
       },
     ],
   },

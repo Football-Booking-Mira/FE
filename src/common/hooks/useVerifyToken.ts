@@ -15,7 +15,7 @@ export function useVerifyToken() {
   return useMutation({
     mutationFn: async (payload: VerifyTokenPayload) => {
       const response = await api.post<VerifyTokenResponse>(
-        "/auth/verify",
+        "/auth/verify-token",
         payload
       );
       return response.data;
