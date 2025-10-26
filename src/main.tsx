@@ -5,7 +5,6 @@ import "./index.css";
 import App from "@/App";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConfigProvider, message } from "antd";
-import "@ant-design/v5-patch-for-react-19";
 
 const queryClient = new QueryClient();
 

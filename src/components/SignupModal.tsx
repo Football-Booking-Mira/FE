@@ -2,6 +2,7 @@ import { Modal, Form, Input, Button, message, Result, Space } from "antd";
 import { useRegister } from "@/common/hooks";
 import { MailOutlined } from "@ant-design/icons";
 import { useState } from "react";
+import { formatApiError } from "@/common/utils/formApiErr";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -15,7 +16,8 @@ export function SignupModal({
   onSwitchToLogin,
 }: SignupModalProps) {
   const [form] = Form.useForm();
-  const { mutate: register, isPending } = useRegister();
+  const handleErrMessage = formatApiError(form);
+  const { mutate: register, isPending } = useRegister(handleErrMessage);
   const [isVerificationSent, setIsVerificationSent] = useState(false);
 
   const handleSubmit = async (values: {

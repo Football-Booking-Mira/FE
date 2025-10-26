@@ -11,7 +11,6 @@ export function AuthModals() {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
 
-  // Nếu user đã đăng nhập, không hiển thị AuthModals
   if (isAuthenticated) {
     return null;
   }

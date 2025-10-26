@@ -1,5 +1,6 @@
 import { Modal, Form, Input, Button, Checkbox } from "antd";
 import { useLogin } from "@/common/hooks/useLogin";
+import { formatApiError } from "@/common/utils/formApiErr";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,10 +16,11 @@ export function LoginModal({
   onSwitchToForgot,
 }: LoginModalProps) {
   const [form] = Form.useForm();
+  const handleErrMessage = formatApiError(form);
   const { mutate: login, isPending } = useLogin(() => {
     form.resetFields();
     onClose();
-  });
+  }, handleErrMessage);
 
   const handleSubmit = async (values: {
     email: string;

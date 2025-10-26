@@ -21,7 +21,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        throw new Error(error.response.data.message);
+        return Promise.reject(error.response?.data || error.message || "Đã có lỗi xảy ra");
     }
 );
 
