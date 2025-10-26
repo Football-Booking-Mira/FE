@@ -1,0 +1,36 @@
+{
+    "name": "base_code",
+    "version": "1.0.0",
+    "description": "",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "dev": "nodemon index.js",
+        "swagger": "node src/common/config/swagger.js",
+        "start": "node index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "morgan": "^1.10.1",
+        "nodemon": "^3.1.10",
+        "swagger-autogen": "^2.23.7"
+    },
+    "dependencies": {
+        "cloudinary": "^2.7.0",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.3",
+        "express": "^5.1.0",
+        "fs": "^0.0.1-security",
+        "joi": "^18.0.1",
+        "mongoose": "^8.19.1",
+        "multer": "^2.0.2",
+        "swagger-ui-express": "^5.0.1",
+        "zod": "^4.1.12"
+    },
+    "overrides": {
+        "mongodb": "6.9.0"
+    }
+}
