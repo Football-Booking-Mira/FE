@@ -1,8 +1,7 @@
 import AdminLayout from "@/layouts/AdminLayout";
+import CourtDetail from "@/pages/admin/dashboard/CourtDetail";
 import DashBoard from "@/pages/admin/dashboard/DashBoard";
 import type { RouteObject } from "react-router";
-
-import AdminPitchDetail from "@/pages/admin/dashboard/CourtDetail";
 
 export const AdminRoutes: RouteObject[] = [
   {
@@ -14,8 +13,8 @@ export const AdminRoutes: RouteObject[] = [
         element: <DashBoard />,
       },
       {
-        path: "pitch/:id",
-        element: <AdminPitchDetail />, // Hết lỗi gạch đỏ
+        path: "court/:id",
+        element: <CourtDetail />,
       },
     ],
   },

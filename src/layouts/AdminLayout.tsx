@@ -4,7 +4,8 @@ import { Outlet } from "react-router";
 const AdminLayout = () => {
   return (
     <>
-      <RoleRoute requiredRoles={["admin"]} redirectTo="/login">
+      {/* If user is not authenticated, redirect to home (public) instead of a non-existent /login route */}
+      <RoleRoute requiredRoles={["admin"]}>
         <Outlet />
       </RoleRoute>
     </>
