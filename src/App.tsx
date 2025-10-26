@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { rootRoutes } from "@routes/index";
@@ -85,6 +86,15 @@ function App() {
       {router}
     </AuthProvider>
   );
+=======
+import { rootRoutes } from '@/routes';
+import { useRoutes } from 'react-router';
+import { AuthProvider } from '@/common/contexts';
+
+function App() {
+    const router = useRoutes(rootRoutes);
+    return <AuthProvider>{router}</AuthProvider>;
+>>>>>>> 9b4fbf0 (sửa lại đường dẫn)
 }
 
 export default App;
