@@ -7,6 +7,7 @@ import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
 import type { RouteObject } from "react-router";
 import Booking from "@/pages/client/home/Booking";
 import { Contact } from "lucide-react";
+import BookingOnePage from "@/pages/client/BookingOnePage";
 
 export const PublicRoutes: RouteObject[] = [
   {
@@ -20,6 +21,10 @@ export const PublicRoutes: RouteObject[] = [
       {
         path: "booking",
         element: <Booking />,
+      },
+      {
+        path: "bookingonepage/:id",
+        element: <BookingOnePage />,
       },
       {
         path: "contact",

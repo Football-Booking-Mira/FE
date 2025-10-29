@@ -1,64 +1,83 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  FaFutbol,
-  FaClock,
   FaCheckCircle,
-  FaCar,
-  FaLightbulb,
+  FaClock,
   FaTrophy,
+  FaFutbol,
+  FaLightbulb,
+  FaCar,
   FaDoorOpen,
   FaWater,
   FaCalendarAlt,
 } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+
+interface Court {
+  _id: string;
+  name: string;
+  type: string;
+  status: string;
+  basePrice: number;
+  peakPrice: number;
+  formats: string;
+  description: string;
+  images: string[];
+  phone?: string;
+  address?: string;
+}
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const [courts, setCourts] = useState<Court[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const handleBooking = () => {
     navigate("/booking");
   };
 
+  useEffect(() => {
+    const fetchCourts = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/courts");
+        if (!res.ok) throw new Error(`Lỗi HTTP: ${res.status}`);
+        const data = await res.json();
+        console.log("Kết quả API:", data);
+        if (data && Array.isArray(data.data)) {
+          setCourts(data.data);
+        } else if (Array.isArray(data)) {
+          setCourts(data);
+        } else {
+          console.warn("Không nhận được mảng sân hợp lệ:", data);
+          setCourts([]);
+        }
+      } catch (err) {
+        console.error("Lỗi tải danh sách sân:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourts();
+  }, []);
+
   const fields = [
     {
       name: "Sân 5 người",
-      size: "40m x 20m",
-      price: "300.000 đ/giờ",
-      features: [
-        "Cỏ nhân tạo cao cấp",
-        "Hệ thống chiếu sáng LED",
-        "Phòng thay đồ riêng",
-        "Nước uống miễn phí",
-        "Chỗ gửi xe miễn phí",
-      ],
+      size: "Kích thước 20x40m",
+      price: "300.000đ/giờ",
+      features: ["Phù hợp đá mini", "Có hệ thống chiếu sáng", "Miễn phí nước"],
     },
     {
       name: "Sân 7 người",
-      size: "60m x 40m",
-      price: "500.000 đ/giờ",
+      size: "Kích thước 40x60m",
+      price: "500.000đ/giờ",
+      features: ["Thích hợp cho đội lớn", "Có trọng tài", "Có bãi đỗ xe"],
       highlight: true,
-      features: [
-        "Cỏ nhân tạo cao cấp",
-        "Hệ thống chiếu sáng LED",
-        "Phòng thay đồ rộng rãi",
-        "Nước uống miễn phí",
-        "Chỗ gửi xe miễn phí",
-        "Trọng tài (theo yêu cầu)",
-      ],
     },
     {
       name: "Sân 11 người",
-      size: "100m x 80m",
-      price: "800.000 đ/giờ",
-      features: [
-        "Cỏ nhân tạo tiêu chuẩn FIFA",
-        "Hệ thống chiếu sáng chuyên nghiệp",
-        "Phòng thay đồ VIP",
-        "Nước uống & khăn lạnh",
-        "Chỗ gửi xe rộng rãi",
-        "Trọng tài chuyên nghiệp",
-        "Hỗ trợ tổ chức sự kiện",
-      ],
+      size: "Kích thước 68x105m",
+      price: "800.000đ/giờ",
+      features: ["Thi đấu chuyên nghiệp", "Có phòng thay đồ", "Có trọng tài"],
     },
   ];
 
@@ -87,6 +106,66 @@ const HomePage: React.FC = () => {
           <button className="bg-white text-black border border-white hover:text-green-600 px-6 py-3 rounded-lg text-lg font-semibold transition-colors duration-300">
             Tìm hiểu thêm
           </button>
+        </div>
+      </section>
+
+      {/* 🏟️ Sân bóng */}
+      <section className="bg-white py-16">
+        <div className="max-w-6xl mx-auto px-6">
+          <h2 className="text-4xl font-bold text-center mb-6">
+            ⚽ Sân bóng của chúng tôi
+          </h2>
+          <p className="text-center text-gray-600 mb-10">
+            Khám phá sân bóng hiện đại, tiện nghi và sẵn sàng phục vụ bạn mỗi
+            ngày
+          </p>
+
+          {loading ? (
+            <p className="text-center text-gray-500">
+              Đang tải danh sách sân...
+            </p>
+          ) : courts.length === 0 ? (
+            <p className="text-center text-gray-500">
+              Không có sân nào được tìm thấy.
+            </p>
+          ) : (
+            <div className="grid md:grid-cols-3 sm:grid-cols-2 gap-8">
+              {courts.slice(0, 6).map((court) => (
+                <div
+                  key={court._id}
+                  className="bg-gray-50 rounded-2xl shadow hover:shadow-lg transition-all duration-300 overflow-hidden"
+                >
+                  <img
+                    src={court.images?.[0] || "https://picsum.photos/800/400"}
+                    alt={court.name}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="p-5 text-left">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      {court.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-1">{court.type}</p>
+                    <div className="text-sm text-gray-500 flex items-center gap-1 mb-1">
+                      📍 {court.address || "Chưa cập nhật"}
+                    </div>
+                    <div className="text-sm text-gray-500 flex items-center gap-1 mb-1">
+                      💰 Giá: {court.basePrice}k - {court.peakPrice}k
+                    </div>
+                    <div className="text-sm text-gray-500 flex items-center gap-1 mb-2">
+                      ⏰ Mở cửa: 06:00 - Đóng cửa: 00:00
+                    </div>
+                    <button
+                      onClick={() => navigate(`/pitch/${court._id}`)}
+                      className="mt-4 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-all"
+                      disabled={court.status === "locked"}
+                    >
+                      {court.status === "locked" ? "Đang khóa" : "Xem chi tiết"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -145,18 +224,14 @@ const HomePage: React.FC = () => {
       {/* Tiêu chuẩn quốc tế */}
       <section className="py-20 bg-white text-center">
         <div className="container mx-auto px-6">
-          {/* Tiêu đề */}
           <h1 className="text-5xl font-extrabold text-gray-900 mb-6 tracking-tight">
             Về <span className="text-green-600">Mira soccer field</span>
           </h1>
-
-          {/* Mô tả ngắn */}
           <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto mb-12 leading-relaxed">
             Hệ thống sân bóng đá hiện đại với đầy đủ tiện ích, cam kết mang đến
             trải nghiệm chơi bóng tuyệt vời nhất cho mọi đội bóng
           </p>
 
-          {/* Nội dung chi tiết */}
           <div className="flex flex-col md:flex-row items-center mt-10">
             <img
               src="/images/anh2.jpg"
@@ -168,10 +243,8 @@ const HomePage: React.FC = () => {
                 Tiêu chuẩn quốc tế, dịch vụ tận tâm
               </h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                Mira Field tự hào là một trong những hệ thống sân bóng đá hiện
-                đại tại TP. Hà Nội. Với cơ sở vật chất đạt tiêu chuẩn quốc tế và
-                đội ngũ nhân viên chuyên nghiệp, chúng tôi cam kết mang đến cho
-                bạn những trải nghiệm chơi bóng đáng nhớ.
+                Mira Field tự hào là hệ thống sân bóng đá hiện đại tại TP. Hà
+                Nội, đạt chuẩn quốc tế và dịch vụ chuyên nghiệp.
               </p>
               <ul className="space-y-3 text-gray-700">
                 <li className="flex items-center">
@@ -214,7 +287,7 @@ const HomePage: React.FC = () => {
             {
               icon: <FaDoorOpen />,
               title: "Phòng thay đồ rộng rãi",
-              desc: "Phòng thay đồ sạch sẽ, thoáng mát, đầy đủ tiện nghi và hệ thống tủ khóa an toàn cho người chơi.",
+              desc: "Phòng thay đồ sạch sẽ, thoáng mát, đầy đủ tiện nghi.",
             },
             {
               icon: <FaWater />,
