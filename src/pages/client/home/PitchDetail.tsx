@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 interface Court {
   _id: string;
@@ -19,6 +20,7 @@ interface Court {
 
 export default function PitchDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [court, setCourt] = useState<Court | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function PitchDetail() {
 
     const fetchCourt = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/courts/${id}`);
+        const res = await fetch(`http://localhost:8000/api/courts/${id}`);
         if (!res.ok) throw new Error("Không tìm thấy sân");
         const data = await res.json();
         setCourt(data.data);
@@ -41,6 +43,11 @@ export default function PitchDetail() {
 
     fetchCourt();
   }, [id]);
+
+  const handleBooking = () => {
+    if (!court) return;
+    navigate(`/bookingonepage/${court._id}`);
+  };
 
   if (loading)
     return (
@@ -56,7 +63,7 @@ export default function PitchDetail() {
     <div className="min-h-screen bg-white text-gray-800">
       {/* HEADER */}
       <header className="bg-green-600 text-white px-8 py-4 flex justify-between items-center shadow-md">
-        <h1 className="text-2xl font-bold"> Chi tiết sân</h1>
+        <h1 className="text-2xl font-bold">Chi tiết sân</h1>
         <a href="/" className="hover:text-yellow-400 transition">
           Trang chủ
         </a>
@@ -64,7 +71,7 @@ export default function PitchDetail() {
 
       {/* NỘI DUNG CHI TIẾT */}
       <div className="max-w-5xl mx-auto px-6 py-12">
-        {/* ẢNH */}
+        {/* ẢNH + THÔNG TIN */}
         <div className="grid md:grid-cols-2 gap-6 mb-10">
           <img
             src={court.images?.[0] || "https://picsum.photos/600/400"}
@@ -75,9 +82,11 @@ export default function PitchDetail() {
             <h2 className="text-3xl font-bold text-green-700 mb-3">
               {court.name}
             </h2>
-            <p className="text-gray-600 mb-2"> Mã sân: {court.code}</p>
-            <p className="text-gray-600 mb-2"> Loại sân: {court.type}</p>
-            <p className="text-gray-600 mb-4">Trạng thái: {court.status}</p>
+            <p className="text-gray-600 mb-2">Mã sân: {court.code}</p>
+            <p className="text-gray-600 mb-2">Loại sân: {court.type}</p>
+            <p className="text-gray-600 mb-4">
+              Trạng thái: {court.status === "locked" ? "Đang khóa" : "Mở"}
+            </p>
 
             {/* GIÁ */}
             <div className="mb-6">
@@ -89,35 +98,25 @@ export default function PitchDetail() {
               </p>
             </div>
 
-            <button className="bg-yellow-400 text-gray-900 font-semibold px-6 py-3 rounded-lg hover:bg-yellow-300 shadow-md transition">
-              Đặt sân ngay
-            </button>
+            <Button
+              className="mt-4 w-full"
+              disabled={court.status === "locked"}
+              onClick={handleBooking}
+            >
+              {court.status === "locked" ? "Đang khóa" : "Đặt sân ngay"}
+            </Button>
           </div>
         </div>
 
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2 text-green-700">
-            Mô tả sân
-          </h2>
-          {court?.description ? (
-            <div
-              className="prose max-w-none bg-white p-4 rounded-lg shadow-sm"
-              dangerouslySetInnerHTML={{ __html: court.description }}
-            />
+        {/* MÔ TẢ SÂN */}
+        <section className="mb-8">
+          <h3 className="text-2xl font-bold text-green-700 mb-3">Mô tả sân</h3>
+          {court.description ? (
+            <p className="text-gray-700 leading-relaxed">{court.description}</p>
           ) : (
             <p className="text-gray-500 italic">Chưa có mô tả cho sân này</p>
           )}
-        </div>
-
-        {/* MÔ TẢ */}
-        {court.description && (
-          <section className="mb-8">
-            <h3 className="text-2xl font-bold text-green-700 mb-3">
-              Mô tả sân
-            </h3>
-            <p className="text-gray-700 leading-relaxed">{court.description}</p>
-          </section>
-        )}
+        </section>
 
         {/* TIỆN ÍCH */}
         <section className="bg-gray-100 rounded-2xl p-6 shadow-md">

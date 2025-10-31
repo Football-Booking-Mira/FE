@@ -11,11 +11,63 @@ const Header = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const menuItems = [
-    {
+     {
       key: "1",
       label: (
-        <Link to="/" style={{ color: "inherit", textDecoration: "none" }}>
+        <Link
+          to="/"
+          style={{ color: "inherit", textDecoration: "none" }}
+          className="text-gray-800 hover:text-green-600 font-semibold text-[25px] tracking-wide transition-colors duration-300"
+        >
           Trang chủ
+        </Link>
+      ),
+    },
+    {
+      key: "2",
+      label: (
+        <Link
+          to="/booking"
+          style={{ color: "inherit", textDecoration: "none" }}
+          className="text-gray-800 hover:text-green-600 font-semibold text-[25px] tracking-wide transition-colors duration-300"
+        >
+          Đặt sân
+        </Link>
+      ),
+    },
+    {
+      key: "3",
+      label: (
+        <Link
+          to="/lich-thi-dau"
+          style={{ color: "inherit", textDecoration: "none" }}
+          className="text-gray-800 hover:text-green-600 font-semibold text-[25px] tracking-wide transition-colors duration-300"
+        >
+          Lịch thi đấu
+        </Link>
+      ),
+    },
+    {
+      key: "4",
+      label: (
+        <Link
+          to="/bang-gia"
+          style={{ color: "inherit", textDecoration: "none" }}
+          className="text-gray-800 hover:text-green-600 font-semibold text-[25px] tracking-wide transition-colors duration-300"
+        >
+          Bảng giá
+        </Link>
+      ),
+    },
+    {
+      key: "5",
+      label: (
+        <Link
+          to="/contact"
+          style={{ color: "inherit", textDecoration: "none" }}
+          className="text-gray-800 hover:text-green-600 font-semibold text-[25px] tracking-wide transition-colors duration-300"
+        >
+          Liên hệ
         </Link>
       ),
     },
@@ -60,15 +112,18 @@ const Header = () => {
   ];
 
   return (
-    <Layout.Header
+   <Layout.Header
       style={{
         background: "#fff",
-        padding: "0 24px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        padding: "0 60px",
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
-        height: "64px",
+        justifyContent: "space-between",
+        height: "90px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
       }}
     >
       <div
@@ -85,16 +140,17 @@ const Header = () => {
       </div>
 
       {/* Desktop Menu - Centered */}
-      <div style={{ flex: 1, display: "none" }} className="desktop-menu">
+      <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
         <Menu
           mode="horizontal"
           items={menuItems}
           style={{
             border: "none",
             background: "transparent",
-            justifyContent: "center",
+            display: "flex",
+            gap: "32px",
           }}
-          selectedKeys={[window.location.pathname === "/" ? "1" : "2"]}
+          selectedKeys={[window.location.pathname]}
         />
       </div>
 
