@@ -1,64 +1,152 @@
-import { Outlet, NavLink } from 'react-router-dom';
-import { Home, Calendar, Users, Settings, LogOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { Layout, Menu, theme, Avatar, Dropdown } from 'antd';
+import {
+    DashboardOutlined,
+    AppstoreOutlined,
+    ShoppingOutlined,
+    UserOutlined,
+    FileTextOutlined,
+    LogoutOutlined,
+    MenuFoldOutlined,
+    MenuUnfoldOutlined,
+    BarChartOutlined,
+} from '@ant-design/icons';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 
-const AdminLayout = () => {
+const { Header, Sider, Content } = Layout;
+
+const AdminLayout: React.FC = () => {
+    const [collapsed, setCollapsed] = useState(false);
+    const {
+        token: { colorBgContainer },
+    } = theme.useToken();
+
+    const location = useLocation();
+    const selectedKey = location.pathname.split('/admin/')[1] || 'dashboard';
+
+    const userMenu = {
+        items: [
+            { key: '1', label: <span>Hồ sơ cá nhân</span> },
+            {
+                key: '2',
+                label: (
+                    <span style={{ color: 'red' }}>
+                        <LogoutOutlined /> Đăng xuất
+                    </span>
+                ),
+            },
+        ],
+    };
+
     return (
-        <div className='flex min-h-screen bg-gray-50 text-gray-900'>
-            {/* Sidebar */}
-            <aside className='w-64 bg-white border-r flex flex-col justify-between'>
-                <div>
-                    <div className='p-4 text-2xl font-bold text-primary'>Trang quản lý</div>
-                    <nav className='mt-6 flex flex-col space-y-1'>
-                        <NavLink
-                            to='/admin'
-                            end
-                            className={({ isActive }) =>
-                                `flex items-center px-5 py-2 text-sm font-medium ${
-                                    isActive
-                                        ? 'bg-primary/10 text-primary'
-                                        : 'text-gray-700 hover:bg-gray-100'
-                                }`
-                            }
-                        >
-                            <Home className='w-4 h-4 mr-2' /> Tổng quan
-                        </NavLink>
-                        <NavLink
-                            to='/admin/court'
-                            className={({ isActive }) =>
-                                `flex items-center px-5 py-2 text-sm font-medium ${
-                                    isActive
-                                        ? 'bg-primary/10 text-primary'
-                                        : 'text-gray-700 hover:bg-gray-100'
-                                }`
-                            }
-                        >
-                            <Calendar className='w-4 h-4 mr-2' /> Quản lý sân
-                        </NavLink>
-                        <NavLink
-                            to='/admin/customers'
-                            className='flex items-center px-5 py-2 text-sm text-gray-700 hover:bg-gray-100'
-                        >
-                            <Users className='w-4 h-4 mr-2' /> Khách hàng
-                        </NavLink>
-                    </nav>
+        <Layout style={{ minHeight: '100vh' }}>
+            {/* SIDEBAR */}
+            <Sider trigger={null} collapsible collapsed={collapsed} theme='dark'>
+                <div
+                    style={{
+                        height: 64,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: '#004d1a', // nền xanh đậm
+                    }}
+                >
+                    <img
+                        src='/lg-mira.png'
+                        alt='Football Booking Mira'
+                        style={{
+                            height: collapsed ? 40 : 50,
+                            width: 'auto',
+                            objectFit: 'contain',
+                            transition: 'all 0.3s ease',
+                        }}
+                    />
                 </div>
 
-                <button className='flex items-center px-5 py-3 text-sm text-gray-600 hover:bg-gray-100 border-t'>
-                    <LogOut className='w-4 h-4 mr-2' /> Đăng xuất
-                </button>
-            </aside>
+                <Menu
+                    theme='dark'
+                    mode='inline'
+                    selectedKeys={[selectedKey]}
+                    items={[
+                        {
+                            key: 'dashboard',
+                            icon: <DashboardOutlined />,
+                            label: <Link to='/admin'>Tổng quan</Link>,
+                        },
+                        {
+                            key: 'courts',
+                            icon: <AppstoreOutlined />,
+                            label: <Link to='/admin/courts'>Quản lý sân</Link>,
+                        },
+                        {
+                            key: 'customers',
+                            icon: <UserOutlined />,
+                            label: <Link to='/admin/customers'>Khách hàng</Link>,
+                        },
+                        {
+                            key: 'equipments',
+                            icon: <ShoppingOutlined />,
+                            label: <Link to='/admin/equipments'>Thiết bị</Link>,
+                        },
+                        {
+                            key: 'reports',
+                            icon: <BarChartOutlined />,
+                            label: <Link to='/admin/reports'>Báo cáo</Link>,
+                        },
+                        {
+                            key: 'invoices',
+                            icon: <FileTextOutlined />,
+                            label: <Link to='/admin/invoices'>Hóa đơn</Link>,
+                        },
+                    ]}
+                />
+            </Sider>
 
-            {/* Main Content */}
-            <main className='flex-1'>
-                <header className='p-4 border-b bg-white flex justify-between items-center'>
-                    <h1 className='font-semibold text-lg'>FOOBALL BOOKING</h1>
-                    <Settings className='w-5 h-5 text-gray-600' />
-                </header>
-                <div className='p-6'>
+            {/* MAIN */}
+            <Layout>
+                {/* HEADER */}
+                <Header
+                    style={{
+                        padding: '0 24px',
+                        background: colorBgContainer,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span
+                            onClick={() => setCollapsed(!collapsed)}
+                            style={{ cursor: 'pointer', fontSize: 18 }}
+                        >
+                            {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+                        </span>
+                        <h2 style={{ margin: 0, fontWeight: 500 }}>Trang quản lý</h2>
+                    </div>
+
+                    <Dropdown menu={userMenu} placement='bottomRight' arrow>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <Avatar icon={<UserOutlined />} />
+                            <span>Administrator</span>
+                        </div>
+                    </Dropdown>
+                </Header>
+
+                {/* CONTENT */}
+                <Content style={{ margin: '24px', padding: 24, background: colorBgContainer }}>
+                    {/* <RoleRoute requiredRoles={['admin']} redirectTo='/login'> */}
                     <Outlet />
-                </div>
-            </main>
-        </div>
+                    {/* </RoleRoute> */}
+                </Content>
+            </Layout>
+        </Layout>
     );
 };
 
