@@ -30,7 +30,7 @@ export default function PitchDetail() {
 
     const fetchCourt = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/courts/${id}`);
+        const res = await fetch(`http://localhost:3000/api/courts/${id}`);
         if (!res.ok) throw new Error("Không tìm thấy sân");
         const data = await res.json();
         setCourt(data.data);
@@ -132,11 +132,6 @@ export default function PitchDetail() {
           </ul>
         </section>
       </div>
-
-      {/* FOOTER */}
-      <footer className="bg-gray-800 text-white text-center py-6 mt-10">
-        <p>© 2025 Đặt Sân Nhanh. Tất cả các quyền được bảo lưu.</p>
-      </footer>
     </div>
   );
 }
