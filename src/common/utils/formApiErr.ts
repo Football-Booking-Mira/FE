@@ -16,6 +16,6 @@ export const formatApiError = (form: FormInstance<any>) => {
                 },
             ]);
         });
-        return "Please check the form for errors.";
+        return "Vui lòng kiểm tra lại thông tin đã nhập.";
     }
 }

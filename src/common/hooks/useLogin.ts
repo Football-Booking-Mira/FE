@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import api from '@/common/utils/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { message } from 'antd';
@@ -47,9 +48,7 @@ export const useLogin = (setStateOnSuccess: ()=>void, handleErrMessage: (errors:
         setStateOnSuccess();
     },
     onError(res) {
-         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if ((res as any).errors) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const errMsg = handleErrMessage((res as any).errors as ApiError[]);
         message.error(errMsg);
         return;
