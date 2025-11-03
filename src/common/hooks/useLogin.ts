@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import api from '@/common/utils/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { message } from 'antd';
 import { useAuth } from '@/common/contexts';
+import type { ApiError } from '@/common/utils/formApiErr';
 
 export type ILoginPayload = {
     email: string, password: string
@@ -24,7 +26,7 @@ export type ILoginResponse = {
     }
 }
 
-export const useLogin = (setStateOnSuccess: ()=>void) => {
+export const useLogin = (setStateOnSuccess: ()=>void, handleErrMessage: (errors: ApiError[]) => string) => {
     const queryClient =  useQueryClient()
     const { setIsAuthenticated, setUserName, setUserRole } = useAuth();
 
@@ -46,6 +48,11 @@ export const useLogin = (setStateOnSuccess: ()=>void) => {
         setStateOnSuccess();
     },
     onError(res) {
+      if ((res as any).errors) {
+        const errMsg = handleErrMessage((res as any).errors as ApiError[]);
+        message.error(errMsg);
+        return;
+      }
         message.error(res.message || "Đăng nhập không thành công!");
         }
     })

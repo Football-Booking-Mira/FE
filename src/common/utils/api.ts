@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosError } from 'axios';
 
 //Tạo instance
@@ -23,10 +24,17 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+// (error) => {
+//         return Promise.reject(error.response?.data || error.message || "Đã có lỗi xảy ra");
+
 api.interceptors.response.use(
     (response) => response,
     (error: AxiosError<any>) => {
         console.error('API Error:', error.response?.data || error.message);
+
+        if(error.response?.data.errors) {
+            return Promise.reject(error.response?.data);
+        }
         const message =
             (error.response?.data as any)?.message ||
             error.message ||
