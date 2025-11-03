@@ -28,51 +28,24 @@ interface Court {
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+
+  // ✅ Khai báo đầy đủ state
   const [courts, setCourts] = useState<Court[]>([]);
   const [loading, setLoading] = useState(true);
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [type, setType] = useState("");
-  const [duration, setDuration] = useState("1");
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = async () => {
-    if (!date || !time || !type) {
-      alert("Vui lòng chọn đầy đủ thông tin!");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(
-        `http://localhost:8000/api/courts/available?date=${date}&time=${time}&type=${type}&duration=${duration}`
-      );
-      const data = await res.json();
-
-      if (!res.ok || !data.success)
-        throw new Error(data.message || "Không thể tải dữ liệu");
-
-      setCourts(data.data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // ✅ Hàm chuyển trang đặt sân
   const handleBooking = () => {
     navigate("/booking");
   };
 
+  // ✅ Tải danh sách sân
   useEffect(() => {
     const fetchCourts = async () => {
       try {
         const res = await fetch("http://localhost:8000/api/courts");
         if (!res.ok) throw new Error(`Lỗi HTTP: ${res.status}`);
         const data = await res.json();
-        console.log("Kết quả API:", data);
+
         if (data && Array.isArray(data.data)) {
           setCourts(data.data);
         } else if (Array.isArray(data)) {
@@ -134,17 +107,14 @@ const HomePage: React.FC = () => {
           >
             Đặt sân ngay
           </button>
-          <button className="bg-white text-black border border-white hover:text-green-600 px-6 py-3 rounded-lg text-lg font-semibold transition-colors duration-300">
-            Tìm hiểu thêm
-          </button>
         </div>
       </section>
 
       {/* 🏟️ Sân bóng */}
-      <section className="bg-white py-16">
+      <section className="bg-gray-50 py-16">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-center mb-6">
-            ⚽ Sân bóng của chúng tôi
+          <h2 className="text-3xl font-bold text-center mb-6">
+            ⚽ Sân bóng Mira
           </h2>
           <p className="text-center text-gray-600 mb-10">
             Khám phá sân bóng hiện đại, tiện nghi và sẵn sàng phục vụ bạn mỗi
@@ -164,7 +134,7 @@ const HomePage: React.FC = () => {
               {courts.slice(0, 6).map((court) => (
                 <div
                   key={court._id}
-                  className="bg-gray-50 rounded-2xl shadow hover:shadow-lg transition-all duration-300 overflow-hidden"
+                  className="bg-white border border-gray-200 rounded shadow hover:shadow-md overflow-hidden"
                 >
                   <img
                     src={court.images?.[0] || "https://picsum.photos/800/400"}
@@ -176,9 +146,7 @@ const HomePage: React.FC = () => {
                       {court.name}
                     </h3>
                     <p className="text-sm text-gray-600 mb-1">{court.type}</p>
-                    <div className="text-sm text-gray-500 flex items-center gap-1 mb-1">
-                      📍 {court.address || "Chưa cập nhật"}
-                    </div>
+
                     <div className="text-sm text-gray-500 flex items-center gap-1 mb-1">
                       💰 Giá: {court.basePrice}k - {court.peakPrice}k
                     </div>
@@ -187,110 +155,12 @@ const HomePage: React.FC = () => {
                     </div>
                     <button
                       onClick={() => navigate(`/pitch/${court._id}`)}
-                      className="mt-4 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-all"
+                      className="mt-4 w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
                       disabled={court.status === "locked"}
                     >
                       {court.status === "locked" ? "Đang khóa" : "Xem chi tiết"}
                     </button>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Đặt sân nhanh chóng */}
-      <section className="bg-white py-16 text-center">
-        <h2 className="text-4xl font-bold mb-4">Đặt sân nhanh chóng</h2>
-        <p className="text-gray-600 mb-8">
-          Chọn thời gian và loại sân phù hợp với đội bóng của bạn
-        </p>
-
-        {/* Form */}
-        <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow p-6 grid grid-cols-4 gap-4">
-          <div>
-            <label className="block font-semibold text-left mb-2">
-              Chọn ngày
-            </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="border rounded-lg w-full px-3 py-2"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold text-left mb-2">
-              Chọn giờ
-            </label>
-            <select
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="border rounded-lg w-full px-3 py-2"
-            >
-              <option value="">Chọn giờ</option>
-              <option value="06:00">6:00</option>
-              <option value="08:00">8:00</option>
-              <option value="10:00">10:00</option>
-            </select>
-          </div>
-          <div>
-            <label className="block font-semibold text-left mb-2">
-              Loại sân
-            </label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value)}
-              className="border rounded-lg w-full px-3 py-2"
-            >
-              <option value="">Chọn loại sân</option>
-              <option value="5v5">Sân 5 người</option>
-              <option value="7v7">Sân 7 người</option>
-              <option value="11v11">Sân 11 người</option>
-            </select>
-          </div>
-          <div>
-            <label className="block font-semibold text-left mb-2">
-              Thời lượng
-            </label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              className="border rounded-lg w-full px-3 py-2"
-            >
-              <option value="1">1 giờ</option>
-              <option value="2">2 giờ</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Nút tìm */}
-        <button
-          onClick={handleSearch}
-          disabled={loading}
-          className={`mt-6 bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg text-lg font-semibold ${
-            loading ? "opacity-70 cursor-not-allowed" : ""
-          }`}
-        >
-          {loading ? "Đang tìm..." : "🔍 Tìm sân trống"}
-        </button>
-
-        {/* Hiển thị kết quả */}
-        <div className="max-w-5xl mx-auto mt-10 text-left">
-          {error && <p className="text-red-500">{error}</p>}
-          {!loading && courts.length > 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              {courts.map((court) => (
-                <div
-                  key={court._id}
-                  className="border rounded-lg p-4 shadow hover:shadow-lg transition"
-                >
-                  <h3 className="font-bold text-green-700 text-lg">
-                    {court.name}
-                  </h3>
-                  <p>Loại sân: {court.type}</p>
-                  <p>Giá: {court.basePrice?.toLocaleString()}₫ / giờ</p>
                 </div>
               ))}
             </div>
