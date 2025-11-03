@@ -32,7 +32,7 @@ const Booking: React.FC = () => {
   useEffect(() => {
     const fetchCourt = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/courts/${id}`);
+        const res = await fetch(`http://localhost:3000/api/courts/${id}`);
         const data = await res.json();
         setCourt(data.data);
       } catch (err) {
@@ -48,7 +48,7 @@ const Booking: React.FC = () => {
     const fetchSlots = async () => {
       try {
         const res = await fetch(
-          `http://localhost:8000/api/bookings/available?courtId=${id}&date=${selectedDate}`
+          `http://localhost:3000/api/bookings/available?courtId=${id}&date=${selectedDate}`
         );
         if (res.ok) {
           const data = await res.json();

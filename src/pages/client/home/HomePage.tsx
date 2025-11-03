@@ -42,7 +42,7 @@ const HomePage: React.FC = () => {
   useEffect(() => {
     const fetchCourts = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/courts");
+        const res = await fetch("http://localhost:3000/api/courts");
         if (!res.ok) throw new Error(`Lỗi HTTP: ${res.status}`);
         const data = await res.json();
 
