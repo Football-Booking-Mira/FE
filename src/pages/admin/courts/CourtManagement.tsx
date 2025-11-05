@@ -33,11 +33,13 @@ interface Court {
     name: string;
     type: 'indoor' | 'outdoor' | 'vip';
     status: 'active' | 'maintenance' | 'locked';
+    formats?: string[];
     basePrice: number;
     peakPrice: number;
     description?: string;
     amenities?: string[];
     images?: string[];
+    location?: string;
 }
 
 const { Option } = Select;
@@ -259,6 +261,7 @@ const CourtManagement: React.FC = () => {
                 </Tag>
             ),
         },
+
         {
             title: 'Trạng thái',
             dataIndex: 'status',
@@ -267,6 +270,33 @@ const CourtManagement: React.FC = () => {
                     {STATUS_PROPS[status as keyof typeof STATUS_PROPS].label}
                 </Tag>
             ),
+        },
+        {
+            title: 'Định dạng sân',
+            dataIndex: 'formats',
+            render: (formats?: string[] | string) => {
+                const list = Array.isArray(formats)
+                    ? formats
+                    : typeof formats === 'string'
+                    ? formats.split(',').map((f) => f.trim())
+                    : [];
+
+                return list.length > 0 ? (
+                    <Space wrap>
+                        {list.map((f, i) => (
+                            <Tag
+                                key={i}
+                                color='geekblue'
+                                style={{ borderRadius: 6, fontWeight: 500 }}
+                            >
+                                {f}
+                            </Tag>
+                        ))}
+                    </Space>
+                ) : (
+                    <span style={{ color: '#9ca3af' }}>—</span>
+                );
+            },
         },
         {
             title: 'Giá thường',
@@ -363,6 +393,12 @@ const CourtManagement: React.FC = () => {
                 ) : (
                     <span style={{ color: '#9ca3af' }}>—</span>
                 ),
+        },
+        {
+            title: 'Vị trí',
+            dataIndex: 'location',
+            key: 'location',
+            render: (loc: string) => loc || '—',
         },
 
         {
@@ -526,6 +562,21 @@ const CourtManagement: React.FC = () => {
                                     <Option value='locked'>Khóa</Option>
                                 </Select>
                             </Form.Item>
+                            <Form.Item
+                                name='formats'
+                                label='Định dạng sân'
+                                style={{ flex: 1 }}
+                                rules={[
+                                    { required: true, message: 'Vui lòng chọn định dạng sân!' },
+                                ]}
+                            >
+                                <Select mode='multiple' placeholder='Chọn định dạng sân' allowClear>
+                                    <Option value='5v5'>5v5</Option>
+                                    <Option value='7v7'>7v7</Option>
+                                    <Option value='9v9'>9v9</Option>
+                                    <Option value='11v11'>11v11</Option>
+                                </Select>
+                            </Form.Item>
                         </Space>
 
                         <Space size='large' style={{ width: '100%' }}>
@@ -622,6 +673,23 @@ const CourtManagement: React.FC = () => {
                             }
                         >
                             <Input placeholder='VD: Wifi, Đỗ xe, Nhà tắm' />
+                        </Form.Item>
+                        <Form.Item
+                            name='location'
+                            label={
+                                <>
+                                    Vị trí sân&nbsp;
+                                    <span
+                                        title='Địa chỉ hoặc khu vực của sân (ví dụ: Quận 7, TP. Hồ Chí Minh)'
+                                        style={{ cursor: 'help', color: '#888' }}
+                                    >
+                                        ⓘ
+                                    </span>
+                                </>
+                            }
+                            rules={[{ required: true, message: 'Vui lòng nhập vị trí sân!' }]}
+                        >
+                            <Input placeholder='Nhập địa chỉ hoặc khu vực sân' />
                         </Form.Item>
 
                         <Form.Item
@@ -806,6 +874,46 @@ const CourtManagement: React.FC = () => {
                                                         {TYPE_LABEL[selectedCourt.type]}
                                                     </Tag>
                                                 </div>
+                                                <div style={{ color: '#6b7280' }}>
+                                                    Định dạng sân
+                                                </div>
+                                                <div>
+                                                    {(() => {
+                                                        const formatsValue =
+                                                            selectedCourt?.formats as
+                                                                | string[]
+                                                                | string
+                                                                | undefined;
+
+                                                        const list: string[] = Array.isArray(
+                                                            formatsValue
+                                                        )
+                                                            ? formatsValue
+                                                            : typeof formatsValue === 'string'
+                                                            ? formatsValue
+                                                                  .split(',')
+                                                                  .map((f: string) => f.trim())
+                                                            : [];
+
+                                                        return list.length > 0 ? (
+                                                            <Space wrap>
+                                                                {list.map(
+                                                                    (f: string, i: number) => (
+                                                                        <Tag
+                                                                            key={i}
+                                                                            color='geekblue'
+                                                                        >
+                                                                            {f}
+                                                                        </Tag>
+                                                                    )
+                                                                )}
+                                                            </Space>
+                                                        ) : (
+                                                            <span>—</span>
+                                                        );
+                                                    })()}
+                                                </div>
+
                                                 <div style={{ color: '#6b7280' }}>Giá thường</div>
                                                 <div style={{ fontWeight: 600 }}>
                                                     {fmtVND(selectedCourt.basePrice)}
@@ -824,6 +932,9 @@ const CourtManagement: React.FC = () => {
                                                         {STATUS_PROPS[selectedCourt.status].label}
                                                     </Tag>
                                                 </div>
+                                                <div style={{ color: '#6b7280' }}>Vị trí</div>
+                                                <div>{selectedCourt.location || '—'}</div>
+
                                                 <div style={{ color: '#6b7280' }}>Tiện nghi</div>
                                                 <div>
                                                     {selectedCourt.amenities?.length ? (
