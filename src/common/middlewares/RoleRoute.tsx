@@ -1,44 +1,32 @@
-import type { ReactNode } from "react";
+import React from "react";
 import { Navigate } from "react-router-dom";
-import { decodeToken, isTokenExpired } from "@/common/utils/auth";
+import { useAuth } from "@/common/contexts/useAuth";
 
-interface RoleRouteProps {
-  children: ReactNode;
-  requiredRoles: string[];
+interface Props {
+  children: React.ReactNode;
+  requiredRoles?: string[];
   redirectTo?: string;
 }
 
-export function RoleRoute({
+const RoleRoute: React.FC<Props> = ({
   children,
-  requiredRoles,
-  redirectTo = "/",
-}: RoleRouteProps) {
-  const token = localStorage.getItem("token");
+  requiredRoles = [],
+  redirectTo = "/login",
+}) => {
+  const { isAuthenticated, userRole } = useAuth();
 
-  if (!token) {
-    return <Navigate to={redirectTo} replace />;
-  }
+  if (!isAuthenticated) return <Navigate to={redirectTo} replace />;
 
-  if (isTokenExpired()) {
-    localStorage.removeItem("token");
-    return <Navigate to={redirectTo} replace />;
-  }
+  if (requiredRoles.length === 0) return <>{children}</>;
 
-  try {
-    const decoded = decodeToken();
+  const actual = String(userRole ?? "").toLowerCase();
+  const allowed = requiredRoles
+    .map((r) => String(r).toLowerCase())
+    .includes(actual);
 
-    if (!decoded) {
-      localStorage.removeItem("token");
-      return <Navigate to={redirectTo} replace />;
-    }
+  if (!allowed) return <Navigate to="/" replace />;
 
-    if (!requiredRoles.includes(decoded.role)) {
-      return <Navigate to="/404" replace />;
-    }
+  return <>{children}</>;
+};
 
-    return <>{children}</>;
-  } catch {
-    localStorage.removeItem("token");
-    return <Navigate to={redirectTo} replace />;
-  }
-}
+export default RoleRoute;

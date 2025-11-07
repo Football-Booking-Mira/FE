@@ -10,7 +10,11 @@ import CourtDetail from '../pages/admin/dashboard/CourtDetail.tsx';
 export const AdminRoutes: RouteObject[] = [
     {
         path: '/admin',
-        element: <AdminLayout />,
+        element: (
+            <RoleRoute requiredRoles={['admin']} redirectTo='/login'>
+                <AdminLayout />
+            </RoleRoute>
+        ),
         children: [
             {
                 index: true,
