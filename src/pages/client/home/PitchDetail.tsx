@@ -27,7 +27,7 @@ export default function PitchDetail() {
 
     const fetchCourt = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/courts/${id}`);
+        const res = await fetch(`http://localhost:3000/api/courts/${id}`);
         if (!res.ok) throw new Error("Không tìm thấy sân");
         const data = await res.json();
         setCourt(data.data);
