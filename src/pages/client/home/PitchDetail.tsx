@@ -7,7 +7,6 @@ interface Court {
   type: string;
   formats?: string[];
   location?: string;
-
   basePrice: number;
   peakPrice: number;
   images: string[];
@@ -115,7 +114,6 @@ const PitchDetail: React.FC = () => {
     const [startTime, endTime] = slot.split(" - ");
     const isPeak = PEAK_SLOTS.includes(slot);
     const price = isPeak ? court.peakPrice : court.basePrice;
-
     setSelectedSlot({
       date: date.toISOString().slice(0, 10),
       startTime,
@@ -127,14 +125,12 @@ const PitchDetail: React.FC = () => {
   // Chuyển sang trang booking
   const handleBooking = () => {
     if (!selectedSlot || !court?._id) return;
-
     const params = new URLSearchParams({
       date: selectedSlot.date,
       timeSlot: `${selectedSlot.startTime} - ${selectedSlot.endTime}`,
       price: selectedSlot.price.toString(),
       name: court.name,
     });
-
     navigate(`/booking/${court._id}?${params.toString()}`);
   };
 
@@ -186,22 +182,21 @@ const PitchDetail: React.FC = () => {
           {/* Thông tin sân */}
           <div className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 shadow-md rounded-2xl p-6 space-y-5 font-sans text-gray-800">
             <h2 className="text-lg font-semibold text-green-700 border-l-4 border-green-500 pl-3">
-              <b> Thông tin sân</b>
+              <b>Thông tin sân</b>
             </h2>
 
             <div className="bg-gray-100 p-6 rounded-2xl shadow space-y-3 text-sm text-gray-100">
               <div className="flex justify-between border-b border-gray-100 pb-1">
                 <span className="font-semibold text-gray-700">
-                  Định dạng sân:{" "}
+                  Định dạng sân:
                 </span>
                 <span className="text-gray-900">
                   <b>{court.formats || "7v7"}</b>
                 </span>
               </div>
-
               <div className="flex justify-between border-b border-gray-100 pb-1">
                 <span className="font-semibold text-gray-700">
-                  Địa chỉ sân:{" "}
+                  Địa chỉ sân:
                 </span>
                 <span className="text-gray-900">
                   <b>{court.location || "Chưa cập nhật"}</b>
@@ -213,14 +208,12 @@ const PitchDetail: React.FC = () => {
                   <b>{court.openHours || "08.00h - 22.00h"}</b>
                 </span>
               </div>
-
               <div className="flex justify-between border-b border-gray-100 pb-1">
                 <span className="font-semibold text-gray-700">Giá thường:</span>
                 <span className="text-green-700 font-medium">
-                  <b> {court.basePrice?.toLocaleString() || "800,000"}đ</b>
+                  <b>{court.basePrice?.toLocaleString() || "800,000"}đ</b>
                 </span>
               </div>
-
               <div className="flex justify-between">
                 <span className="font-semibold text-gray-700">
                   Giá giờ cao điểm:
@@ -255,14 +248,14 @@ const PitchDetail: React.FC = () => {
             </div>
 
             {selectedSlot && (
-              <div className="mt-4 bg-gray-100 border border-gray-100 text-green -800 p-4 rounded-xl text-sm shadow-inner">
+              <div className="mt-4 bg-gray-100 border border-gray-100 text-green-800 p-4 rounded-xl text-sm shadow-inner">
                 <p className="flex justify-between border-b border-gray-100 pb-1">
                   Ngày: <b>{selectedSlot.date}</b>
                 </p>
                 <p className="flex justify-between border-b border-gray-100 pb-1">
-                  Khung giờ:{" "}
+                  Khung giờ:
                   <b>
-                    {selectedSlot.startTime}h - {selectedSlot.endTime}h{" "}
+                    {selectedSlot.startTime}h - {selectedSlot.endTime}h
                   </b>
                 </p>
                 <p className="flex justify-between border-b border-gray-100 pb-1 text-red-600">
@@ -273,7 +266,7 @@ const PitchDetail: React.FC = () => {
           </div>
         </div>
 
-        {/*  Bảng khung giờ */}
+        {/* Bảng khung giờ */}
         <div className="flex justify-center items-center gap-4 mt-6 mb-2">
           <button
             onClick={handlePrevWeek}
@@ -292,6 +285,7 @@ const PitchDetail: React.FC = () => {
             ▶
           </button>
         </div>
+
         <div className="bg-white p-6 rounded-2xl shadow space-y-6 mt-6 overflow-x-auto">
           <div className="grid grid-cols-[120px_repeat(5,1fr)] gap-[6px]">
             {dateRange.map((date, i) => {
@@ -324,7 +318,6 @@ const PitchDetail: React.FC = () => {
                     const [endHour, endMinute] = endTime.split(":").map(Number);
                     const slotEnd = new Date(date);
                     slotEnd.setHours(endHour, endMinute, 0, 0);
-
                     const isExpired = slotEnd < now || isPastDay;
 
                     return (
@@ -334,14 +327,13 @@ const PitchDetail: React.FC = () => {
                           !isExpired && handleSlotClick(date, slot)
                         }
                         disabled={isExpired}
-                        className={`p-3 text-xs text-center rounded-lg border border-gray-200 transition-all duration-150 ease-in-out shadow-sm
-                ${
-                  isSelected
-                    ? "bg-green-500 text-white scale-[1.02] shadow-md"
-                    : isExpired
-                    ? "bg-gray-50 text-gray-400 cursor-not-allowed"
-                    : "bg-white hover:bg-blue-50 text-gray-800"
-                }`}
+                        className={`p-3 text-xs text-center rounded-lg border border-gray-200 transition-all duration-150 ease-in-out shadow-sm ${
+                          isSelected
+                            ? "bg-green-500 text-white scale-[1.02] shadow-md"
+                            : isExpired
+                            ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+                            : "bg-white hover:bg-blue-50 text-gray-800"
+                        }`}
                       >
                         <div className="font-medium">
                           {slot}
@@ -352,15 +344,7 @@ const PitchDetail: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Ẩn giá khi quá hạn */}
                         {!isExpired && (
-                          // <div
-                          //   className={`text-[12px] mt-1 ${
-                          //     isPeak
-                          //       ? "text-red-600 font-semibold"
-                          //       : "text-gray-700"
-                          //   }`}
-                          // >
                           <div
                             className={`text-[12px] mt-1 ${
                               isSelected
