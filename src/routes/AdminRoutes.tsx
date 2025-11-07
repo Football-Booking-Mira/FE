@@ -3,7 +3,7 @@ import DashBoard from '@/pages/admin/dashboard/DashBoard';
 import type { RouteObject } from 'react-router';
 import CourtManagement from '../pages/admin/courts/CourtManagement.tsx';
 import Users from '../pages/admin/users/users.tsx';
-
+import RoleRoute from '@/common/middlewares/RoleRoute';
 import CourtUpdate from '../pages/admin/courts/CourtUpdate.tsx';
 import CourtDetail from '../pages/admin/dashboard/CourtDetail.tsx';
 
