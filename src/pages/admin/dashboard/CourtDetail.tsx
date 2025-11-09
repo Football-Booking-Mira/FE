@@ -43,7 +43,7 @@ export default function CourtDetail() {
         setLoading(false);
       }
     };
-
+    
     if (id) fetchCourt();
   }, [id]);
 

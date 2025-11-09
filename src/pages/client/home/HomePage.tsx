@@ -145,14 +145,11 @@ const HomePage: React.FC = () => {
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
                       {court.name}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-1">{court.type}</p>
 
                     <div className="text-sm text-gray-500 flex items-center gap-1 mb-1">
                       💰 Giá: {court.basePrice}k - {court.peakPrice}k
                     </div>
-                    <div className="text-sm text-gray-500 flex items-center gap-1 mb-2">
-                      ⏰ Mở cửa: 06:00 - Đóng cửa: 00:00
-                    </div>
+
                     <button
                       onClick={() => navigate(`/pitch/${court._id}`)}
                       className="mt-4 w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
