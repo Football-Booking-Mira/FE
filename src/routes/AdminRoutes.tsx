@@ -6,6 +6,7 @@ import Users from '../pages/admin/users/users.tsx';
 import RoleRoute from '@/common/middlewares/RoleRoute';
 import CourtUpdate from '../pages/admin/courts/CourtUpdate.tsx';
 import CourtDetail from '../pages/admin/dashboard/CourtDetail.tsx';
+import BookingList from '../pages/admin/bookings/BookingList.tsx';
 
 export const AdminRoutes: RouteObject[] = [
     {
@@ -16,27 +17,12 @@ export const AdminRoutes: RouteObject[] = [
             </RoleRoute>
         ),
         children: [
-            {
-                index: true,
-                element: <DashBoard />,
-            },
-            {
-                path: 'courts',
-                element: <CourtManagement />,
-            },
-            {
-                path: '/admin/courts/update/:id',
-                element: <CourtUpdate />,
-            },
-            {
-                path: '/admin/courts/:id',
-                element: <CourtDetail />,
-            },
-
-            {
-                path: 'customers',
-                element: <Users />,
-            },
+            { index: true, element: <DashBoard /> },
+            { path: 'courts', element: <CourtManagement /> },
+            { path: 'courts/update/:id', element: <CourtUpdate /> },
+            { path: 'courts/:id', element: <CourtDetail /> },
+            { path: 'bookings', element: <BookingList /> },
+            { path: 'customers', element: <Users /> },
         ],
     },
 ];
