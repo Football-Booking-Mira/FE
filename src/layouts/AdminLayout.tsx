@@ -79,6 +79,11 @@ const AdminLayout: React.FC = () => {
                             label: <Link to='/admin/courts'>Quản lý sân</Link>,
                         },
                         {
+                            key: '/bookings',
+                            icon: <AppstoreOutlined />,
+                            label: <Link to='/admin/bookings'>Đặt sân</Link>,
+                        },
+                        {
                             key: 'customers',
                             icon: <UserOutlined />,
                             label: <Link to='/admin/customers'>Khách hàng</Link>,
@@ -141,9 +146,7 @@ const AdminLayout: React.FC = () => {
 
                 {/* CONTENT */}
                 <Content style={{ margin: '24px', padding: 24, background: colorBgContainer }}>
-                    {/* <RoleRoute requiredRoles={['admin']} redirectTo='/login'> */}
                     <Outlet />
-                    {/* </RoleRoute> */}
                 </Content>
             </Layout>
         </Layout>
