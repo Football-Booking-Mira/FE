@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
-import api from '@/common/utils/api'; // Dùng api có interceptor token
+import api from '@/common/utils/api';
 import {
     Button,
     Tag,
@@ -18,7 +17,6 @@ import { toast } from 'sonner';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import {
-    EyeOutlined,
     CheckOutlined,
     DollarOutlined,
     PlayCircleOutlined,
@@ -29,6 +27,7 @@ import {
     CloseCircleOutlined,
     FileTextOutlined,
 } from '@ant-design/icons';
+import { io } from 'socket.io-client';
 
 dayjs.locale('vi');
 
@@ -87,7 +86,7 @@ export default function BookingList() {
         date: null as any,
     });
 
-    // Lấy thống kê tổng quan
+    // 📊 Lấy thống kê tổng quan
     const fetchStats = async () => {
         try {
             const res = await api.get('/bookings/admin/dashboard');
@@ -97,7 +96,7 @@ export default function BookingList() {
         }
     };
 
-    // Lấy danh sách booking
+    // 📋 Lấy danh sách booking
     const fetchBookings = async () => {
         setLoading(true);
         try {
@@ -110,12 +109,33 @@ export default function BookingList() {
         }
     };
 
+    // ⚡ Gắn socket realtime cập nhật admin dashboard
     useEffect(() => {
         fetchBookings();
         fetchStats();
+
+        const socketInstance = io('http://localhost:3000', {
+            transports: ['websocket'],
+            withCredentials: true,
+        });
+
+        // ✅ Lắng nghe sự kiện global từ BE (phát ra khi có thay đổi)
+        socketInstance.on('booking_global_updated', () => {
+            fetchBookings();
+            fetchStats(); // cập nhật luôn thống kê dashboard
+            toast.info('⚡ Hệ thống đặt sân vừa có cập nhật mới!', {
+                duration: 1500,
+                style: { backgroundColor: '#22c55e', color: '#fff' },
+            });
+        });
+
+        return () => {
+            socketInstance.off('booking_global_updated');
+            socketInstance.disconnect();
+        };
     }, []);
 
-    // Các thao tác (xác nhận / hủy / check-in / check-out / thanh toán)
+    // 🧾 Các thao tác admin
     const handleAction = async (
         id: string,
         action: 'confirm' | 'cancel' | 'checkin' | 'checkout' | 'paid'
@@ -123,19 +143,19 @@ export default function BookingList() {
         try {
             if (action === 'confirm') {
                 await api.patch(`/bookings/${id}/confirm`);
-                toast.success('Đã xác nhận đặt sân!');
+                toast.success('✅ Đã xác nhận đặt sân!');
             } else if (action === 'cancel') {
                 await api.patch(`/bookings/${id}/cancel`);
                 toast.success('❌ Đã hủy đặt sân!');
             } else if (action === 'paid') {
                 await api.patch(`/bookings/${id}`, { paymentStatus: 'paid' });
-                toast.success(' Thanh toán thành công!');
+                toast.success('💵 Thanh toán thành công!');
             } else if (action === 'checkin') {
                 await api.patch(`/bookings/${id}/checkin`);
-                toast.success(' Check-in thành công!');
+                toast.success('📍 Check-in thành công!');
             } else if (action === 'checkout') {
                 await api.patch(`/bookings/${id}/checkout`);
-                toast.success(' Check-out thành công!');
+                toast.success('🏁 Check-out thành công!');
             }
 
             fetchBookings();
@@ -145,7 +165,7 @@ export default function BookingList() {
         }
     };
 
-    // Lọc theo trạng thái / tên khách hàng / mã booking
+    // 🔍 Lọc theo trạng thái / tên khách hàng / mã booking
     const filteredBookings = bookings.filter((b) => {
         const matchesSearch =
             b.code.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -155,7 +175,7 @@ export default function BookingList() {
         return matchesSearch && matchesStatus && matchesDate;
     });
 
-    // Cấu hình bảng
+    // 🧱 Cấu hình bảng
     const columns = [
         {
             title: 'Mã đặt',
@@ -228,20 +248,14 @@ export default function BookingList() {
             title: 'Thao tác',
             key: 'actions',
             render: (b: Booking) => {
-                //  Nếu đã hủy hoặc hoàn thành => ẩn tất cả nút, chỉ hiển thị Tag trạng thái
-                if (b.status === 'cancelled') {
-                    return <Tag color='default'>Đã hủy</Tag>;
-                }
-
-                if (b.status === 'completed') {
+                if (b.status === 'cancelled') return <Tag color='default'>Đã hủy</Tag>;
+                if (b.status === 'completed')
                     return (
                         <Tag color='green'>
                             <CheckCircleOutlined /> Hoàn thành
                         </Tag>
                     );
-                }
 
-                //  Các trạng thái còn lại hiển thị nút theo luồng logic
                 return (
                     <Space wrap>
                         {b.status === 'pending' && (
@@ -262,7 +276,6 @@ export default function BookingList() {
                                 </Button>
                             </>
                         )}
-
                         {b.status === 'confirmed' && (
                             <>
                                 <Button
@@ -288,7 +301,6 @@ export default function BookingList() {
                                 </Button>
                             </>
                         )}
-
                         {b.status === 'in_use' && (
                             <Button
                                 size='small'

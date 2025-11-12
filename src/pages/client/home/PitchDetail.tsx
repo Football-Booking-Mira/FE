@@ -74,7 +74,7 @@ const PitchDetail: React.FC = () => {
         };
     }, [id]);
 
-    //  Đặt sân
+    // === Đặt sân ===
     const handleBooking = async () => {
         if (!selectedSlot || !court?._id) return;
 
@@ -168,6 +168,7 @@ const PitchDetail: React.FC = () => {
             });
         }
     };
+
     //  Giao diện
     if (loading) return <p className='text-center mt-10 text-gray-600'>Đang tải dữ liệu...</p>;
     if (!court) return <p className='text-center mt-10 text-gray-600'>Không tìm thấy sân.</p>;
@@ -281,9 +282,12 @@ const PitchDetail: React.FC = () => {
                                 <div className='flex justify-between border-b pb-1'>
                                     <span>Số giờ:</span>
                                     <span>
-                                        {parseInt(selectedSlot.endTime) -
-                                            parseInt(selectedSlot.startTime)}{' '}
-                                        giờ
+                                        {selectedSlot?.startTime && selectedSlot?.endTime
+                                            ? `${
+                                                  parseInt(selectedSlot.endTime) -
+                                                  parseInt(selectedSlot.startTime)
+                                              } giờ`
+                                            : '0 giờ'}
                                     </span>
                                 </div>
                             </>

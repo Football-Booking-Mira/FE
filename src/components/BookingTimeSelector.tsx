@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { toast } from 'sonner';
+
 interface Props {
     courtId: string;
-    basePrice: number; // Giá thường
-    peakPrice: number; // Giá cao điểm
+    basePrice: number;
+    peakPrice: number;
     onSlotSelected: (slot: {
         date: string;
         startTime: string;
@@ -20,29 +21,8 @@ interface BookedSlot {
     endTime: string;
 }
 
-// Giờ mở cửa 6h - 22h
-const TIME_POINTS = [
-    '06:00',
-    '07:00',
-    '08:00',
-    '09:00',
-    '10:00',
-    '11:00',
-    '12:00',
-    '13:00',
-    '14:00',
-    '15:00',
-    '16:00',
-    '17:00',
-    '18:00',
-    '19:00',
-    '20:00',
-    '21:00',
-    '22:00',
-];
-
-// Khung giờ nhanh (2 tiếng)
-const QUICK_SLOTS = [
+//  Time slot NHANH
+const TIME_SLOTS = [
     ['06:00', '08:00'],
     ['08:00', '10:00'],
     ['10:00', '12:00'],
@@ -53,7 +33,15 @@ const QUICK_SLOTS = [
     ['20:00', '22:00'],
 ];
 
-const PEAK_START = 16; // Giờ cao điểm bắt đầu từ 16h
+//  Hiển thị timeline từng giờ (06:00 → 22:00)
+const TIME_POINTS = Array.from({ length: 17 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`);
+
+const PEAK_START = 16;
+
+const toMinutes = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+};
 
 const BookingTimeSelector: React.FC<Props> = ({
     courtId,
@@ -94,7 +82,6 @@ const BookingTimeSelector: React.FC<Props> = ({
         });
     }, [selectedDate]);
 
-    //  Kiểm tra giờ quá hạn
     const isPastTime = (time: string) => {
         const slotDate = new Date(selectedDate);
         const [h, m] = time.split(':').map(Number);
@@ -102,33 +89,28 @@ const BookingTimeSelector: React.FC<Props> = ({
         return slotDate < new Date();
     };
 
-    //  Kiểm tra đã bị đặt chưa (bao gồm toàn bộ khoảng giờ)
-    const isBooked = (t: string) =>
-        bookedSlots.some((b) => {
-            const sameDate = b.date === selectedDate.toISOString().slice(0, 10);
-            const withinRange = t >= b.startTime && t < b.endTime;
-            return sameDate && withinRange;
+    const isBooked = (start: string, end: string) => {
+        const selectedDateStr = selectedDate.toISOString().slice(0, 10);
+        return bookedSlots.some((b) => {
+            const bookedDateStr =
+                typeof b.date === 'string'
+                    ? b.date.slice(0, 10)
+                    : new Date(b.date).toISOString().slice(0, 10);
+            return bookedDateStr === selectedDateStr && !(end <= b.startTime || start >= b.endTime);
         });
+    };
 
-    //  Tính tiền tự động
     const calculatePrice = (start: string, end: string) => {
-        const toMinutes = (t: string) => {
-            const [h, m] = t.split(':').map(Number);
-            return h * 60 + m;
-        };
-        const startMin = toMinutes(start);
-        const endMin = toMinutes(end);
-        const totalHours = (endMin - startMin) / 60;
-
+        const sMin = toMinutes(start);
+        const eMin = toMinutes(end);
         let total = 0;
-        for (let h = startMin; h < endMin; h += 60) {
+        for (let h = sMin; h < eMin; h += 60) {
             const hour = h / 60;
             total += hour >= PEAK_START ? peakPrice : basePrice;
         }
         return total;
     };
 
-    //  Cập nhật tổng tiền khi chọn giờ
     useEffect(() => {
         if (startTime && endTime && endTime > startTime) {
             const total = calculatePrice(startTime, endTime);
@@ -150,24 +132,9 @@ const BookingTimeSelector: React.FC<Props> = ({
         }
     }, [startTime, endTime]);
 
-    // Chọn nhanh khung giờ (2 tiếng)
     const handleQuickSlotClick = (start: string, end: string) => {
-        const past = isPastTime(start);
-        const overlapBooked = bookedSlots.some(
-            (b) =>
-                b.date === selectedDate.toISOString().slice(0, 10) &&
-                !(end <= b.startTime || start >= b.endTime)
-        );
-
-        if (past) {
-            toast.warning('Khung giờ này đã quá hạn!');
-            return;
-        }
-
-        if (overlapBooked) {
-            toast.error('Khung giờ này đã có người đặt!');
-            return;
-        }
+        if (isPastTime(start)) return toast.warning(' Khung giờ này đã quá hạn!');
+        if (isBooked(start, end)) return toast.error(' Khung giờ này đã có người đặt!');
 
         const total = calculatePrice(start, end);
         setStartTime(start);
@@ -179,6 +146,18 @@ const BookingTimeSelector: React.FC<Props> = ({
             endTime: end,
             price: total,
         });
+    };
+
+    const isSlotInRange = (slotStart: string, slotEnd: string) => {
+        if (!startTime || !endTime) return false;
+        return (
+            toMinutes(slotStart) >= toMinutes(startTime) && toMinutes(slotEnd) <= toMinutes(endTime)
+        );
+    };
+
+    const getNextHour = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return `${String(h + 1).padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
     };
 
     return (
@@ -198,6 +177,7 @@ const BookingTimeSelector: React.FC<Props> = ({
                     />
                 </div>
 
+                {/* Dropdown giờ bắt đầu */}
                 <div>
                     <label className='text-sm font-medium text-gray-700 mb-1 block'>
                         Giờ bắt đầu
@@ -207,108 +187,109 @@ const BookingTimeSelector: React.FC<Props> = ({
                         onChange={(e) => {
                             setStartTime(e.target.value);
                             setEndTime('');
-                            setPrice(0);
                         }}
                         className='border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none'
                     >
                         <option value=''>--Chọn--</option>
-                        {TIME_POINTS.slice(0, -1).map((t) => (
-                            <option key={t} value={t} disabled={isPastTime(t) || isBooked(t)}>
-                                {t}
-                            </option>
-                        ))}
+                        {TIME_POINTS.map((t) => {
+                            const next = getNextHour(t);
+                            const disabled = isPastTime(t) || isBooked(t, next);
+                            return (
+                                <option key={t} value={t} disabled={disabled}>
+                                    {t}
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
 
+                {/* Dropdown giờ kết thúc (✅ đã chèn fix kiểm tra trùng vùng đã đặt) */}
                 <div>
                     <label className='text-sm font-medium text-gray-700 mb-1 block'>
                         Giờ kết thúc
                     </label>
                     <select
                         value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (isBooked(startTime, val)) {
+                                toast.error('❌ Giờ kết thúc trùng vùng đã đặt!');
+                                return;
+                            }
+                            setEndTime(val);
+                        }}
                         className='border rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:outline-none'
                         disabled={!startTime}
                     >
                         <option value=''>--Chọn--</option>
-                        {TIME_POINTS.filter((t) => t > startTime).map((t) => (
-                            <option key={t} value={t}>
-                                {t}
-                            </option>
-                        ))}
+                        {TIME_POINTS.filter((t) => t > startTime).map((t) => {
+                            const prev = TIME_POINTS[TIME_POINTS.indexOf(t) - 1];
+                            const disabled = isPastTime(t) || (prev && isBooked(prev, t));
+                            return (
+                                <option key={t} value={t} disabled={disabled}>
+                                    {t}
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
             </div>
 
-            {/* Timeline trạng thái sân */}
+            {/* 🕓 Timeline trạng thái sân */}
             <div>
                 <p className='text-sm font-semibold mb-2 text-gray-700'>Timeline trạng thái sân</p>
                 <div className='flex flex-wrap gap-2'>
-                    {TIME_POINTS.map((t, i) => {
-                        if (i === TIME_POINTS.length - 1) return null;
-                        const next = TIME_POINTS[i + 1];
+                    {TIME_POINTS.map((t) => {
+                        const next = getNextHour(t);
+                        const booked = isBooked(t, next);
                         const past = isPastTime(t);
-                        const booked = isBooked(t);
-                        const isPeak = parseInt(t) >= PEAK_START;
 
-                        const bg = booked
-                            ? 'bg-red-500 text-white border-red-600 cursor-not-allowed shadow-sm'
+                        const color = booked
+                            ? 'bg-red-500 text-white border-red-600'
                             : past
-                            ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
-                            : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100';
+                            ? 'bg-gray-200 text-gray-500 border-gray-300'
+                            : 'bg-green-50 text-green-700 border-green-200';
 
                         return (
                             <div
                                 key={t}
-                                className={`w-[90px] text-center text-sm py-2 rounded-md border transition ${bg}`}
+                                className={`w-[70px] text-center text-sm py-2 rounded-md border transition ${color}`}
                             >
-                                {t} - {next}
-                                <div className='text-[11px]'>
-                                    {booked
-                                        ? 'Đã đặt'
-                                        : past
-                                        ? 'Quá hạn'
-                                        : isPeak
-                                        ? 'Cao điểm'
-                                        : 'Thường'}
-                                </div>
+                                {t}
+                                <div className='text-[11px]'>{booked ? 'Đã đặt' : 'Trống'}</div>
                             </div>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Khung giờ nhanh */}
+            {/*  Khung giờ nhanh */}
             <div>
                 <p className='text-sm font-semibold mb-2 text-gray-700'>Khung giờ nhanh</p>
                 <div className='flex flex-wrap gap-2'>
-                    {QUICK_SLOTS.map(([s, e]) => {
+                    {TIME_SLOTS.map(([s, e]) => {
                         const past = isPastTime(s);
-                        const overlapBooked = bookedSlots.some(
-                            (b) =>
-                                b.date === selectedDate.toISOString().slice(0, 10) &&
-                                !(e <= b.startTime || s >= b.endTime)
-                        );
-                        const selected = startTime === s && endTime === e;
+                        const booked = isBooked(s, e);
+                        const selected = isSlotInRange(s, e);
 
                         const color = selected
                             ? 'bg-green-600 text-white'
+                            : booked
+                            ? 'bg-red-500 text-white cursor-not-allowed border-red-600'
                             : past
                             ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                            : overlapBooked
-                            ? 'bg-red-500 text-white cursor-not-allowed border-red-600'
                             : 'bg-white hover:bg-green-50 text-gray-800 border border-gray-200';
 
                         return (
                             <button
                                 key={s}
                                 onClick={() => handleQuickSlotClick(s, e)}
-                                disabled={past || overlapBooked}
+                                disabled={past || booked}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${color}`}
                             >
                                 {s.replace(':00', 'h')}–{e.replace(':00', 'h')}
                                 <div className='text-[11px]'>
-                                    {past ? 'Quá hạn' : overlapBooked ? 'Đã đặt' : 'Có thể đặt'}
+                                    {booked ? 'Đã đặt' : past ? 'Quá hạn' : 'Có thể đặt'}
                                 </div>
                             </button>
                         );
@@ -316,7 +297,7 @@ const BookingTimeSelector: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* Tổng tiền */}
+            {/*  Tổng tiền */}
             <div className='p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 font-semibold'>
                 Tổng tiền dự kiến:{' '}
                 <span className='text-green-800'>
