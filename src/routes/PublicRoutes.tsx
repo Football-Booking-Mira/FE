@@ -10,6 +10,7 @@ import { Contact } from 'lucide-react';
 import Checkout from '@/pages/client/home/Checkout';
 import PitchDetail from '@/pages/client/home/PitchDetail';
 import MyBookings from '@/pages/client/home/MyBookings';
+import PaymentSuccessPage from '@/pages/client/home/PaymentSuccessPage';
 
 export const PublicRoutes: RouteObject[] = [
     {
@@ -49,6 +50,10 @@ export const PublicRoutes: RouteObject[] = [
                 path: 'verify-email',
                 element: <VerifyEmailPage />,
             },
+            {
+                path: 'payment-return',
+                element: <PaymentSuccessPage />,
+            }
         ],
     },
 ];
