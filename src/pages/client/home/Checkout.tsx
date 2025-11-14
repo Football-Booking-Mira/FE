@@ -15,8 +15,11 @@ interface CheckoutData {
 
 const Checkout: React.FC = () => {
   const location = useLocation();
+
   const navigate = useNavigate();
-  const bookingData = location.state as CheckoutData | undefined;
+  // const bookingData = location.state as CheckoutData | undefined;
+  const bookingData = JSON.parse(window.localStorage.getItem("checkout-data") || "null");
+
 
   useEffect(() => {
     if (!bookingData) navigate("/booking");
@@ -27,12 +30,43 @@ const Checkout: React.FC = () => {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || !phone) {
       alert("Vui lòng nhập đầy đủ họ tên và số điện thoại!");
       return;
     }
 
+    if (!bookingData?.bookingId) {
+      alert("Không tìm thấy thông tin đặt sân!");
+      return;
+    }
+
+    // Nếu thanh toán qua VNPay
+    if (paymentMethod === "transfer") {
+      try {
+        const res = await fetch("http://localhost:3000/api/payment/vnpay/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId: bookingData.bookingId }), 
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.paymentUrl) {
+          window.location.href = data.paymentUrl; 
+          return;
+        } else {
+          alert("Không tạo được liên kết thanh toán VNPay!");
+          return;
+        }
+      } catch (err) {
+        console.error("Lỗi gọi API VNPay:", err);
+        alert("Lỗi thanh toán VNPay!");
+        return;
+      }
+    }
+
+    // Nếu là cash hoặc momo → xử lý bình thường
     const payload = {
       ...bookingData,
       customer: { name, phone, email },
@@ -40,9 +74,11 @@ const Checkout: React.FC = () => {
     };
 
     console.log("📦 Dữ liệu gửi thanh toán:", payload);
-    alert("✅ Thanh toán thành công! Cảm ơn bạn đã đặt sân.");
-    navigate("/");
+
+    alert("✅ Thanh toán thành công!");
+    
   };
+
 
   if (!bookingData) return null;
 
@@ -128,11 +164,10 @@ const Checkout: React.FC = () => {
               {["cash", "transfer", "momo"].map((method) => (
                 <label
                   key={method}
-                  className={`flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:shadow transition ${
-                    paymentMethod === method
-                      ? "border-green-600 bg-green-50"
-                      : "border-gray-300"
-                  }`}
+                  className={`flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:shadow transition ${paymentMethod === method
+                    ? "border-green-600 bg-green-50"
+                    : "border-gray-300"
+                    }`}
                 >
                   <input
                     type="radio"
@@ -145,8 +180,8 @@ const Checkout: React.FC = () => {
                     {method === "cash"
                       ? "Tiền mặt tại sân"
                       : method === "transfer"
-                      ? "Chuyển khoản"
-                      : "Ví Momo"}
+                        ? "Chuyển khoản"
+                        : "Ví Momo"}
                   </span>
                 </label>
               ))}
