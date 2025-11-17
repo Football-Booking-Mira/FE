@@ -80,9 +80,109 @@ const PitchDetail: React.FC = () => {
             return;
         }
 
+<<<<<<< HEAD
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (!user?._id || !user?.token) {
             toast.error('Vui lòng đăng nhập trước khi đặt sân!', {
+=======
+        try {
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+            if (!user?._id) {
+                toast.error('Vui lòng đăng nhập trước khi đặt sân!', {
+                    position: 'top-right',
+                    theme: 'colored',
+                    icon: false,
+                    style: {
+                        backgroundColor: '#dc2626',
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: '15px',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                    },
+                });
+                return navigate('/login');
+            }
+
+            const res = await fetch('http://localhost:3000/api/bookings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${user.token}`,
+                },
+                body: JSON.stringify({
+                    courtId: court._id,
+                    customerId: user._id,
+                    date: selectedSlot.date,
+                    startTime: selectedSlot.startTime,
+                    endTime: selectedSlot.endTime,
+                    paymentMethod: 'vnpay',
+                    note: '',
+                }),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                const booking = data.data;
+
+                const bookingData = {
+                    bookingId: booking._id,
+                    code: booking.code,
+                    courtId: booking.courtId,
+                    courtName: court.name,          // lấy từ UI
+                    date: booking.date,
+                    startTime: booking.startTime,
+                    endTime: booking.endTime,
+                    hours: booking.hours,
+                    totalPrice: booking.total,      // tổng tiền
+                    paymentMethod: booking.paymentMethod,
+                };
+
+                localStorage.setItem("checkout-data", JSON.stringify(bookingData));
+                toast.success('⚽ Đặt sân thành công!', {
+                    position: 'top-right',
+                    autoClose: 2500,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                    theme: 'colored',
+                    icon: false,
+                    style: {
+                        backgroundColor: '#16a34a',
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: '15px',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                    },
+                });
+                // localStorage.setItem("checkout-data", JSON.stringify(bookingData));
+                setTimeout(() => {
+                    navigate("/checkout");
+                }, 500); // delay 0.5s để toast kịp hiển thị
+
+
+            } else {
+                toast.error(data.message || 'Đặt sân thất bại!', {
+                    position: 'top-right',
+                    theme: 'colored',
+                    icon: false,
+                    style: {
+                        backgroundColor: '#dc2626',
+                        color: '#fff',
+                        fontWeight: 600,
+                        fontSize: '15px',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                    },
+                });
+            }
+        } catch (err) {
+            console.error('Lỗi khi đặt sân:', err);
+            toast.error('Có lỗi xảy ra khi đặt sân!', {
+>>>>>>> 1804cb02766f81211a573045714b8fdb5d8c102f
                 position: 'top-right',
                 theme: 'colored',
                 icon: false,
@@ -147,11 +247,10 @@ const PitchDetail: React.FC = () => {
                                     key={idx}
                                     src={img}
                                     alt={`Thumbnail ${idx + 1}`}
-                                    className={`w-28 h-20 object-cover rounded-lg cursor-pointer border-2 ${
-                                        currentImage === idx
-                                            ? 'border-green-600'
-                                            : 'border-gray-300 hover:border-green-400'
-                                    }`}
+                                    className={`w-28 h-20 object-cover rounded-lg cursor-pointer border-2 ${currentImage === idx
+                                        ? 'border-green-600'
+                                        : 'border-gray-300 hover:border-green-400'
+                                        }`}
                                     onClick={() => setCurrentImage(idx)}
                                 />
                             ))}
@@ -192,10 +291,10 @@ const PitchDetail: React.FC = () => {
                                 {court?.type === 'indoor'
                                     ? 'Trong nhà'
                                     : court?.type === 'outdoor'
-                                    ? 'Ngoài trời'
-                                    : court?.type === 'vip'
-                                    ? 'VIP'
-                                    : '--'}
+                                        ? 'Ngoài trời'
+                                        : court?.type === 'vip'
+                                            ? 'VIP'
+                                            : '--'}
                             </span>
                         </div>
 
@@ -233,10 +332,9 @@ const PitchDetail: React.FC = () => {
                                     <span>Số giờ:</span>
                                     <span>
                                         {selectedSlot?.startTime && selectedSlot?.endTime
-                                            ? `${
-                                                  parseInt(selectedSlot.endTime) -
-                                                  parseInt(selectedSlot.startTime)
-                                              } giờ`
+                                            ? `${parseInt(selectedSlot.endTime) -
+                                            parseInt(selectedSlot.startTime)
+                                            } giờ`
                                             : '0 giờ'}
                                     </span>
                                 </div>
@@ -290,11 +388,10 @@ const PitchDetail: React.FC = () => {
                     <button
                         onClick={handleBooking}
                         disabled={!selectedSlot}
-                        className={`w-full mt-6 font-bold py-3 rounded-lg transition ${
-                            selectedSlot
-                                ? 'bg-green-600 hover:bg-green-700 text-white'
-                                : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                        }`}
+                        className={`w-full mt-6 font-bold py-3 rounded-lg transition ${selectedSlot
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                            }`}
                     >
                         Đặt sân
                     </button>

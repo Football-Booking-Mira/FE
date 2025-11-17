@@ -28,8 +28,17 @@ const formatCurrency = (value: number) => `${new Intl.NumberFormat('vi-VN').form
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Checkout: React.FC = () => {
+<<<<<<< HEAD
     const location = useLocation();
     const navigate = useNavigate();
+=======
+  const location = useLocation();
+
+  const navigate = useNavigate();
+  // const bookingData = location.state as CheckoutData | undefined;
+  const bookingData = JSON.parse(window.localStorage.getItem("checkout-data") || "null");
+
+>>>>>>> 1804cb02766f81211a573045714b8fdb5d8c102f
 
     const [bookingData, setBookingData] = useState<CheckoutData | null>(() => {
         return JSON.parse(window.localStorage.getItem('checkout-data') || 'null');
@@ -39,6 +48,7 @@ const Checkout: React.FC = () => {
         if (!bookingData) navigate('/booking');
     }, [bookingData, navigate]);
 
+<<<<<<< HEAD
     const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo'>('vnpay');
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
@@ -180,6 +190,59 @@ const Checkout: React.FC = () => {
     const nameTrim = name.trim();
     const phoneTrim = phone.trim();
     const emailTrim = email.trim();
+=======
+  const handleSubmit = async () => {
+    if (!name || !phone) {
+      alert("Vui lòng nhập đầy đủ họ tên và số điện thoại!");
+      return;
+    }
+
+    if (!bookingData?.bookingId) {
+      alert("Không tìm thấy thông tin đặt sân!");
+      return;
+    }
+
+    // Nếu thanh toán qua VNPay
+    if (paymentMethod === "transfer") {
+      try {
+        const res = await fetch("http://localhost:3000/api/payment/vnpay/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bookingId: bookingData.bookingId }), 
+        });
+
+        const data = await res.json();
+
+        if (data.success && data.paymentUrl) {
+          window.location.href = data.paymentUrl; 
+          return;
+        } else {
+          alert("Không tạo được liên kết thanh toán VNPay!");
+          return;
+        }
+      } catch (err) {
+        console.error("Lỗi gọi API VNPay:", err);
+        alert("Lỗi thanh toán VNPay!");
+        return;
+      }
+    }
+
+    // Nếu là cash hoặc momo → xử lý bình thường
+    const payload = {
+      ...bookingData,
+      customer: { name, phone, email },
+      paymentMethod,
+    };
+
+    console.log("📦 Dữ liệu gửi thanh toán:", payload);
+
+    alert("✅ Thanh toán thành công!");
+    
+  };
+
+
+  if (!bookingData) return null;
+>>>>>>> 1804cb02766f81211a573045714b8fdb5d8c102f
 
     return (
         <div className='min-h-screen bg-white flex justify-center items-start py-12 px-4'>
@@ -331,7 +394,120 @@ const Checkout: React.FC = () => {
                 </CardContent>
             </Card>
         </div>
+<<<<<<< HEAD
     );
+=======
+
+        <CardContent className="p-8 space-y-8">
+          {/* Thông tin đặt sân */}
+          <div className="bg-green-50 rounded-xl p-6 shadow-inner">
+            <h2 className="font-semibold text-lg text-gray-700 mb-4">
+              Thông tin đặt sân
+            </h2>
+            <div className="grid grid-cols-2 gap-2 text-gray-600">
+              <span>Sân:</span>
+              <span className="font-medium text-gray-800">
+                {bookingData.courtName}
+              </span>
+              <span>Ngày:</span>
+              <span className="font-medium text-gray-800">
+                {bookingData.date}
+              </span>
+              <span>Giờ:</span>
+              <span className="font-medium text-gray-800">
+                {bookingData.startTime} - {bookingData.endTime}
+              </span>
+              <span>Tổng tiền:</span>
+              <span className="font-bold text-green-700 text-lg">
+                {bookingData.totalPrice.toLocaleString()}₫
+              </span>
+            </div>
+          </div>
+
+          {/* Thông tin khách hàng */}
+          <div className="space-y-4">
+            <h2 className="font-semibold text-lg text-gray-700">
+              Thông tin người đặt
+            </h2>
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="name">Họ và tên</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Nhập tên"
+                  className="mt-1 border-green-300 focus:border-green-500 focus:ring-green-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Số điện thoại</Label>
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Nhập số điện thoại"
+                  className="mt-1 border-green-300 focus:border-green-500 focus:ring-green-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email </Label>
+                <Input
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Nhập email"
+                  className="mt-1 border-green-300 focus:border-green-500 focus:ring-green-200"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Phương thức thanh toán */}
+          <div className="space-y-3">
+            <h2 className="font-semibold text-lg text-gray-700">
+              Phương thức thanh toán
+            </h2>
+            <div className="flex flex-col sm:flex-row gap-4">
+              {["cash", "transfer", "momo"].map((method) => (
+                <label
+                  key={method}
+                  className={`flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:shadow transition ${paymentMethod === method
+                    ? "border-green-600 bg-green-50"
+                    : "border-gray-300"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    value={method}
+                    checked={paymentMethod === method}
+                    onChange={() => setPaymentMethod(method)}
+                    className="accent-green-600"
+                  />
+                  <span>
+                    {method === "cash"
+                      ? "Tiền mặt tại sân"
+                      : method === "transfer"
+                        ? "Chuyển khoản"
+                        : "Ví Momo"}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Nút xác nhận */}
+          <Button
+            onClick={handleSubmit}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition"
+          >
+            Hoàn tất thanh toán
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+>>>>>>> 1804cb02766f81211a573045714b8fdb5d8c102f
 };
 
 export default Checkout;
