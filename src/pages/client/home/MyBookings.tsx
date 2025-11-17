@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { format } from 'date-fns';
-import vi from 'date-fns/locale/vi';
+import { vi } from 'date-fns/locale';
 import { Button, Tag, Spin, Empty } from 'antd';
 import { ToastContainer, toast } from 'react-toastify';
 import api from '@/common/utils/api';
@@ -32,7 +32,7 @@ const MyBookings: React.FC = () => {
     const [activeStatus, setActiveStatus] = useState<string>('all');
     const socketRef = useRef<Socket | null>(null);
 
-    //  Fetch danh sách đặt sân
+    // Fetch danh sách đặt sân
     const fetchBookings = async () => {
         try {
             const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -41,6 +41,7 @@ const MyBookings: React.FC = () => {
 
             const res = await api.get(`/bookings/user/${userId}`);
             const data = res.data;
+
             if (data?.success) {
                 const sorted = [...data.data].sort(
                     (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -57,9 +58,9 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    //  Kết nối socket + join phòng các sân user đã đặt
+    // Kết nối socket + lắng nghe booking_updated
     useEffect(() => {
-        fetchBookings(); // gọi 1 lần duy nhất khi mở trang
+        fetchBookings(); // gọi 1 lần khi mở trang
 
         const socket = io('http://localhost:3000', {
             transports: ['websocket'],
@@ -68,10 +69,9 @@ const MyBookings: React.FC = () => {
         socketRef.current = socket;
 
         socket.on('connect', () => {
-            console.log('✅ Socket connected:', socket.id);
+            console.log(' Socket connected:', socket.id);
         });
 
-        // Khi BE emit cập nhật (booking_updated)
         socket.on('booking_updated', (data) => {
             console.log(' Nhận sự kiện cập nhật:', data);
             fetchBookings();
@@ -81,7 +81,6 @@ const MyBookings: React.FC = () => {
             });
         });
 
-        // Cleanup khi component unmount
         return () => {
             socket.off('booking_updated');
             socket.disconnect();
@@ -89,7 +88,7 @@ const MyBookings: React.FC = () => {
         };
     }, []);
 
-    //  Sau khi có bookings → join tất cả phòng sân tương ứng
+    // Sau khi có bookings → join tất cả phòng sân tương ứng
     useEffect(() => {
         if (bookings.length && socketRef.current) {
             bookings.forEach((b) => {
@@ -101,14 +100,14 @@ const MyBookings: React.FC = () => {
         }
     }, [bookings]);
 
-    //  Lọc theo trạng thái
+    // Lọc theo trạng thái
     const handleFilter = (status: string) => {
         setActiveStatus(status);
         if (status === 'all') setFiltered(bookings);
         else setFiltered(bookings.filter((b) => b.status === status));
     };
 
-    //  Loading state
+    // Loading state
     if (loading)
         return (
             <div className='flex justify-center items-center h-screen'>
@@ -116,7 +115,7 @@ const MyBookings: React.FC = () => {
             </div>
         );
 
-    //  Render giao diện
+    // Render giao diện
     return (
         <div className='min-h-screen bg-gray-50 py-12'>
             <ToastContainer position='top-right' autoClose={2500} theme='colored' />
