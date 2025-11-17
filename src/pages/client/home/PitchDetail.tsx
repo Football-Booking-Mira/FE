@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import BookingTimeSelector from '@/components/BookingTimeSelector';
 import { toast, ToastContainer } from 'react-toastify';
-import { CheckCircle2, XCircle } from 'lucide-react';
 import 'react-toastify/dist/ReactToastify.css';
 
 const socket = io('http://localhost:3000');
@@ -74,91 +73,21 @@ const PitchDetail: React.FC = () => {
         };
     }, [id]);
 
-    // === Đặt sân ===
-    const handleBooking = async () => {
-        if (!selectedSlot || !court?._id) return;
+    //  Đặt sân: CHỈ lưu dữ liệu và chuyển sang /checkout
+    const handleBooking = () => {
+        if (!selectedSlot || !court?._id) {
+            toast.error('Vui lòng chọn khung giờ trước khi đặt sân!');
+            return;
+        }
 
-        try {
-            const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-            if (!user?._id) {
-                toast.error('Vui lòng đăng nhập trước khi đặt sân!', {
-                    position: 'top-right',
-                    theme: 'colored',
-                    icon: false,
-                    style: {
-                        backgroundColor: '#dc2626',
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: '15px',
-                        borderRadius: '10px',
-                        padding: '12px 16px',
-                    },
-                });
-                return navigate('/login');
-            }
-
-            const res = await fetch('http://localhost:3000/api/bookings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${user.token}`,
-                },
-                body: JSON.stringify({
-                    courtId: court._id,
-                    customerId: user._id,
-                    date: selectedSlot.date,
-                    startTime: selectedSlot.startTime,
-                    endTime: selectedSlot.endTime,
-                    paymentMethod: 'cash',
-                    note: '',
-                }),
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-                toast.success('⚽ Đặt sân thành công!', {
-                    position: 'top-right',
-                    autoClose: 2500,
-                    closeOnClick: true,
-                    pauseOnHover: true,
-                    draggable: true,
-                    theme: 'colored',
-                    icon: false,
-                    style: {
-                        backgroundColor: '#16a34a',
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: '15px',
-                        borderRadius: '10px',
-                        padding: '12px 16px',
-                    },
-                });
-                setTimeout(() => navigate('/my-bookings'), 2500);
-            } else {
-                toast.error(data.message || 'Đặt sân thất bại!', {
-                    position: 'top-right',
-                    theme: 'colored',
-                    icon: false,
-                    style: {
-                        backgroundColor: '#dc2626',
-                        color: '#fff',
-                        fontWeight: 600,
-                        fontSize: '15px',
-                        borderRadius: '10px',
-                        padding: '12px 16px',
-                    },
-                });
-            }
-        } catch (err) {
-            console.error('Lỗi khi đặt sân:', err);
-            toast.error('Có lỗi xảy ra khi đặt sân!', {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (!user?._id || !user?.token) {
+            toast.error('Vui lòng đăng nhập trước khi đặt sân!', {
                 position: 'top-right',
                 theme: 'colored',
                 icon: false,
                 style: {
-                    backgroundColor: '#b91c1c',
+                    backgroundColor: '#dc2626',
                     color: '#fff',
                     fontWeight: 600,
                     fontSize: '15px',
@@ -166,10 +95,31 @@ const PitchDetail: React.FC = () => {
                     padding: '12px 16px',
                 },
             });
+            return navigate('/login');
         }
+
+        // Lưu dữ liệu cần cho thanh toán
+        const checkoutData = {
+            courtId: court._id,
+            courtName: court.name,
+            date: selectedSlot.date,
+            startTime: selectedSlot.startTime,
+            endTime: selectedSlot.endTime,
+            totalPrice: selectedSlot.price,
+            // bookingId: sẽ được thêm sau khi tạo booking ở trang Checkout
+        };
+
+        localStorage.setItem('checkout-data', JSON.stringify(checkoutData));
+
+        toast.success('Vui lòng hoàn tất thanh toán để xác nhận đặt sân!', {
+            position: 'top-right',
+            autoClose: 1500,
+            theme: 'colored',
+        });
+
+        navigate('/checkout');
     };
 
-    //  Giao diện
     if (loading) return <p className='text-center mt-10 text-gray-600'>Đang tải dữ liệu...</p>;
     if (!court) return <p className='text-center mt-10 text-gray-600'>Không tìm thấy sân.</p>;
 
@@ -178,7 +128,7 @@ const PitchDetail: React.FC = () => {
             <ToastContainer newestOnTop />
 
             <div className='max-w-[1600px] mx-auto grid grid-cols-[2fr_1fr] gap-10'>
-                {/* === CỘT TRÁI === */}
+                {/*  CỘT TRÁI  */}
                 <div className='bg-white shadow-sm rounded-2xl p-8 space-y-10'>
                     <h1 className='text-3xl font-bold text-gray-800 mb-4'>{court.name}</h1>
 
@@ -217,7 +167,7 @@ const PitchDetail: React.FC = () => {
                     />
                 </div>
 
-                {/* === CỘT PHẢI === */}
+                {/*  CỘT PHẢI  */}
                 <div className='bg-white shadow rounded-2xl p-8 border border-gray-200 h-fit'>
                     <h3 className='text-2xl font-bold text-gray-900 mb-6'>Tóm tắt đặt sân</h3>
 
@@ -350,7 +300,8 @@ const PitchDetail: React.FC = () => {
                     </button>
 
                     <p className='text-xs text-gray-400 mt-10 leading-relaxed italic border-t border-gray-100 pt-5'>
-                        * Đặt sân cần được xác nhận bởi chủ sân <br />* Có thể hủy trước 2 giờ
+                        * Đặt sân chỉ được xác nhận sau khi thanh toán thành công VNPay <br />* Có
+                        thể hủy trước 2 giờ
                         <br />* Thời tiết xấu sẽ được hỗ trợ sắp xếp lại
                     </p>
                 </div>
