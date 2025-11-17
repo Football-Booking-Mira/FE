@@ -135,7 +135,7 @@ const Header = () => {
                 }}
             >
                 <Link to='/' style={{ color: '#22c55e', textDecoration: 'none' }}>
-                    FPOLY
+                    MIRA
                 </Link>
             </div>
 
