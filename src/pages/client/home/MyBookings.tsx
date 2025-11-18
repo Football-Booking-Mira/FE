@@ -31,6 +31,18 @@ const MyBookings: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeStatus, setActiveStatus] = useState<string>('all');
     const socketRef = useRef<Socket | null>(null);
+    const handleCancel = async (bookingId: string) => {
+        try {
+            await api.patch(`/bookings/${bookingId}/cancel`);
+            toast.success('Hủy đặt sân thành công!', {
+                autoClose: 1500,
+                style: { backgroundColor: '#dc2626', color: '#fff' },
+            });
+            fetchBookings();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || err.message || 'Không thể hủy đặt sân!');
+        }
+    };
 
     // Fetch danh sách đặt sân
     const fetchBookings = async () => {
@@ -174,7 +186,12 @@ const MyBookings: React.FC = () => {
                                         {booking.total.toLocaleString('vi-VN')} ₫
                                     </p>
                                     {booking.status === 'pending' && (
-                                        <Button danger type='primary' size='middle'>
+                                        <Button
+                                            danger
+                                            type='primary'
+                                            size='middle'
+                                            onClick={() => handleCancel(booking._id)}
+                                        >
                                             Hủy đặt sân
                                         </Button>
                                     )}
