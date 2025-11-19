@@ -300,8 +300,7 @@ const PitchDetail: React.FC = () => {
                     </button>
 
                     <p className='text-xs text-gray-400 mt-10 leading-relaxed italic border-t border-gray-100 pt-5'>
-                        * Đặt sân chỉ được xác nhận sau khi thanh toán thành công VNPay <br />* Có
-                        thể hủy trước 2 giờ
+                        * Có thể hủy trước 2 giờ
                         <br />* Thời tiết xấu sẽ được hỗ trợ sắp xếp lại
                     </p>
                 </div>
