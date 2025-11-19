@@ -1,12 +1,9 @@
+import type { RouteObject } from 'react-router-dom';
 import MainLayout from '@/layouts/MainLayout';
 import HomePage from '@/pages/client/home/HomePage';
-
 import { VerifyPage } from '@/pages/auth/VerifyPage';
 import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage';
 import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage';
-import type { RouteObject } from 'react-router';
-
-import { Contact } from 'lucide-react';
 import Checkout from '@/pages/client/home/Checkout';
 import PitchDetail from '@/pages/client/home/PitchDetail';
 import MyBookings from '@/pages/client/home/MyBookings';
@@ -14,46 +11,17 @@ import PaymentSuccessPage from '@/pages/client/home/PaymentSuccessPage';
 
 export const PublicRoutes: RouteObject[] = [
     {
-        path: '',
+        path: '/',
         element: <MainLayout />,
         children: [
-            {
-                index: true,
-                element: <HomePage />,
-            },
-            {
-                path: 'my-bookings',
-                element: <MyBookings />,
-            },
-            {
-                path: 'checkout',
-                element: <Checkout />,
-            },
-
-            {
-                path: 'contact',
-                element: <Contact />,
-            },
-            {
-                path: 'pitch/:id',
-                element: <PitchDetail />,
-            },
-            {
-                path: 'verify',
-                element: <VerifyPage />,
-            },
-            {
-                path: 'reset-password',
-                element: <ResetPasswordPage />,
-            },
-            {
-                path: 'verify-email',
-                element: <VerifyEmailPage />,
-            },
-            {
-                path: 'payment-return',
-                element: <PaymentSuccessPage />,
-            }
+            { index: true, element: <HomePage /> },
+            { path: 'pitch/:id', element: <PitchDetail /> },
+            { path: 'checkout', element: <Checkout /> },
+            { path: 'my-bookings', element: <MyBookings /> },
+            { path: 'verify', element: <VerifyPage /> },
+            { path: 'verify-email', element: <VerifyEmailPage /> },
+            { path: 'reset-password', element: <ResetPasswordPage /> },
+            { path: 'payment-return', element: <PaymentSuccessPage /> },
         ],
     },
 ];
