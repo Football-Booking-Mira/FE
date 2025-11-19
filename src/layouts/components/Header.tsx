@@ -1,18 +1,21 @@
 import { Layout, Menu, Button, Dropdown, Avatar, Space, Drawer } from 'antd';
 import { MenuOutlined, UserOutlined, LogoutOutlined } from '@ant-design/icons';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '@/common/contexts';
 import { AuthModals } from '@/components/AuthModals';
+import type { MenuProps } from 'antd';
 
 const Header = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { isAuthenticated, userName, userRole, logout } = useAuth();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-    const menuItems = [
+    // Menu chính (dùng path làm key cho khớp selectedKeys)
+    const menuItems: MenuProps['items'] = [
         {
-            key: '1',
+            key: '/',
             label: (
                 <Link
                     to='/'
@@ -24,7 +27,7 @@ const Header = () => {
             ),
         },
         {
-            key: '2',
+            key: '/my-bookings',
             label: (
                 <Link
                     to='/my-bookings'
@@ -36,7 +39,7 @@ const Header = () => {
             ),
         },
         {
-            key: '3',
+            key: '/lich-thi-dau',
             label: (
                 <Link
                     to='/lich-thi-dau'
@@ -48,7 +51,7 @@ const Header = () => {
             ),
         },
         {
-            key: '4',
+            key: '/bang-gia',
             label: (
                 <Link
                     to='/bang-gia'
@@ -60,7 +63,7 @@ const Header = () => {
             ),
         },
         {
-            key: '5',
+            key: '/contact',
             label: (
                 <Link
                     to='/contact'
@@ -73,18 +76,28 @@ const Header = () => {
         },
     ];
 
+    // Thêm item Admin nếu là admin (key khác, không bị trùng)
     if (userRole === 'admin') {
         menuItems.push({
-            key: '2',
+            key: '/admin',
             label: (
-                <Link to='/admin' style={{ color: 'inherit', textDecoration: 'none' }}>
+                <Link
+                    to='/admin'
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                    className='text-gray-800 hover:text-green-600 font-semibold text-[25px] tracking-wide transition-colors duration-300'
+                >
                     Quản lý
                 </Link>
             ),
         });
     }
 
-    const userMenuItems = [
+    // key đang được chọn (nếu không match thì để '/')
+    const selectedKey = menuItems.some((item) => item && item.key === location.pathname)
+        ? location.pathname
+        : '/';
+
+    const userMenuItems: MenuProps['items'] = [
         {
             key: 'profile',
             label: (
@@ -95,10 +108,7 @@ const Header = () => {
             ),
             onClick: () => navigate('/profile'),
         },
-        {
-            key: 'divider',
-            type: 'divider' as const,
-        },
+        { type: 'divider' },
         {
             key: 'logout',
             label: (
@@ -126,6 +136,7 @@ const Header = () => {
                 zIndex: 50,
             }}
         >
+            {/* Logo */}
             <div
                 style={{
                     fontSize: 20,
@@ -150,12 +161,14 @@ const Header = () => {
                         display: 'flex',
                         gap: '32px',
                     }}
-                    selectedKeys={[window.location.pathname]}
+                    selectedKeys={[selectedKey]}
                 />
             </div>
 
-            <div style={{ flex: 1 }}></div>
+            {/* Spacer bên phải cho cân layout */}
+            <div style={{ flex: 1 }} />
 
+            {/* Auth + Avatar + Drawer button */}
             <Space size='large' style={{ display: 'flex', alignItems: 'center' }}>
                 {isAuthenticated ? (
                     <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
@@ -183,6 +196,7 @@ const Header = () => {
                 />
             </Space>
 
+            {/* Drawer cho mobile */}
             <Drawer
                 title='Menu'
                 onClose={() => setIsDrawerOpen(false)}
@@ -193,6 +207,7 @@ const Header = () => {
                     mode='vertical'
                     items={menuItems}
                     style={{ border: 'none' }}
+                    selectedKeys={[selectedKey]}
                     onClick={() => setIsDrawerOpen(false)}
                 />
             </Drawer>
