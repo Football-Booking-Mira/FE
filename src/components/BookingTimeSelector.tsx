@@ -1,15 +1,17 @@
-import React, { useEffect, useState } from 'react';
+// src/components/BookingTimeSelector.tsx
+import React, { useEffect, useState, useCallback } from 'react';
+import { io } from 'socket.io-client';
 
 interface Props {
     courtId: string;
-    basePrice: number; // Giá thường
-    peakPrice: number; // Giá cao điểm
+    basePrice: number;
+    peakPrice: number;
     onSlotSelected: (slot: {
         date: string;
         startTime: string;
         endTime: string;
         price: number;
-        duration: number; // Tổng thời gian đá thực tế (phút)
+        duration: number;
     }) => void;
 }
 
@@ -17,35 +19,42 @@ interface BookedSlot {
     date: string;
     startTime: string;
     endTime: string;
+    status: string;
 }
 
-// --- CẤU HÌNH ---
+// ===== CẤU HÌNH =====
 const START_HOUR = 6;
 const SLOT_DURATION = 60; // 1 ca 60 phút
-const BREAK_DURATION = 15; // Nghỉ 15 phút
-const PEAK_START = 16; // 16h bắt đầu tính giá cao điểm
+const BREAK_DURATION = 15; // nghỉ 15p
+const PEAK_START = 16; // sau 16h là cao điểm
 
-// Helper: Đổi phút -> HH:MM
+// 👉 socket dùng chung
+const socket = io('http://localhost:3000', {
+    transports: ['websocket', 'polling'],
+    withCredentials: true,
+});
+
+// helper phút -> HH:MM
 const minToTime = (min: number) => {
     const h = Math.floor(min / 60);
     const m = min % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-// Helper: Đổi HH:MM -> Phút
+// helper HH:MM -> phút
 const timeToMin = (time: string) => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
 };
 
-// Helper: Format hiển thị "6h" hoặc "7h15"
+// hiển thị 6h / 7h15
 const formatDisplayTime = (time: string) => {
     const [h, m] = time.split(':').map(Number);
-    if (m === 0) return `${h}h`; // 6:00 -> 6h
-    return `${h}h${m}`; // 7:15 -> 7h15
+    if (m === 0) return `${h}h`;
+    return `${h}h${m}`;
 };
 
-// Helper: Lấy ngày hiện tại (YYYY-MM-DD) theo giờ địa phương
+// yyyy-mm-dd hôm nay
 const getLocalDateStr = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -54,16 +63,15 @@ const getLocalDateStr = () => {
     return `${year}-${month}-${day}`;
 };
 
-// Helper: Chuyển YYYY-MM-DD sang DD/MM/YYYY để hiển thị
 const formatDateToVN = (dateStr: string) => {
     if (!dateStr) return '';
     const [y, m, d] = dateStr.split('-');
     return `${d}/${m}/${y}`;
 };
 
-// --- TẠO LIST CA ---
+// tạo toàn bộ list ca
 const generateSlots = () => {
-    const slots = [];
+    const slots: { start: string; end: string }[] = [];
     let current = START_HOUR * 60;
     const endDay = 23 * 60;
 
@@ -90,23 +98,47 @@ const BookingTimeSelector: React.FC<Props> = ({
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
     const [totalPrice, setTotalPrice] = useState(0);
 
+    // ===== fetch slot đã đặt (dùng lại cho socket) =====
+    const fetchBooked = useCallback(async () => {
+        if (!courtId || !selectedDateStr) return;
+        try {
+            const res = await fetch(
+                `http://localhost:3000/api/bookings/court/${courtId}?startDate=${selectedDateStr}&endDate=${selectedDateStr}`
+            );
+            const data = await res.json();
+            if (data.success) setBookedSlots(data.data || []);
+        } catch (e) {
+            console.error(e);
+        }
+    }, [courtId, selectedDateStr]);
+
+    // lần đầu / đổi ngày -> gọi API
     useEffect(() => {
-        const fetchBooked = async () => {
-            try {
-                const res = await fetch(
-                    `http://localhost:3000/api/bookings/court/${courtId}?startDate=${selectedDateStr}&endDate=${selectedDateStr}`
-                );
-                const data = await res.json();
-                if (data.success) setBookedSlots(data.data || []);
-            } catch (e) {
-                console.error(e);
-            }
-        };
-        fetchBooked();
         setRangeStart('');
         setRangeEnd('');
         setTotalPrice(0);
-    }, [selectedDateStr, courtId]);
+        fetchBooked();
+    }, [fetchBooked]);
+
+    // ===== nghe socket: booking_updated => refetch =====
+    useEffect(() => {
+        if (!courtId) return;
+
+        socket.emit('join:court', courtId);
+
+        const handleBookingUpdated = (payload: { courtId: string; date: string }) => {
+            if (String(payload.courtId) === String(courtId) && payload.date === selectedDateStr) {
+                fetchBooked();
+            }
+        };
+
+        socket.on('booking_updated', handleBookingUpdated);
+
+        return () => {
+            socket.off('booking_updated', handleBookingUpdated);
+            socket.emit('leave:court', courtId);
+        };
+    }, [courtId, selectedDateStr, fetchBooked]);
 
     const isBooked = (s: string, e: string) => {
         const sMin = timeToMin(s);
@@ -169,6 +201,7 @@ const BookingTimeSelector: React.FC<Props> = ({
         const currentSlot = TIME_SLOTS.find((t) => t.start === rangeStart);
         const isSingleSlotSelected = currentSlot && currentSlot.end === rangeEnd;
 
+        // bỏ chọn
         if (s === rangeStart && e === rangeEnd) {
             setRangeStart('');
             setRangeEnd('');
@@ -214,6 +247,7 @@ const BookingTimeSelector: React.FC<Props> = ({
         setRangeEnd(newEnd);
     };
 
+    // tính tiền mỗi khi đổi range
     useEffect(() => {
         if (!rangeStart || !rangeEnd) {
             setTotalPrice(0);
@@ -221,6 +255,7 @@ const BookingTimeSelector: React.FC<Props> = ({
         }
         let total = 0;
         let validSlotsCount = 0;
+
         TIME_SLOTS.forEach((slot) => {
             const sMin = timeToMin(slot.start);
             const eMin = timeToMin(slot.end);
@@ -233,31 +268,33 @@ const BookingTimeSelector: React.FC<Props> = ({
                 validSlotsCount++;
             }
         });
+
         setTotalPrice(total);
-        if (rangeStart && rangeEnd) {
-            onSlotSelected({
-                date: selectedDateStr,
-                startTime: rangeStart,
-                endTime: rangeEnd,
-                price: total,
-                duration: validSlotsCount * 60,
-            });
-        }
-    }, [rangeStart, rangeEnd, selectedDateStr]);
+
+        onSlotSelected({
+            date: selectedDateStr,
+            startTime: rangeStart,
+            endTime: rangeEnd,
+            price: total,
+            duration: validSlotsCount * 60,
+        });
+    }, [rangeStart, rangeEnd, selectedDateStr, basePrice, peakPrice, onSlotSelected]);
 
     return (
         <div className='w-full max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-4 font-sans'>
+            {/* HEADER + NOTE 15P NGHỈ */}
             <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3'>
-                <h3 className='text-lg font-bold text-gray-800'>Chọn khung giờ</h3>
-                <div className='bg-yellow-50 text-yellow-800 px-3 py-1 rounded-lg border border-yellow-200 flex items-center gap-2 shadow-sm'>
-                    <span className='text-base'>⚠️</span>
-                    <span className='font-bold text-xs'>
-                        Có {BREAK_DURATION}p nghỉ dọn sân giữa các ca
+                <h2 className='text-xl font-bold text-gray-900'>Chọn khung giờ</h2>
+
+                <div className='bg-yellow-50 text-yellow-800 px-3 py-1 rounded-lg border border-yellow-200 flex items-center gap-2 shadow-sm text-xs md:text-[13px]'>
+                    <span>⚠️</span>
+                    <span className='font-semibold'>
+                        Có {BREAK_DURATION} phút nghỉ dọn sân giữa các ca
                     </span>
                 </div>
             </div>
 
-            {/* Filters */}
+            {/* FILTER */}
             <div className='grid grid-cols-1 md:grid-cols-3 gap-3 mb-5'>
                 <div>
                     <label className='block text-xs font-semibold text-gray-600 mb-1'>
@@ -333,7 +370,7 @@ const BookingTimeSelector: React.FC<Props> = ({
                 * Click vào ô giờ để chọn. Click thêm ca khác để chọn nhiều ca liền kề.
             </p>
 
-            {/* GRID */}
+            {/* GRID GIỜ */}
             <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-4'>
                 {TIME_SLOTS.map((slot, index) => {
                     const past = isPast(slot.start);
@@ -381,11 +418,9 @@ const BookingTimeSelector: React.FC<Props> = ({
                             )}
 
                             {booked && (
-                                <div className='flex flex-col items-center animate-pulse'>
-                                    <span className='text-[9px] font-extrabold uppercase tracking-wider bg-red-700 text-white px-2 py-0.5 rounded mt-1'>
-                                        ĐÃ ĐẶT
-                                    </span>
-                                </div>
+                                <span className='text-[9px] font-extrabold uppercase tracking-wide bg-red-700 text-white px-2 py-0.5 rounded mt-1'>
+                                    ĐÃ ĐẶT
+                                </span>
                             )}
 
                             {past && !booked && (
@@ -404,65 +439,38 @@ const BookingTimeSelector: React.FC<Props> = ({
                 })}
             </div>
 
-            {/* FOOTER - FIX LỖI ĐÈ CHỮ */}
+            {/* TỔNG TIỀN */}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-                {/* CỘT 1: KHUNG GIỜ */}
-                {/* Sửa: bỏ h-[70px], dùng min-h để tự giãn, thêm py-3 để thoáng */}
                 <div className='bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-3 shadow-sm min-h-[70px]'>
                     <div className='bg-blue-600 text-white p-2 rounded-full shadow-md shrink-0'>
-                        <svg
-                            xmlns='http://www.w3.org/2000/svg'
-                            className='h-4 w-4'
-                            fill='none'
-                            viewBox='0 0 24 24'
-                            stroke='currentColor'
-                        >
-                            <path
-                                strokeLinecap='round'
-                                strokeLinejoin='round'
-                                strokeWidth={2}
-                                d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
-                            />
-                        </svg>
+                        ⏱
                     </div>
-                    <div className='flex-1 min-w-0'>
-                        <p className='text-[10px] text-blue-700 font-bold uppercase tracking-wide mb-1 truncate'>
+                    <div className='flex-1'>
+                        <p className='text-[10px] text-blue-700 font-bold uppercase tracking-wide mb-1'>
                             KHUNG GIỜ ĐÃ CHỌN
                         </p>
-                        <div className='flex flex-col'>
-                            <p className='text-blue-900 font-bold text-lg leading-tight break-words'>
-                                {rangeStart && rangeEnd
-                                    ? `${formatDisplayTime(rangeStart)} - ${formatDisplayTime(
-                                          rangeEnd
-                                      )}`
-                                    : '--:--'}
-                            </p>
-                            {rangeStart && rangeEnd && (
-                                <span className='text-[9px] text-blue-500 font-medium mt-0.5 truncate'>
-                                    (Đã bao gồm nghỉ {BREAK_DURATION}p)
-                                </span>
-                            )}
-                        </div>
+                        <p className='text-blue-900 font-bold text-lg'>
+                            {rangeStart && rangeEnd
+                                ? `${formatDisplayTime(rangeStart)} - ${formatDisplayTime(
+                                      rangeEnd
+                                  )}`
+                                : '--:--'}
+                        </p>
                     </div>
                 </div>
 
-                {/* CỘT 2: TỔNG TIỀN */}
-                {/* Sửa: bỏ h-[70px], dùng min-h, layout flex-col thoáng hơn */}
                 <div className='bg-green-50 border border-green-200 rounded-lg p-3 flex flex-col justify-center shadow-sm min-h-[70px]'>
-                    <div className='flex justify-between items-center mb-1 gap-2'>
-                        <p className='text-[10px] text-green-700 font-bold uppercase tracking-wide whitespace-nowrap'>
+                    <div className='flex justify-between items-center mb-1'>
+                        <p className='text-[10px] text-green-700 font-bold uppercase tracking-wide'>
                             TỔNG TIỀN DỰ KIẾN
                         </p>
-                        <span className='text-[9px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-bold shrink-0'>
+                        <span className='text-[9px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-bold'>
                             VNĐ
                         </span>
                     </div>
-
-                    <div className='flex items-end justify-between mt-1 gap-2'>
-                        <p className='text-[9px] text-green-600 leading-tight max-w-[60%]'>
-                            (Giá cao điểm từ {PEAK_START}h)
-                        </p>
-                        <p className='text-xl font-black text-green-700 leading-none'>
+                    <div className='flex items-end justify-between mt-1'>
+                        <p className='text-[9px] text-green-600'>(Giá cao điểm từ {PEAK_START}h)</p>
+                        <p className='text-xl font-black text-green-700'>
                             {totalPrice.toLocaleString('vi-VN')}
                         </p>
                     </div>

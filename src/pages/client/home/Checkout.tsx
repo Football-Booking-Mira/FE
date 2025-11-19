@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,8 @@ interface CheckoutData {
     courtId: string;
     courtName: string;
     date: string; // ISO string
-    startTime: string; // "16:00"
-    endTime: string; // "18:00"
+    startTime: string;
+    endTime: string;
     totalPrice: number;
     bookingId?: string;
 }
@@ -24,11 +24,9 @@ const formatDate = (value: string) => {
 
 const formatCurrency = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)} VNĐ`;
 
-// regex đơn giản cho email
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Checkout: React.FC = () => {
-    const location = useLocation();
     const navigate = useNavigate();
 
     const [bookingData, setBookingData] = useState<CheckoutData | null>(() => {
@@ -36,7 +34,10 @@ const Checkout: React.FC = () => {
     });
 
     useEffect(() => {
-        if (!bookingData) navigate('/booking');
+        if (!bookingData) {
+            toast.error('Không có thông tin đặt sân, đang điều hướng về trang chủ...');
+            navigate('/');
+        }
     }, [bookingData, navigate]);
 
     const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo'>('vnpay');
@@ -55,19 +56,18 @@ const Checkout: React.FC = () => {
 
         const newErrors: typeof errors = {};
 
-        // Họ tên
-        if (!name.trim()) newErrors.name = 'Vui lòng nhập họ và tên';
-
-        // SĐT: bắt buộc, chỉ 10 chữ số
+        const nameTrim = name.trim();
         const phoneTrim = phone.trim();
+        const emailTrim = email.trim();
+
+        if (!nameTrim) newErrors.name = 'Vui lòng nhập họ và tên';
+
         if (!phoneTrim) {
             newErrors.phone = 'Vui lòng nhập số điện thoại';
         } else if (!/^\d{10}$/.test(phoneTrim)) {
             newErrors.phone = 'Số điện thoại phải gồm đúng 10 chữ số (0–9)';
         }
 
-        // Email: bắt buộc + đúng format
-        const emailTrim = email.trim();
         if (!emailTrim) {
             newErrors.email = 'Vui lòng nhập email';
         } else if (!emailRegex.test(emailTrim)) {
@@ -84,7 +84,8 @@ const Checkout: React.FC = () => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (!user?.token || !user?._id) {
             toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại!');
-            return navigate('/login');
+            navigate('/login');
+            return;
         }
 
         try {
@@ -176,11 +177,6 @@ const Checkout: React.FC = () => {
 
     if (!bookingData) return null;
 
-    // để dùng trong body Booking
-    const nameTrim = name.trim();
-    const phoneTrim = phone.trim();
-    const emailTrim = email.trim();
-
     return (
         <div className='min-h-screen bg-white flex justify-center items-start py-12 px-4'>
             <Card className='w-full max-w-2xl shadow-2xl rounded-3xl overflow-hidden'>
@@ -245,7 +241,6 @@ const Checkout: React.FC = () => {
                                 <Label htmlFor='phone'>Số điện thoại</Label>
                                 <Input
                                     id='phone'
-                                    // chỉ cho nhập số & tối đa 10 ký tự
                                     value={phone}
                                     onChange={(e) => {
                                         const raw = e.target.value.replace(/\D/g, '');

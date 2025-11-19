@@ -1,16 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import BookingTimeSelector from '@/components/BookingTimeSelector';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const socket = io('http://localhost:3000');
-
 interface Court {
     _id: string;
     name: string;
-    type: string;
+    type: string; // indoor | outdoor | vip
     formats?: string[] | string;
     location?: string;
     basePrice: number;
@@ -20,6 +18,14 @@ interface Court {
     openHours?: string;
     totalCourts?: number;
     amenities?: string[];
+}
+
+interface SelectedSlot {
+    date: string;
+    startTime: string;
+    endTime: string;
+    price: number;
+    duration: number; // phút
 }
 
 function formatVNDate(date: Date): string {
@@ -36,44 +42,63 @@ const PitchDetail: React.FC = () => {
 
     const [court, setCourt] = useState<Court | null>(null);
     const [loading, setLoading] = useState(true);
-    const [selectedSlot, setSelectedSlot] = useState<{
-        date: string;
-        startTime: string;
-        endTime: string;
-        price: number;
-    } | null>(null);
+    const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
     const [currentImage, setCurrentImage] = useState(0);
 
-    //  Lấy chi tiết sân
-    useEffect(() => {
-        const fetchCourt = async () => {
-            try {
-                const res = await fetch(`http://localhost:3000/api/courts/${id}`);
-                const data = await res.json();
+    const socketRef = useRef<Socket | null>(null);
+
+    // ===== LẤY CHI TIẾT SÂN =====
+    const fetchCourt = useCallback(async () => {
+        if (!id) return;
+        try {
+            const res = await fetch(`http://localhost:3000/api/courts/${id}`);
+            const data = await res.json();
+            if (data?.success && data.data) {
                 setCourt(data.data);
-            } catch (err) {
-                console.error('Lỗi tải sân:', err);
-            } finally {
-                setLoading(false);
+                setCurrentImage(0);
+            } else {
+                toast.error('Không tìm thấy sân!');
+                setCourt(null);
             }
-        };
-        fetchCourt();
+        } catch (err) {
+            console.error('Lỗi tải sân:', err);
+            toast.error('Lỗi tải thông tin sân!');
+        } finally {
+            setLoading(false);
+        }
     }, [id]);
 
-    //  Socket cập nhật realtime
+    useEffect(() => {
+        fetchCourt();
+    }, [fetchCourt]);
+
+    // ===== SOCKET REALTIME =====
     useEffect(() => {
         if (!id) return;
-        socket.emit('join:court', id);
-        socket.on('court:updated', (payload: any) => {
-            if (payload.courtId === id) setCourt(payload.court);
+
+        const socket = io('http://localhost:3000', {
+            transports: ['websocket', 'polling'],
+            withCredentials: true,
         });
+
+        socketRef.current = socket;
+
+        socket.emit('join:court', id);
+
+        socket.on('court:updated', (payload: any) => {
+            if (payload?.courtId === id && payload.court) {
+                setCourt(payload.court);
+            }
+        });
+
         return () => {
             socket.emit('leave:court', id);
             socket.off('court:updated');
+            socket.disconnect();
         };
     }, [id]);
 
-    //  Đặt sân: CHỈ lưu dữ liệu và chuyển sang /checkout
+    // ===== ĐẶT SÂN (CHUYỂN QUA CHECKOUT) =====
     const handleBooking = () => {
         if (!selectedSlot || !court?._id) {
             toast.error('Vui lòng chọn khung giờ trước khi đặt sân!');
@@ -95,10 +120,10 @@ const PitchDetail: React.FC = () => {
                     padding: '12px 16px',
                 },
             });
-            return navigate('/login');
+            navigate('/login');
+            return;
         }
 
-        // Lưu dữ liệu cần cho thanh toán
         const checkoutData = {
             courtId: court._id,
             courtName: court.name,
@@ -106,37 +131,50 @@ const PitchDetail: React.FC = () => {
             startTime: selectedSlot.startTime,
             endTime: selectedSlot.endTime,
             totalPrice: selectedSlot.price,
-            // bookingId: sẽ được thêm sau khi tạo booking ở trang Checkout
+            duration: selectedSlot.duration,
         };
 
+        // Lưu dữ liệu cho trang Checkout
         localStorage.setItem('checkout-data', JSON.stringify(checkoutData));
 
         toast.success('Vui lòng hoàn tất thanh toán để xác nhận đặt sân!', {
             position: 'top-right',
-            autoClose: 1500,
+            autoClose: 800,
             theme: 'colored',
         });
 
-        navigate('/checkout');
+        // Dùng reload full page => không cần F5 nữa
+        setTimeout(() => {
+            window.location.href = '/checkout';
+        }, 800);
     };
 
-    if (loading) return <p className='text-center mt-10 text-gray-600'>Đang tải dữ liệu...</p>;
-    if (!court) return <p className='text-center mt-10 text-gray-600'>Không tìm thấy sân.</p>;
+    if (loading) {
+        return <p className='text-center mt-10 text-gray-600'>Đang tải dữ liệu...</p>;
+    }
+
+    if (!court) {
+        return <p className='text-center mt-10 text-gray-600'>Không tìm thấy sân.</p>;
+    }
 
     return (
-        <div className='min-h-screen bg-gray-50 py-10 relative'>
+        <div className='min-h-screen bg-gray-50 py-10'>
             <ToastContainer newestOnTop />
 
-            <div className='max-w-[1600px] mx-auto grid grid-cols-[2fr_1fr] gap-10'>
-                {/*  CỘT TRÁI  */}
+            <div className='max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-10'>
+                {/* CỘT TRÁI */}
                 <div className='bg-white shadow-sm rounded-2xl p-8 space-y-10'>
                     <h1 className='text-3xl font-bold text-gray-800 mb-4'>{court.name}</h1>
 
-                    {/*  Ảnh sân  */}
+                    {/* ẢNH SÂN */}
                     <div className='space-y-4'>
                         <div className='rounded-xl overflow-hidden border border-gray-100 shadow'>
                             <img
-                                src={court.images?.[currentImage]}
+                                src={
+                                    court.images?.[currentImage] ||
+                                    court.images?.[0] ||
+                                    'https://picsum.photos/1200/600'
+                                }
                                 alt={`Sân ${currentImage + 1}`}
                                 className='w-full h-[400px] object-cover'
                             />
@@ -158,7 +196,7 @@ const PitchDetail: React.FC = () => {
                         </div>
                     </div>
 
-                    {/*  Bộ chọn giờ  */}
+                    {/* BỘ CHỌN GIỜ */}
                     <BookingTimeSelector
                         courtId={court._id}
                         basePrice={court.basePrice}
@@ -167,7 +205,7 @@ const PitchDetail: React.FC = () => {
                     />
                 </div>
 
-                {/*  CỘT PHẢI  */}
+                {/* CỘT PHẢI: TÓM TẮT */}
                 <div className='bg-white shadow rounded-2xl p-8 border border-gray-200 h-fit'>
                     <h3 className='text-2xl font-bold text-gray-900 mb-6'>Tóm tắt đặt sân</h3>
 
@@ -182,30 +220,30 @@ const PitchDetail: React.FC = () => {
                         <div className='flex justify-between border-b pb-1'>
                             <span>Tên sân:</span>
                             <span className='font-semibold text-gray-800'>
-                                {court?.name || '--'}
+                                {court.name || '--'}
                             </span>
                         </div>
 
                         <div className='flex justify-between border-b pb-1'>
                             <span>Loại sân:</span>
                             <span className='font-semibold'>
-                                {court?.type === 'indoor'
+                                {court.type === 'indoor'
                                     ? 'Trong nhà'
-                                    : court?.type === 'outdoor'
+                                    : court.type === 'outdoor'
                                     ? 'Ngoài trời'
-                                    : court?.type === 'vip'
+                                    : court.type === 'vip'
                                     ? 'VIP'
-                                    : '--'}
+                                    : court.type}
                             </span>
                         </div>
 
-                        {court?.formats && (
+                        {court.formats && (
                             <div className='flex justify-between border-b pb-1'>
                                 <span>Định dạng:</span>
                                 <span className='font-semibold text-right'>
                                     {Array.isArray(court.formats)
                                         ? court.formats.join(', ')
-                                        : court.formats || '--'}
+                                        : court.formats}
                                 </span>
                             </div>
                         )}
@@ -226,17 +264,14 @@ const PitchDetail: React.FC = () => {
                                     <span className='font-semibold'>
                                         {parseInt(selectedSlot.startTime) >= 16
                                             ? 'Giá cao điểm (16h – 22h)'
-                                            : 'Giá thường (08h – 16h)'}
+                                            : 'Giá thường (06h – 16h)'}
                                     </span>
                                 </div>
                                 <div className='flex justify-between border-b pb-1'>
                                     <span>Số giờ:</span>
                                     <span>
-                                        {selectedSlot?.startTime && selectedSlot?.endTime
-                                            ? `${
-                                                  parseInt(selectedSlot.endTime) -
-                                                  parseInt(selectedSlot.startTime)
-                                              } giờ`
+                                        {selectedSlot.duration
+                                            ? `${selectedSlot.duration / 60} giờ`
                                             : '0 giờ'}
                                     </span>
                                 </div>
@@ -246,20 +281,20 @@ const PitchDetail: React.FC = () => {
                         <div className='flex justify-between border-b pb-1'>
                             <span>Vị trí:</span>
                             <span className='font-semibold text-right'>
-                                {court?.location || 'Chưa có thông tin'}
+                                {court.location || 'Chưa có thông tin'}
                             </span>
                         </div>
 
                         <div className='flex justify-between border-b pb-1'>
                             <span>Giờ mở cửa:</span>
                             <span className='font-semibold text-right'>
-                                {court?.openHours || '06:00 - 22:00'}
+                                {court.openHours || '06:00 - 22:00'}
                             </span>
                         </div>
 
                         <div className='border-b pb-2'>
                             <span className='block font-medium mb-1'>Tiện ích:</span>
-                            {court?.amenities && court.amenities.length > 0 ? (
+                            {court.amenities && court.amenities.length > 0 ? (
                                 <div className='flex flex-wrap gap-2'>
                                     {court.amenities.map((a, idx) => (
                                         <span
@@ -279,7 +314,7 @@ const PitchDetail: React.FC = () => {
 
                         <div className='flex justify-between items-center text-green-700 font-extrabold text-xl border-t pt-3'>
                             <span>Tổng tiền:</span>
-                            <span className='text-green-700'>
+                            <span>
                                 {selectedSlot
                                     ? `${selectedSlot.price.toLocaleString('vi-VN')} VNĐ`
                                     : '0 VNĐ'}
