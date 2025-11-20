@@ -10,14 +10,20 @@ const api = axios.create({
 
 api.interceptors.request.use(
     (config) => {
-        // Lấy token từ localStorage (ưu tiên token riêng, nếu không thì lấy trong user)
         let accessToken = localStorage.getItem('token');
+
+        // Nếu không có thì thử lấy trong localStorage.user
         if (!accessToken) {
             const user = localStorage.getItem('user');
             if (user) {
                 const parsed = JSON.parse(user);
                 accessToken = parsed?.token || '';
             }
+        }
+
+        // Chặn luôn các giá trị rác
+        if (accessToken === 'undefined' || accessToken === 'null') {
+            accessToken = '';
         }
 
         if (accessToken && config.headers) {
@@ -33,10 +39,12 @@ api.interceptors.response.use(
     (response) => response,
     (error: AxiosError<any>) => {
         console.error('API Error:', error.response?.data || error.message);
+
         const message =
             (error.response?.data as any)?.message ||
             error.message ||
             'Lỗi không xác định từ server.';
+
         return Promise.reject(new Error(message));
     }
 );

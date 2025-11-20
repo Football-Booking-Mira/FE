@@ -9,22 +9,8 @@ export type ILoginPayload = {
     password: string;
 };
 
-export type ILoginResponse = {
-    message: string;
-    data: {
-        user: {
-            _id: string;
-            name: string;
-            phone: string;
-            email: string;
-            password: string;
-            role: string;
-            status: string;
-            avatar: string;
-        };
-        accessToken: string;
-    };
-};
+// Không quá gò type, vì BE đang đổi shape
+export type ILoginResponseAny = any;
 
 export const useLogin = (
     setStateOnSuccess: () => void,
@@ -35,46 +21,59 @@ export const useLogin = (
 
     return useMutation({
         mutationFn: async (values: ILoginPayload) => {
-            const response = await api.post<ILoginPayload, { data: ILoginResponse }>(
-                '/auth/login',
-                values
-            );
-            return response.data;
+            const response = await api.post('/auth/login', values);
+            // response.data chính là body BE trả về (createResponse)
+            return response.data as ILoginResponseAny;
         },
-        // onSuccess(data) {
-        //     const userWithToken = {
-        //         ...data.data.user,
-        //         token: data.data.accessToken,
-        //     };
-        //     setIsAuthenticated(true);
-        //     setUserName(data.data.user.name);
-        //     setUserRole(data.data.user.role);
+        onSuccess(res) {
+            console.log('🔍 Login raw response:', res);
 
-        //     message.success(data.message);
-        //     queryClient.resetQueries();
-        //     setStateOnSuccess();
-        // },
-        onSuccess(data) {
-            // Gộp token vào object user để tiện sử dụng
+            // res = { success, status, message, data: {...}, token? }
+            const envelope: any = res || {};
+            const inner: any = envelope.data || {};
+
+            // Lấy user từ data
+            const user =
+                inner.user ||
+                envelope.user || // phòng khi BE trả user ở ngoài
+                null;
+
+            // Lấy token thử theo nhiều khả năng
+            const accessToken =
+                inner.accessToken || // TH: data: { user, accessToken }
+                envelope.token || // TH: token nằm ngoài: { data: { user }, token }
+                inner.token || // phòng khi token nằm trong data.token
+                '';
+
+            console.log('🔑 Login accessToken:', accessToken);
+
+            if (!user || !accessToken) {
+                message.error('Không nhận được token từ server!');
+                return;
+            }
+
+            // Lưu token riêng
+            localStorage.setItem('token', accessToken);
+
+            // Gộp token vào user để FE dùng cho tiện
             const userWithToken = {
-                ...data.data.user,
-                token: data.data.accessToken,
+                ...user,
+                token: accessToken,
             };
-
             localStorage.setItem('user', JSON.stringify(userWithToken));
 
+            // Cập nhật context
             setIsAuthenticated(true);
-            setUserName(data.data.user.name);
-            setUserRole(data.data.user.role);
+            setUserName(user.name);
+            setUserRole(user.role);
 
-            message.success(data.message);
+            message.success(envelope.message || 'Đăng nhập thành công');
             queryClient.resetQueries();
             setStateOnSuccess();
         },
-
-        onError(res) {
-            if ((res as any).errors) {
-                const errMsg = handleErrMessage((res as any).errors as ApiError[]);
+        onError(res: any) {
+            if (res?.errors) {
+                const errMsg = handleErrMessage(res.errors as ApiError[]);
                 message.error(errMsg);
                 return;
             }
