@@ -294,24 +294,21 @@ const BookingTimeSelector: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* FILTER */}
+            {/* FILTER - ĐÃ SỬA PHẦN CHỌN NGÀY */}
             <div className='grid grid-cols-1 md:grid-cols-3 gap-3 mb-5'>
                 <div>
                     <label className='block text-xs font-semibold text-gray-600 mb-1'>
                         Chọn ngày
                     </label>
-                    <div className='relative w-full h-9'>
-                        <input
-                            type='date'
-                            value={selectedDateStr}
-                            onChange={(e) => setSelectedDateStr(e.target.value)}
-                            min={getLocalDateStr()}
-                            className='absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer'
-                        />
-                        <div className='absolute inset-0 w-full h-full bg-white border border-gray-300 rounded-lg px-3 flex items-center text-sm font-medium text-gray-700 pointer-events-none'>
-                            {formatDateToVN(selectedDateStr)}
-                            <span className='ml-auto text-gray-400 text-xs'>📅</span>
-                        </div>
+                    <input
+                        type='date'
+                        value={selectedDateStr}
+                        onChange={(e) => setSelectedDateStr(e.target.value)}
+                        min={getLocalDateStr()}
+                        className='w-full bg-white border border-gray-300 rounded-lg px-3 h-9 focus:ring-2 focus:ring-green-500 outline-none font-medium text-sm'
+                    />
+                    <div className='text-xs text-gray-500 mt-1'>
+                        Đã chọn: {formatDateToVN(selectedDateStr)}
                     </div>
                 </div>
 
