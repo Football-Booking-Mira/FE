@@ -86,7 +86,7 @@ export default function BookingList() {
         date: null as any,
     });
 
-    // 📊 Lấy thống kê tổng quan
+    // Lấy thống kê tổng quan
     const fetchStats = async () => {
         try {
             const res = await api.get('/bookings/admin/dashboard');
@@ -96,11 +96,12 @@ export default function BookingList() {
         }
     };
 
-    // 📋 Lấy danh sách booking
+    // Lấy danh sách booking
     const fetchBookings = async () => {
         setLoading(true);
         try {
             const res = await api.get('/bookings');
+            console.log('BOOKINGS RESPONSE:', res.data);
             setBookings(res.data.data || []);
         } catch {
             toast.error('Không thể tải danh sách đặt sân!');
@@ -109,7 +110,7 @@ export default function BookingList() {
         }
     };
 
-    // ⚡ Gắn socket realtime cập nhật admin dashboard
+    // Gắn socket realtime cập nhật admin dashboard
     useEffect(() => {
         fetchBookings();
         fetchStats();
@@ -119,7 +120,7 @@ export default function BookingList() {
             withCredentials: true,
         });
 
-        // ✅ Lắng nghe sự kiện global từ BE (phát ra khi có thay đổi)
+        // Lắng nghe sự kiện global từ BE (phát ra khi có thay đổi)
         socketInstance.on('booking_global_updated', () => {
             fetchBookings();
             fetchStats(); // cập nhật luôn thống kê dashboard
@@ -135,7 +136,7 @@ export default function BookingList() {
         };
     }, []);
 
-    // 🧾 Các thao tác admin
+    // Các thao tác admin
     const handleAction = async (
         id: string,
         action: 'confirm' | 'cancel' | 'checkin' | 'checkout' | 'paid'
@@ -165,7 +166,7 @@ export default function BookingList() {
         }
     };
 
-    // 🔍 Lọc theo trạng thái / tên khách hàng / mã booking
+    // Lọc theo trạng thái / tên khách hàng / mã booking
     const filteredBookings = bookings.filter((b) => {
         const matchesSearch =
             b.code.toLowerCase().includes(filters.search.toLowerCase()) ||
