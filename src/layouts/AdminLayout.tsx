@@ -10,6 +10,12 @@ import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     BarChartOutlined,
+    CalendarOutlined,
+    UnorderedListOutlined,
+    PlusCircleOutlined,
+    TeamOutlined,
+    ToolOutlined,
+    FileDoneOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -17,12 +23,35 @@ const { Header, Sider, Content } = Layout;
 
 const AdminLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
+    const [openKeys, setOpenKeys] = useState<string[]>([]);
+
     const {
         token: { colorBgContainer },
     } = theme.useToken();
 
     const location = useLocation();
-    const selectedKey = location.pathname.split('/admin/')[1] || 'dashboard';
+    const pathname = location.pathname;
+
+    // Map path -> key để bôi xanh đúng menu
+    const getSelectedKey = (path: string) => {
+        if (path.startsWith('/admin/bookings/create')) return 'bookings-create';
+        if (path.startsWith('/admin/bookings')) return 'bookings-list';
+        if (path.startsWith('/admin/courts')) return 'courts';
+        if (path.startsWith('/admin/customers')) return 'customers';
+        if (path.startsWith('/admin/equipments')) return 'equipments';
+        if (path.startsWith('/admin/reports')) return 'reports';
+        if (path.startsWith('/admin/invoices')) return 'invoices';
+        return 'dashboard';
+    };
+
+    const selectedKey = getSelectedKey(pathname);
+
+    // Tự mở submenu Đặt sân nếu đang ở /admin/bookings...
+    React.useEffect(() => {
+        if (pathname.startsWith('/admin/bookings')) {
+            setOpenKeys(['bookings']);
+        }
+    }, [pathname]);
 
     const userMenu = {
         items: [
@@ -48,7 +77,7 @@ const AdminLayout: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: '#004d1a', // nền xanh đậm
+                        background: '#004d1a',
                     }}
                 >
                     <img
@@ -67,6 +96,8 @@ const AdminLayout: React.FC = () => {
                     theme='dark'
                     mode='inline'
                     selectedKeys={[selectedKey]}
+                    openKeys={openKeys}
+                    onOpenChange={(keys) => setOpenKeys(keys as string[])}
                     items={[
                         {
                             key: 'dashboard',
@@ -79,18 +110,30 @@ const AdminLayout: React.FC = () => {
                             label: <Link to='/admin/courts'>Quản lý sân</Link>,
                         },
                         {
-                            key: '/bookings',
-                            icon: <AppstoreOutlined />,
-                            label: <Link to='/admin/bookings'>Đặt sân</Link>,
+                            key: 'bookings',
+                            icon: <CalendarOutlined />,
+                            label: 'Đặt sân',
+                            children: [
+                                {
+                                    key: 'bookings-list',
+                                    icon: <UnorderedListOutlined />,
+                                    label: <Link to='/admin/bookings'>Danh sách đặt sân</Link>,
+                                },
+                                {
+                                    key: 'bookings-create',
+                                    icon: <PlusCircleOutlined />,
+                                    label: <Link to='/admin/bookings/create'>Tạo đơn mới</Link>,
+                                },
+                            ],
                         },
                         {
                             key: 'customers',
-                            icon: <UserOutlined />,
+                            icon: <TeamOutlined />,
                             label: <Link to='/admin/customers'>Khách hàng</Link>,
                         },
                         {
                             key: 'equipments',
-                            icon: <ShoppingOutlined />,
+                            icon: <ToolOutlined />,
                             label: <Link to='/admin/equipments'>Thiết bị</Link>,
                         },
                         {
@@ -100,7 +143,7 @@ const AdminLayout: React.FC = () => {
                         },
                         {
                             key: 'invoices',
-                            icon: <FileTextOutlined />,
+                            icon: <FileDoneOutlined />,
                             label: <Link to='/admin/invoices'>Hóa đơn</Link>,
                         },
                     ]}
