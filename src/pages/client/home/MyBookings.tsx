@@ -31,6 +31,7 @@ const MyBookings: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeStatus, setActiveStatus] = useState<string>('all');
     const socketRef = useRef<Socket | null>(null);
+
     const handleCancel = async (bookingId: string) => {
         try {
             await api.patch(`/bookings/${bookingId}/cancel`);
@@ -158,46 +159,53 @@ const MyBookings: React.FC = () => {
                     <Empty description='Không có đặt sân nào' />
                 ) : (
                     <div className='space-y-6'>
-                        {filtered.map((booking) => (
-                            <div
-                                key={booking._id}
-                                className='bg-white rounded-2xl shadow-sm border p-6 flex flex-col md:flex-row justify-between md:items-center transition'
-                            >
-                                <div className='space-y-2 mb-4 md:mb-0'>
-                                    <h2 className='text-xl font-semibold text-green-700'>
-                                        {booking.courtId?.name || 'Sân bóng'}
-                                    </h2>
-                                    <p className='text-gray-600 text-sm'>
-                                        {format(new Date(booking.date), 'dd/MM/yyyy', {
-                                            locale: vi,
-                                        })}{' '}
-                                        • {booking.startTime} - {booking.endTime}
-                                    </p>
-                                    <Tag
-                                        color={STATUS_COLORS[booking.status] || 'default'}
-                                        className='text-sm font-medium rounded-full'
-                                    >
-                                        {STATUS_LABELS[booking.status]}
-                                    </Tag>
-                                </div>
+                        {filtered.map((booking) => {
+                            // CHỈ CẦN ĐANG pending LÀ ĐƯỢC HỦY
+                            const canCancel = booking.status === 'pending'; // kệ đã thanh toán hay chưa
 
-                                <div className='text-right'>
-                                    <p className='text-green-700 font-extrabold text-xl mb-3'>
-                                        {booking.total.toLocaleString('vi-VN')} ₫
-                                    </p>
-                                    {booking.status === 'pending' && (
-                                        <Button
-                                            danger
-                                            type='primary'
-                                            size='middle'
-                                            onClick={() => handleCancel(booking._id)}
+                            return (
+                                <div
+                                    key={booking._id}
+                                    className='bg-white rounded-2xl shadow-sm border p-6 flex flex-col md:flex-row justify-between md:items-center transition'
+                                >
+                                    <div className='space-y-2 mb-4 md:mb-0'>
+                                        <h2 className='text-xl font-semibold text-green-700'>
+                                            {booking.courtId?.name || 'Sân bóng'}
+                                        </h2>
+                                        <p className='text-gray-600 text-sm'>
+                                            {format(new Date(booking.date), 'dd/MM/yyyy', {
+                                                locale: vi,
+                                            })}{' '}
+                                            • {booking.startTime} - {booking.endTime}
+                                        </p>
+                                        <Tag
+                                            color={STATUS_COLORS[booking.status] || 'default'}
+                                            className='text-sm font-medium rounded-full'
                                         >
-                                            Hủy đặt sân
-                                        </Button>
-                                    )}
+                                            {STATUS_LABELS[booking.status] ||
+                                                booking.status.toUpperCase()}
+                                        </Tag>
+                                    </div>
+
+                                    <div className='text-right'>
+                                        <p className='text-green-700 font-extrabold text-xl mb-3'>
+                                            {booking.total.toLocaleString('vi-VN')} ₫
+                                        </p>
+
+                                        {canCancel && (
+                                            <Button
+                                                danger
+                                                type='primary'
+                                                size='middle'
+                                                onClick={() => handleCancel(booking._id)}
+                                            >
+                                                Hủy đặt sân
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
