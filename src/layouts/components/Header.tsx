@@ -34,7 +34,7 @@ const Header = () => {
                     style={{ color: 'inherit', textDecoration: 'none' }}
                     className='text-gray-800 hover:text-green-600 font-semibold text-[25px] tracking-wide transition-colors duration-300'
                 >
-                    Danh sách đặt sân
+                    Đặt sân
                 </Link>
             ),
         },

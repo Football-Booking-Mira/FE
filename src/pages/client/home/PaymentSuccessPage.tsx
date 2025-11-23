@@ -82,7 +82,7 @@ const PaymentResultPage: React.FC = () => {
                                 onClick={() => navigate('/my-bookings')}
                                 className='w-full px-6 py-3 !mb-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors'
                             >
-                                Xem Chi Tiết
+                                Xem Đơn Đặt Sân
                             </button>
                         ) : (
                             <button
