@@ -54,6 +54,7 @@ const fmtVND = (n?: number) => (typeof n === 'number' ? `${n.toLocaleString('vi-
 const CourtManagement: React.FC = () => {
     const [courts, setCourts] = useState<Court[]>([]);
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false); // loading khi submit form
     const [modalOpen, setModalOpen] = useState(false);
     const [detailModal, setDetailModal] = useState(false);
     const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
@@ -117,12 +118,14 @@ const CourtManagement: React.FC = () => {
         }
     };
 
-    //  Submit form thêm/sửa
-    const handleSubmit = async () => {
+    //  Submit form thêm/sửa (gọn + nhanh, dùng antd message)
+    const handleSubmit = async (values: any) => {
         try {
-            const values = await form.validateFields();
+            setSaving(true);
+
             const formData = new FormData();
 
+            // amenities: "Wifi, Đỗ xe" -> tách ra từng cái
             if (values.amenities && typeof values.amenities === 'string') {
                 values.amenities
                     .split(',')
@@ -131,13 +134,18 @@ const CourtManagement: React.FC = () => {
                     .forEach((a: string) => formData.append('amenities', a));
             }
 
-            Object.entries(values).forEach(
-                ([k, v]) => k !== 'amenities' && formData.append(k, String(v))
-            );
+            // các field còn lại
+            Object.entries(values).forEach(([k, v]) => {
+                if (k !== 'amenities' && v !== undefined && v !== null) {
+                    formData.append(k, String(v));
+                }
+            });
 
+            // ảnh giữ lại (đã upload trước đó)
             const keptImages = fileList.filter((f) => !f.originFileObj && f.url).map((f) => f.url!);
             keptImages.forEach((url) => formData.append('keepImages', url));
 
+            // ảnh mới
             const newFiles = fileList.filter((f) => f.originFileObj);
             for (const file of newFiles) {
                 const compressed = await imageCompression(file.originFileObj!, {
@@ -149,79 +157,42 @@ const CourtManagement: React.FC = () => {
             }
 
             let res: { data: { data: Court } };
+
             if (editingCourt?._id) {
+                // update
                 res = await api.patch(`/courts/${editingCourt._id}`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
-                message.success({
-                    content: 'Cập nhật sân thành công!',
-                    duration: 1.5,
-                });
+                message.success('Cập nhật sân thành công!');
                 setCourts((prev) =>
                     prev.map((c) => (c._id === editingCourt._id ? res.data.data : c))
                 );
                 setSelectedCourt(res.data.data);
             } else {
+                // create
                 res = await api.post('/courts', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
-                message.success({
-                    content: 'Thêm sân mới thành công!',
-                    duration: 1.5,
-                });
+                message.success('Thêm sân mới thành công!');
                 setCourts((prev) => [res.data.data, ...prev]);
             }
 
-            //Hiệu ứng checkmark thành công
-            const modalContent = document.querySelector('.ant-modal-content') as HTMLElement;
-            if (modalContent) {
-                const successDiv = document.createElement('div');
-                successDiv.innerHTML = `
-                <div style="
-                    position: absolute;
-                    top: 40%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    flex-direction: column;
-                    color: #52c41a;
-                    font-size: 48px;
-                    gap: 8px;
-                    animation: fadeUp 0.6s ease-out;
-                ">
-                    <div style="font-size: 60px;">✔</div>
-                    <div style="font-size: 16px;">Thành công!</div>
-                </div>
-                <style>
-                    @keyframes fadeUp {
-                        0% { opacity: 0; transform: translate(-50%, -30%) scale(0.9); }
-                        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    }
-                </style>
-            `;
-                modalContent.appendChild(successDiv);
-
-                // Ẩn form tạm thời
-                const formEl = modalContent.querySelector('form') as HTMLElement;
-                if (formEl) formEl.style.opacity = '0.2';
-
-                // Xóa hiệu ứng và đóng modal sau 1.5s
-                setTimeout(() => {
-                    successDiv.remove();
-                    setModalOpen(false);
-                    form.resetFields();
-                }, 1500);
-            }
+            // đóng modal + reset form
+            setModalOpen(false);
+            form.resetFields();
+            setFileList([]);
+            setEditingCourt(null);
         } catch (err: any) {
-            message.error(err.response?.data?.message || 'Lỗi khi lưu dữ liệu!');
+            message.error(err?.response?.data?.message || 'Lỗi khi lưu dữ liệu!');
+        } finally {
+            setSaving(false);
         }
     };
 
     //  Xóa sân
     const handleDelete = async (id: string) => {
         Modal.confirm({
+            centered: true,
             title: 'Xác nhận xóa sân?',
             okText: 'Xóa',
             cancelText: 'Hủy',
@@ -307,17 +278,12 @@ const CourtManagement: React.FC = () => {
 
                 const formatted = price.toLocaleString('vi-VN', { minimumFractionDigits: 0 });
 
-                // Xác định màu theo mức giá
                 const color =
-                    price < 1_000_000
-                        ? '#16a34a' // xanh
-                        : price <= 2_000_000
-                        ? '#f59e0b' // cam
-                        : '#dc2626'; // đỏ
+                    price < 1_000_000 ? '#16a34a' : price <= 2_000_000 ? '#f59e0b' : '#dc2626';
 
                 return (
                     <motion.span
-                        key={price} // animation trigger khi giá thay đổi
+                        key={price}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.3 }}
@@ -407,17 +373,11 @@ const CourtManagement: React.FC = () => {
             render: (_: any, record: Court) => (
                 <Space>
                     <Button icon={<EyeOutlined />} onClick={() => handleView(record._id!)} />
-                    {/* <Button
-                        icon={<EditOutlined />}
-                        type='primary'
-                        onClick={() => openModal(record)}
-                    /> */}
                     <Button
                         icon={<EditOutlined />}
                         type='primary'
                         onClick={() => navigate(`/admin/courts/update/${record._id}`)}
                     />
-
                     <Button
                         danger
                         icon={<DeleteOutlined />}
@@ -447,7 +407,6 @@ const CourtManagement: React.FC = () => {
             />
 
             {/* Modal Thêm / Sửa sân */}
-
             <Modal
                 title={editingCourt ? 'Sửa thông tin sân' : 'Thêm sân mới'}
                 open={modalOpen}
@@ -734,12 +693,17 @@ const CourtManagement: React.FC = () => {
                                 marginTop: 8,
                             }}
                         >
-                            <Button onClick={() => form.resetFields()}>Làm mới</Button>
-                            <Button onClick={() => setModalOpen(false)}>Hủy</Button>
+                            <Button onClick={() => form.resetFields()} disabled={saving}>
+                                Làm mới
+                            </Button>
+                            <Button onClick={() => setModalOpen(false)} disabled={saving}>
+                                Hủy
+                            </Button>
                             <Button
                                 type='primary'
                                 onClick={() => form.submit()}
                                 style={{ backgroundColor: '#1677ff' }}
+                                loading={saving}
                             >
                                 {editingCourt ? 'Cập nhật' : 'Thêm mới'}
                             </Button>
@@ -954,7 +918,7 @@ const CourtManagement: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* Hình ảnh với hover zoom */}
+                                        {/* Hình ảnh */}
                                         <motion.div
                                             initial={{ opacity: 0, scale: 0.95 }}
                                             animate={{ opacity: 1, scale: 1 }}
