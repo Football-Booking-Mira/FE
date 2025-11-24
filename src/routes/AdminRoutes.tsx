@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router-dom';
 import AdminLayout from '@/layouts/AdminLayout';
 import DashBoard from '@/pages/admin/dashboard/DashBoard';
 import CourtManagement from '../pages/admin/courts/CourtManagement';
+import BookingCreate from '../pages/admin/bookings/BookingCreate';
 import Users from '../pages/admin/users/users';
 import EquipmentList from '../pages/admin/equipments/EquipmentList.tsx';
 import BookingList from '../pages/admin/bookings/BookingList.tsx';
@@ -23,6 +24,7 @@ export const AdminRoutes: RouteObject[] = [
             { path: 'courts/update/:id', element: <CourtUpdate /> },
             { path: 'courts/:id', element: <CourtDetail /> },
             { path: 'bookings', element: <BookingList /> },
+            { path: 'bookings/create', element: <BookingCreate /> },
             { path: 'customers', element: <Users /> },
             { path: 'equipments', element: <EquipmentList /> }, // Thiết bị
         ],
