@@ -14,6 +14,8 @@ import {
     Statistic,
     Tag,
     Popconfirm,
+    message,
+    notification,
 } from 'antd';
 import {
     PlusOutlined,
@@ -26,7 +28,6 @@ import {
     SearchOutlined,
     ReloadOutlined,
 } from '@ant-design/icons';
-import { toast } from 'sonner';
 import api from '@/common/utils/api';
 
 const { TextArea } = Input;
@@ -71,10 +72,9 @@ const UNIT_OPTIONS = [
     { value: 'bộ', label: 'Bộ' },
     { value: 'chiếc', label: 'Chiếc' },
     { value: 'quả', label: 'Quả' },
-    ,
     { value: 'đôi', label: 'Đôi' },
     { value: 'chai', label: 'Chai' },
-];
+].filter(Boolean);
 
 const EquipmentList: React.FC = () => {
     const [loading, setLoading] = useState(false);
@@ -83,6 +83,7 @@ const EquipmentList: React.FC = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Equipment | null>(null);
     const [form] = Form.useForm();
+    const [submitLoading, setSubmitLoading] = useState(false);
 
     //  FETCH LIST
     const fetchEquipments = async () => {
@@ -93,7 +94,7 @@ const EquipmentList: React.FC = () => {
             setEquipments(list);
         } catch (err) {
             console.error(err);
-            toast.error('Không thể tải danh sách thiết bị!');
+            message.error('Không thể tải danh sách thiết bị!');
         } finally {
             setLoading(false);
         }
@@ -189,12 +190,24 @@ const EquipmentList: React.FC = () => {
                 description: values.description?.trim() || '',
             };
 
+            setSubmitLoading(true);
+
             if (editing) {
                 await api.patch(`/equipments/${editing._id}`, payload);
-                toast.success('Đã cập nhật thiết bị!');
+
+                notification.success({
+                    message: 'Thành công',
+                    description: 'Đã cập nhật thiết bị thành công!',
+                    placement: 'topRight',
+                });
             } else {
                 await api.post('/equipments', payload);
-                toast.success('Đã thêm thiết bị mới!');
+
+                notification.success({
+                    message: 'Thành công',
+                    description: 'Đã thêm thiết bị mới thành công!',
+                    placement: 'topRight',
+                });
             }
 
             handleModalCancel();
@@ -204,11 +217,18 @@ const EquipmentList: React.FC = () => {
 
             const apiErr = err?.response?.data;
             if (apiErr?.errors?.length) {
-                toast.error(apiErr.errors[0].message);
+                message.error(apiErr.errors[0].message);
             } else {
                 const msg = apiErr?.message || 'Lưu thiết bị thất bại!';
-                toast.error(msg);
+
+                notification.error({
+                    message: 'Lỗi',
+                    description: msg,
+                    placement: 'topRight',
+                });
             }
+        } finally {
+            setSubmitLoading(false);
         }
     };
 
@@ -216,11 +236,22 @@ const EquipmentList: React.FC = () => {
     const handleDelete = async (item: Equipment) => {
         try {
             await api.delete(`/equipments/${item._id}`);
-            toast.success('Đã xóa thiết bị!');
+
+            notification.success({
+                message: 'Thành công',
+                description: 'Đã xóa thiết bị thành công!',
+                placement: 'topRight',
+            });
+
             fetchEquipments();
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Xóa thiết bị thất bại!';
-            toast.error(msg);
+
+            notification.error({
+                message: 'Lỗi',
+                description: msg,
+                placement: 'topRight',
+            });
         }
     };
 
@@ -458,7 +489,7 @@ const EquipmentList: React.FC = () => {
                     <Col span={24}>
                         <Card>
                             <p className='text-center text-gray-500 text-sm'>
-                                Không có thiết bị nào. Hãy bấm <b>“Thêm thiết bị”</b> để tạo mới.
+                                Không có thiết bị nào. Hãy bấm <b>"Thêm thiết bị"</b> để tạo mới.
                             </p>
                         </Card>
                     </Col>
@@ -472,6 +503,10 @@ const EquipmentList: React.FC = () => {
                 onCancel={handleModalCancel}
                 onOk={handleSubmit}
                 okText={editing ? 'Cập nhật' : 'Thêm mới'}
+                confirmLoading={submitLoading}
+                okButtonProps={{
+                    disabled: submitLoading,
+                }}
             >
                 <Form
                     layout='vertical'
@@ -551,15 +586,19 @@ const EquipmentList: React.FC = () => {
                     <Form.Item shouldUpdate noStyle>
                         {({ getFieldValue }) => {
                             const mode: EquipmentMode = getFieldValue('mode') || 'rent';
+
+                            const isRentMode = mode === 'rent' || mode === 'both';
+                            const isSellMode = mode === 'sell' || mode === 'both';
+
                             return (
                                 <>
-                                    {(mode === 'rent' || mode === 'both') && (
+                                    {isRentMode && (
                                         <Form.Item
                                             label='Giá thuê (VND)'
                                             name='rentPrice'
                                             rules={[
                                                 {
-                                                    required: mode !== 'sell',
+                                                    required: isRentMode,
                                                     message: 'Nhập giá thuê',
                                                 },
                                             ]}
@@ -574,13 +613,13 @@ const EquipmentList: React.FC = () => {
                                         </Form.Item>
                                     )}
 
-                                    {(mode === 'sell' || mode === 'both') && (
+                                    {isSellMode && (
                                         <Form.Item
                                             label='Giá bán (VND)'
                                             name='salePrice'
                                             rules={[
                                                 {
-                                                    required: mode !== 'rent',
+                                                    required: isSellMode,
                                                     message: 'Nhập giá bán',
                                                 },
                                             ]}
@@ -598,7 +637,6 @@ const EquipmentList: React.FC = () => {
                             );
                         }}
                     </Form.Item>
-
                     <Form.Item
                         label='Trạng thái'
                         name='status'

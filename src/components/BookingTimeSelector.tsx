@@ -1,4 +1,3 @@
-// src/components/BookingTimeSelector.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
@@ -22,26 +21,26 @@ interface BookedSlot {
     status: string;
 }
 
-// ===== CẤU HÌNH =====
+//  CẤU HÌNH
 const START_HOUR = 6;
 const SLOT_DURATION = 60; // 1 ca 60 phút
 const BREAK_DURATION = 15; // nghỉ 15p
 const PEAK_START = 16; // sau 16h là cao điểm
 
-// 👉 socket dùng chung
+// socket dùng chung
 const socket = io('http://localhost:3000', {
     transports: ['websocket', 'polling'],
     withCredentials: true,
 });
 
-// helper phút -> HH:MM
+// phút -> HH:MM
 const minToTime = (min: number) => {
     const h = Math.floor(min / 60);
     const m = min % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
-// helper HH:MM -> phút
+// HH:MM -> phút
 const timeToMin = (time: string) => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
@@ -69,11 +68,11 @@ const formatDateToVN = (dateStr: string) => {
     return `${d}/${m}/${y}`;
 };
 
-// tạo toàn bộ list ca
+// tạo list ca: 6:00-7:00, 7:15-8:15, ..., 21:00-22:00
 const generateSlots = () => {
     const slots: { start: string; end: string }[] = [];
     let current = START_HOUR * 60;
-    const endDay = 23 * 60;
+    const endDay = 23 * 60; // để ca cuối là 21:00-22:00
 
     while (current + SLOT_DURATION <= endDay) {
         const start = minToTime(current);
@@ -97,8 +96,10 @@ const BookingTimeSelector: React.FC<Props> = ({
     const [rangeEnd, setRangeEnd] = useState('');
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
     const [totalPrice, setTotalPrice] = useState(0);
+    const [selectedHours, setSelectedHours] = useState(0);
+    const [breakMinutes, setBreakMinutes] = useState(0);
 
-    // ===== fetch slot đã đặt (dùng lại cho socket) =====
+    //* fetch slot đã đặt
     const fetchBooked = useCallback(async () => {
         if (!courtId || !selectedDateStr) return;
         try {
@@ -112,30 +113,44 @@ const BookingTimeSelector: React.FC<Props> = ({
         }
     }, [courtId, selectedDateStr]);
 
-    // lần đầu / đổi ngày -> gọi API
+    //* lần đầu / đổi ngày
     useEffect(() => {
         setRangeStart('');
         setRangeEnd('');
         setTotalPrice(0);
+        setSelectedHours(0);
+        setBreakMinutes(0);
         fetchBooked();
     }, [fetchBooked]);
 
-    // ===== nghe socket: booking_updated => refetch =====
+    //*  SOCKET: booking_updated + booking_global_updated
     useEffect(() => {
         if (!courtId) return;
 
+        // join room theo sân
         socket.emit('join:court', courtId);
 
-        const handleBookingUpdated = (payload: { courtId: string; date: string }) => {
-            if (String(payload.courtId) === String(courtId) && payload.date === selectedDateStr) {
-                fetchBooked();
+        const handleBookingUpdated = (payload?: { courtId?: string; date?: string }) => {
+            // nếu không gửi payload chi tiết thì vẫn refetch
+            if (!payload || !payload.courtId || String(payload.courtId) === String(courtId)) {
+                // nếu có date thì check thêm ngày
+                if (!payload?.date || payload.date === selectedDateStr) {
+                    fetchBooked();
+                }
             }
         };
 
+        const handleBookingGlobalUpdated = () => {
+            // BE emit event này khi admin thao tác -> refetch lại slot
+            fetchBooked();
+        };
+
         socket.on('booking_updated', handleBookingUpdated);
+        socket.on('booking_global_updated', handleBookingGlobalUpdated);
 
         return () => {
             socket.off('booking_updated', handleBookingUpdated);
+            socket.off('booking_global_updated', handleBookingGlobalUpdated);
             socket.emit('leave:court', courtId);
         };
     }, [courtId, selectedDateStr, fetchBooked]);
@@ -251,6 +266,8 @@ const BookingTimeSelector: React.FC<Props> = ({
     useEffect(() => {
         if (!rangeStart || !rangeEnd) {
             setTotalPrice(0);
+            setSelectedHours(0);
+            setBreakMinutes(0);
             return;
         }
         let total = 0;
@@ -270,6 +287,8 @@ const BookingTimeSelector: React.FC<Props> = ({
         });
 
         setTotalPrice(total);
+        setSelectedHours(validSlotsCount);
+        setBreakMinutes(validSlotsCount > 1 ? (validSlotsCount - 1) * BREAK_DURATION : 0);
 
         onSlotSelected({
             date: selectedDateStr,
@@ -294,7 +313,7 @@ const BookingTimeSelector: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* FILTER - ĐÃ SỬA PHẦN CHỌN NGÀY */}
+            {/* FILTER */}
             <div className='grid grid-cols-1 md:grid-cols-3 gap-3 mb-5'>
                 <div>
                     <label className='block text-xs font-semibold text-gray-600 mb-1'>
@@ -466,7 +485,16 @@ const BookingTimeSelector: React.FC<Props> = ({
                         </span>
                     </div>
                     <div className='flex items-end justify-between mt-1'>
-                        <p className='text-[9px] text-green-600'>(Giá cao điểm từ {PEAK_START}h)</p>
+                        <div className='flex flex-col gap-0.5'>
+                            <p className='text-[9px] text-green-600'>
+                                (Giá cao điểm từ {PEAK_START}h)
+                            </p>
+                            {selectedHours > 0 && (
+                                <p className='text-[10px] text-red-500 font-semibold'>
+                                    {selectedHours} giờ chơi, nghỉ {breakMinutes} phút giữa các ca
+                                </p>
+                            )}
+                        </div>
                         <p className='text-xl font-black text-green-700'>
                             {totalPrice.toLocaleString('vi-VN')}
                         </p>
