@@ -1,47 +1,38 @@
-import { useMutation } from "@tanstack/react-query";
-import api from "@/common/utils/api";
-import { message } from "antd";
-import type { ApiError } from "@/common/utils/formApiErr";
+import api from '@/common/utils/api';
+import { useMutation } from '@tanstack/react-query';
+import { message } from 'antd';
+import type { ApiError } from '@/common/utils/formApiErr';
 
-interface RegisterPayload {
-  name: string;
-  email: string;
-  password: string;
-  phone: string;
-}
-
-interface RegisterResponse {
-  status: string;
-  message: string;
-  data: {
-    id: string;
+export type IRegisterPayload = {
     name: string;
     email: string;
+    password: string;
     phone: string;
-  };
-}
+    avatar?: string;
+};
 
-export function useRegister(handleErrMessage: (errors: ApiError[]) => string) {
-  return useMutation({
-    mutationFn: async (payload: RegisterPayload) => {
-      const response = await api.post<RegisterPayload, {data: RegisterResponse}>(
-        "/auth/register",
-        payload
-      );
-      return response;
-    },
-    onSuccess(data) {
-      message.success(data.data.message);
-    },
-    onError(res) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((res as any).errors) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const errMsg = handleErrMessage((res as any).errors as ApiError[]);
-        message.error(errMsg);
-        return;
-      }
-      message.error(res.message || "Đăng ký không thành công!");
-    }
-  });
-}
+export type IRegisterResponseAny = any;
+
+export const useRegister = (handleErrMessage: (errors: ApiError[]) => string) => {
+    return useMutation({
+        mutationFn: async (values: IRegisterPayload) => {
+            const response = await api.post('/auth/register', values);
+            return response.data as IRegisterResponseAny;
+        },
+        onSuccess(res) {
+            const envelope: any = res || {};
+            message.success(
+                envelope.message ||
+                    'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.'
+            );
+        },
+        onError(err: any) {
+            if (err?.errors) {
+                const errMsg = handleErrMessage(err.errors as ApiError[]);
+                message.error(errMsg);
+                return;
+            }
+            message.error(err?.message || 'Đăng ký không thành công!');
+        },
+    });
+};

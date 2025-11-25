@@ -25,7 +25,52 @@ export const useLogin = (
             // response.data chính là body BE trả về (createResponse)
             return response.data as ILoginResponseAny;
         },
-      
+        onSuccess(res) {
+            console.log('🔍 Login raw response:', res);
+
+            // res = { success, status, message, data: {...}, token? }
+            const envelope: any = res || {};
+            const inner: any = envelope.data || {};
+
+            // Lấy user từ data
+            const user =
+                inner.user ||
+                envelope.user || // phòng khi BE trả user ở ngoài
+                null;
+
+            // Lấy token thử theo nhiều khả năng
+            const accessToken =
+                inner.accessToken || // TH: data: { user, accessToken }
+                envelope.token || // TH: token nằm ngoài: { data: { user }, token }
+                inner.token || // phòng khi token nằm trong data.token
+                '';
+
+            console.log('🔑 Login accessToken:', accessToken);
+
+            if (!user || !accessToken) {
+                message.error('Không nhận được token từ server!');
+                return;
+            }
+
+            // Lưu token riêng
+            localStorage.setItem('token', accessToken);
+
+            // Gộp token vào user để FE dùng cho tiện
+            const userWithToken = {
+                ...user,
+                token: accessToken,
+            };
+            localStorage.setItem('user', JSON.stringify(userWithToken));
+
+            // Cập nhật context
+            setIsAuthenticated(true);
+            setUserName(user.name);
+            setUserRole(user.role);
+
+            message.success(envelope.message || 'Đăng nhập thành công');
+            queryClient.resetQueries();
+            setStateOnSuccess();
+        },
         onError(res: any) {
             if (res?.errors) {
                 const errMsg = handleErrMessage(res.errors as ApiError[]);
