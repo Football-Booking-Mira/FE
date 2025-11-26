@@ -11,6 +11,7 @@ import { printInvoiceMira } from '@/common/utils/printInvoice';
 import { useNavigate } from 'react-router';
 
 dayjs.locale('vi');
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Chờ xác nhận',
@@ -115,7 +116,7 @@ const MyBookings: React.FC = () => {
         try {
             setPayingBookingId(booking._id);
 
-            // 1. Lấy thông tin số tiền còn phải thanh toán
+            //  Lấy thông tin số tiền còn phải thanh toán
             const retryRes = await api.get(`/bookings/${booking._id}/retry-payment-info`);
             const info = retryRes.data?.data;
 
@@ -125,7 +126,7 @@ const MyBookings: React.FC = () => {
                 return;
             }
 
-            // 2. Gọi tạo link thanh toán VNPay với số tiền còn lại
+            //  Gọi tạo link thanh toán VNPay với số tiền còn lại
             const body = {
                 bookingId: info.bookingId,
                 isRetryPayment: true,
@@ -250,7 +251,7 @@ const MyBookings: React.FC = () => {
     useEffect(() => {
         fetchBookings();
 
-        const socket = io('http://localhost:3000', {
+        const socket = io(API_URL, {
             withCredentials: true,
             reconnection: true,
             reconnectionAttempts: 10,
@@ -608,6 +609,16 @@ const MyBookings: React.FC = () => {
                                                     {payingBookingId === booking._id
                                                         ? 'Đang chuyển tới VNPay...'
                                                         : 'Thanh toán lại'}
+                                                </Button>
+                                            )}
+                                            {/*  Yêu cầu hoàn tiền */}
+                                            {canRequestRefund && (
+                                                <Button
+                                                    size='middle'
+                                                    className='mt-3 ml-2 border-amber-500 text-amber-600 hover:bg-amber-50'
+                                                    onClick={() => openRefundModal(booking)}
+                                                >
+                                                    Yêu cầu hoàn tiền
                                                 </Button>
                                             )}
                                             {booking.status === 'cancelled' &&
