@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 interface CheckoutData {
     courtId?: string;
@@ -73,7 +74,6 @@ const PaymentResultPage: React.FC = () => {
                             <span className='font-medium'>Số tiền:</span>{' '}
                             <span>{formattedAmount}</span>
                         </p>
-                        {/* ĐÃ BỎ MÃ PHẢN HỒI VNPay  */}
                     </div>
 
                     <div className='space-y-3'>
@@ -93,9 +93,20 @@ const PaymentResultPage: React.FC = () => {
                             </button>
                         )}
 
+                        {/* Nút VỀ ĐƠN ĐẶT SÂN – nền xanh nhạt, hover full xanh */}
+                        <Button
+                            variant='outline'
+                            onClick={() => navigate('/my-bookings')}
+                            className='w-full px-6 py-3 rounded-lg border-green-500 text-green-600 bg-green-50
+                   hover:bg-green-500 hover:text-white transition-colors'
+                        >
+                            Về đơn đặt sân
+                        </Button>
+
                         <button
                             onClick={() => navigate('/')}
-                            className='w-full px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors'
+                            className='w-full px-6 py-3 rounded-lg bg-slate-100 text-slate-700 font-medium
+                   hover:bg-slate-200 hover:text-slate-900 transition-colors'
                         >
                             Về Trang Chủ
                         </button>
