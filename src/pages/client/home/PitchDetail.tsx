@@ -343,7 +343,7 @@ const PitchDetail: React.FC = () => {
                     </button>
 
                     <p className='text-xs text-gray-400 mt-10 leading-relaxed italic border-t border-gray-100 pt-5'>
-                        * Có thể hủy trước 6 giờ
+                        * Có thể hủy sớm cách giờ đá trên 6 giờ
                         <br />* Thời tiết xấu sẽ được hỗ trợ sắp xếp lại
                     </p>
                 </div>
