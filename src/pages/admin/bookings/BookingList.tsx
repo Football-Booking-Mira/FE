@@ -17,6 +17,7 @@ import {
     Tabs,
     Form,
     Spin,
+    Upload,
 } from 'antd';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
@@ -33,6 +34,7 @@ import {
     FileTextOutlined,
     EyeOutlined,
     EditOutlined,
+    UploadOutlined, // 👈 thêm
 } from '@ant-design/icons';
 import { io } from 'socket.io-client';
 
@@ -44,6 +46,13 @@ const { TextArea } = Input;
 // helper format tiền
 const formatVND = (v: number = 0) =>
     v.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+
+interface RefundInfo {
+    status: 'none' | 'requested' | 'processing' | 'rejected' | 'completed';
+    customerReason?: string;
+    adminReason?: string;
+    billImage?: string;
+}
 
 interface Booking {
     _id: string;
@@ -85,6 +94,10 @@ interface Booking {
     depositAmount?: number;
     depositStatus?: 'pending' | 'paid' | 'refunded' | 'forfeited';
     depositMethod?: string;
+
+    refund?: RefundInfo;
+    refundBillImage?: string;
+    refundAdminReason?: string;
 }
 
 interface DashboardStats {
@@ -101,7 +114,7 @@ interface CourtOption {
     name: string;
 }
 
-// ===== CẤU HÌNH KHUNG GIỜ =====
+//  CẤU HÌNH KHUNG GIỜ
 const START_HOUR = 6;
 const SLOT_DURATION = 60;
 const BREAK_DURATION = 15;
@@ -207,15 +220,18 @@ const getRefundActionOptions = (current: Booking['refundStatus'] | undefined) =>
     return REFUND_OPTIONS.map((opt) => {
         let disabled = false;
 
+        // đang processing thì không cho quay lại pending
         if (cur === 'processing' && opt.value === 'pending') disabled = true;
+        // đã hoàn tiền xong -> chỉ giữ nguyên "Hoàn tiền xong", disable hết các option khác (kể cả "Từ chối")
         if (cur === 'refunded' && opt.value !== 'refunded') disabled = true;
+        // đã từ chối -> chỉ giữ nguyên "Từ chối hoàn tiền"
         if (cur === 'rejected' && opt.value !== 'rejected') disabled = true;
 
         return { ...opt, disabled };
     });
 };
 
-// ===== THIẾT BỊ KHI CHECK-IN =====
+//  THIẾT BỊ KHI CHECK-IN
 interface EquipmentItem {
     key: string;
     equipmentId: string;
@@ -256,8 +272,32 @@ export default function BookingList() {
 
     const [refundFilter, setRefundFilter] = useState<RefundFilter>('all');
 
+    // Modal xem thông tin TK hoàn tiền
     const [refundModalOpen, setRefundModalOpen] = useState(false);
     const [selectedRefundBooking, setSelectedRefundBooking] = useState<Booking | null>(null);
+    //state chế độ xem
+    const [refundModalMode, setRefundModalMode] = useState<'account' | 'admin'>('account');
+    // Modal nhập lý do từ chối
+    const [rejectModal, setRejectModal] = useState<{
+        open: boolean;
+        booking: Booking | null;
+    }>({
+        open: false,
+        booking: null,
+    });
+    const [rejectReason, setRejectReason] = useState('');
+
+    // Modal nhập / upload ảnh bill hoàn tiền
+    const [billModal, setBillModal] = useState<{
+        open: boolean;
+        booking: Booking | null;
+    }>({
+        open: false,
+        booking: null,
+    });
+
+    const [billFileList, setBillFileList] = useState<any[]>([]); // danh sách file upload
+    const [billUploading, setBillUploading] = useState(false); //  loading khi upload
 
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
@@ -585,7 +625,7 @@ export default function BookingList() {
                 // Chỉ tự tính lại khi booking chưa được BE đánh dấu paid/refunded
                 if (paymentStatus === 'unpaid' || paymentStatus === 'partial') {
                     if (hasDepositPaid) {
-                        // ✅ Thanh toán online đủ 100% (VD VNPAY) -> "Đã thanh toán"
+                        // Thanh toán online đủ 100% (VD VNPAY) -> "Đã thanh toán"
                         if (total > 0 && deposit >= total) {
                             paymentStatus = 'paid';
                         } else {
@@ -649,6 +689,7 @@ export default function BookingList() {
             socketInstance.off('booking_global_updated');
             socketInstance.disconnect();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const showCancelReason = (b: Booking) => {
@@ -671,8 +712,9 @@ export default function BookingList() {
         });
     };
 
-    const openRefundModal = (b: Booking) => {
+    const openRefundModal = (b: Booking, mode: 'account' | 'admin' = 'account') => {
         setSelectedRefundBooking(b);
+        setRefundModalMode(mode);
         setRefundModalOpen(true);
     };
 
@@ -866,12 +908,28 @@ export default function BookingList() {
     };
 
     const handleRefundStatusChange = async (id: string, status: RefundFilter | 'none') => {
-        if (status === 'all') return;
+        if (status === 'all' || status === 'none') return;
+        const booking = bookings.find((b) => b._id === id);
+        if (!booking) return;
+
+        // Chọn "Từ chối hoàn tiền" -> mở modal nhập lý do
+        if (status === 'rejected') {
+            setRejectReason('');
+            setRejectModal({ open: true, booking });
+            return;
+        }
+
+        // Chọn "Hoàn tiền xong" -> mở modal upload ảnh bill
+        if (status === 'refunded') {
+            setBillFileList([]);
+            setBillModal({ open: true, booking });
+            return;
+        }
 
         try {
             await api.patch(`/bookings/${id}/refund-status`, {
                 status,
-                markPaymentRefunded: status === 'refunded',
+                markPaymentRefunded: false,
             });
 
             toast.success('Cập nhật trạng thái hoàn tiền thành công!');
@@ -880,6 +938,87 @@ export default function BookingList() {
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Lỗi cập nhật trạng thái hoàn tiền!';
             toast.error(msg);
+        }
+    };
+
+    const submitRejectRefund = async () => {
+        if (!rejectModal.booking) return;
+        if (!rejectReason.trim()) {
+            toast.error('Vui lòng nhập lý do từ chối hoàn tiền');
+            return;
+        }
+
+        try {
+            await api.post(`/bookings/${rejectModal.booking._id}/refund/reject`, {
+                reason: rejectReason.trim(),
+            });
+
+            toast.success('Đã từ chối yêu cầu hoàn tiền');
+            setRejectModal({ open: false, booking: null });
+            setRejectReason('');
+            fetchBookings();
+            fetchStats();
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || 'Lỗi khi từ chối hoàn tiền!';
+            toast.error(msg);
+        }
+    };
+
+    const submitCompleteRefund = async () => {
+        if (!billModal.booking) return;
+
+        try {
+            setBillUploading(true);
+
+            if (!billFileList.length) {
+                toast.error('Vui lòng chọn ảnh hoá đơn/bill hoàn tiền');
+                setBillUploading(false);
+                return;
+            }
+
+            const file = billFileList[0].originFileObj as File;
+            if (!file) {
+                toast.error('File ảnh không hợp lệ, vui lòng chọn lại!');
+                setBillUploading(false);
+                return;
+            }
+
+            //  Upload ảnh bill lên server
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadRes = await api.post('/upload/single', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            const imageUrl =
+                uploadRes.data?.url ||
+                uploadRes.data?.data?.url ||
+                uploadRes.data?.secure_url ||
+                '';
+
+            if (!imageUrl) {
+                toast.error('Upload ảnh bill thất bại, vui lòng thử lại!');
+                setBillUploading(false);
+                return;
+            }
+
+            // gửi URL ảnh vào API hoàn tiền
+            await api.post(`/bookings/${billModal.booking._id}/refund/complete`, {
+                billImage: imageUrl,
+            });
+
+            toast.success('Đã cập nhật hoàn tiền thành công');
+            setBillModal({ open: false, booking: null });
+
+            setBillFileList([]);
+            fetchBookings();
+            fetchStats();
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || 'Lỗi khi cập nhật hoàn tiền!';
+            toast.error(msg);
+        } finally {
+            setBillUploading(false);
         }
     };
 
@@ -997,12 +1136,12 @@ export default function BookingList() {
                     s === 'confirmed'
                         ? 'blue'
                         : s === 'pending'
-                        ? 'orange'
-                        : s === 'in_use'
-                        ? 'purple'
-                        : s === 'completed'
-                        ? 'green'
-                        : 'gray';
+                            ? 'orange'
+                            : s === 'in_use'
+                                ? 'purple'
+                                : s === 'completed'
+                                    ? 'green'
+                                    : 'gray';
 
                 return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
             },
@@ -1223,12 +1362,35 @@ export default function BookingList() {
                 );
             },
         },
+        //  Chi tiết hoàn tiền (thông tin xử lý của admin)
+        {
+            title: 'Chi tiết hoàn tiền',
+            key: 'refundDetail',
+            render: (b: Booking) => {
+                const hasAdminDetail = Boolean(
+                    b.refund?.adminReason ||
+                    b.refund?.billImage ||
+                    b.refundAdminReason ||
+                    b.refundBillImage
+                );
+
+                return hasAdminDetail ? (
+                    <Button size='small' onClick={() => openRefundModal(b, 'admin')}>
+                        Xem chi tiết
+                    </Button>
+                ) : (
+                    <span className='text-xs text-gray-400'>-</span>
+                );
+            },
+        },
+
+        // Thông tin TK hoàn tiền (Số TK / Tên / Ngân hàng / Ghi chú)
         {
             title: 'Thông tin hoàn tiền',
             key: 'refundInfo',
             render: (b: Booking) =>
                 b.refundAccountNumber || b.refundAccountName || b.refundBankName || b.refundNote ? (
-                    <Button size='small' onClick={() => openRefundModal(b)}>
+                    <Button size='small' onClick={() => openRefundModal(b, 'account')}>
                         Xem chi tiết
                     </Button>
                 ) : (
@@ -1272,11 +1434,35 @@ export default function BookingList() {
     const paymentFinalTotal = Math.max(0, paymentBaseTotal - (Number(paymentDiscount || 0) || 0));
 
     // In hóa đơn
-
     const handlePrintInvoice = () => {
         if (!invoiceDetail) return;
         printInvoiceMira(invoiceDetail);
     };
+    const refundCustomerName =
+        selectedRefundBooking?.customerInfo?.name ||
+        selectedRefundBooking?.customerId?.name ||
+        selectedRefundBooking?.customerId?.username ||
+        'Ẩn danh';
+
+    const refundCustomerPhone =
+        selectedRefundBooking?.customerInfo?.phone ||
+        selectedRefundBooking?.customerId?.phone ||
+        '';
+
+    const refundCustomerEmail =
+        selectedRefundBooking?.customerInfo?.email ||
+        selectedRefundBooking?.customerId?.email ||
+        '';
+    const adminReason =
+        selectedRefundBooking?.refund?.adminReason ||
+        selectedRefundBooking?.refundAdminReason ||
+        '';
+
+    const billImage =
+        selectedRefundBooking?.refund?.billImage || selectedRefundBooking?.refundBillImage || '';
+    const isAccountMode = refundModalMode === 'account';
+    const isAdminMode = refundModalMode === 'admin';
+
     return (
         <div className='space-y-6'>
             <Card title='📊 Thống kê đặt sân' bordered={false}>
@@ -1625,56 +1811,137 @@ export default function BookingList() {
                 )}
             </Modal>
 
-            {/* Modal hiển thị form hoàn tiền */}
+            {/* Modal hiển thị form hoàn tiền (TK ngân hàng do user gửi + thông tin xử lý của admin) */}
+            {/* Modal xem thông tin hoàn tiền / chi tiết hoàn tiền */}
             <Modal
                 centered
                 open={refundModalOpen}
-                onCancel={() => setRefundModalOpen(false)}
+                onCancel={() => {
+                    setRefundModalOpen(false);
+                    setSelectedRefundBooking(null);
+                }}
                 footer={null}
                 maskStyle={{ backgroundColor: 'rgba(0,0,0,0.25)' }}
                 title={
                     selectedRefundBooking
-                        ? `Thông tin hoàn tiền - ${selectedRefundBooking.code}`
+                        ? isAdminMode
+                            ? `Chi tiết hoàn tiền - ${selectedRefundBooking.code}`
+                            : `Thông tin hoàn tiền - ${selectedRefundBooking.code}`
                         : 'Thông tin hoàn tiền'
                 }
             >
                 {selectedRefundBooking ? (
-                    <div className='space-y-3'>
-                        <div>
-                            <div className='text-xs font-semibold mb-1'>Số tài khoản *</div>
-                            <Input
-                                readOnly
-                                value={selectedRefundBooking.refundAccountNumber || ''}
-                                placeholder='VD: 0123456789'
-                            />
-                        </div>
-                        <div>
-                            <div className='text-xs font-semibold mb-1'>Tên chủ tài khoản *</div>
-                            <Input
-                                readOnly
-                                value={selectedRefundBooking.refundAccountName || ''}
-                                placeholder='VD: NGUYEN VAN A'
-                            />
-                        </div>
-                        <div>
-                            <div className='text-xs font-semibold mb-1'>Ngân hàng *</div>
-                            <Input
-                                readOnly
-                                value={selectedRefundBooking.refundBankName || ''}
-                                placeholder='VD: Vietcombank, BIDV...'
-                            />
-                        </div>
-                        <div>
-                            <div className='text-xs font-semibold mb-1'>
-                                Ghi chú thêm (không bắt buộc)
+                    <div className='space-y-4'>
+                        {/* THÔNG TIN KHÁCH HÀNG */}
+                        <div className='p-3 rounded-md bg-gray-50 border text-sm'>
+                            <div>
+                                <span className='font-semibold'>Khách hàng: </span>
+                                {refundCustomerName}
                             </div>
-                            <TextArea
-                                readOnly
-                                rows={3}
-                                value={selectedRefundBooking.refundNote || ''}
-                                placeholder='Ghi chú từ khách (nếu có)...'
-                            />
+                            {refundCustomerPhone && (
+                                <div className='mt-1'>
+                                    <span className='text-gray-600'>Số điện thoại: </span>
+                                    {refundCustomerPhone}
+                                </div>
+                            )}
+                            {refundCustomerEmail && (
+                                <div className='mt-1'>
+                                    <span className='text-gray-600'>Email: </span>
+                                    {refundCustomerEmail}
+                                </div>
+                            )}
                         </div>
+
+                        {/*  THÔNG TIN TÀI KHOẢN NHẬN HOÀN – chỉ hiện ở mode "account" */}
+                        {isAccountMode && (
+                            <div className='space-y-3'>
+                                <div>
+                                    <div className='text-xs font-semibold mb-1'>Số tài khoản *</div>
+                                    <Input
+                                        readOnly
+                                        value={selectedRefundBooking.refundAccountNumber || ''}
+                                        placeholder='VD: 0123456789'
+                                    />
+                                </div>
+
+                                <div>
+                                    <div className='text-xs font-semibold mb-1'>
+                                        Tên chủ tài khoản *
+                                    </div>
+                                    <Input
+                                        readOnly
+                                        value={selectedRefundBooking.refundAccountName || ''}
+                                        placeholder='VD: Nguyen Van A'
+                                    />
+                                </div>
+
+                                <div>
+                                    <div className='text-xs font-semibold mb-1'>Ngân hàng *</div>
+                                    <Input
+                                        readOnly
+                                        value={selectedRefundBooking.refundBankName || ''}
+                                        placeholder='VD: MB BANK'
+                                    />
+                                </div>
+
+                                <div>
+                                    <div className='text-xs font-semibold mb-1'>
+                                        Ghi chú thêm (không bắt buộc)
+                                    </div>
+                                    <TextArea
+                                        readOnly
+                                        autoSize={{ minRows: 2, maxRows: 4 }}
+                                        value={selectedRefundBooking.refundNote || ''}
+                                        placeholder='VD: Hoàn tiền qua tài khoản vợ, chuyển lúc 20h30...'
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/*  THÔNG TIN XỬ LÝ CỦA ADMIN – chỉ hiện ở mode "admin" */}
+                        {isAdminMode && (adminReason || billImage) && (
+                            <div className='border-t pt-3 space-y-3'>
+                                <div className='text-sm font-semibold'>
+                                    Thông tin xử lý hoàn tiền (phía admin)
+                                </div>
+
+                                {adminReason && (
+                                    <div>
+                                        <div className='text-xs font-semibold mb-1'>
+                                            Ghi chú / lý do từ admin
+                                        </div>
+                                        <TextArea
+                                            readOnly
+                                            autoSize={{ minRows: 2, maxRows: 5 }}
+                                            value={adminReason}
+                                        />
+                                    </div>
+                                )}
+
+                                {billImage && (
+                                    <div>
+                                        <div className='text-xs font-semibold mb-1'>
+                                            Ảnh bill / chứng từ hoàn tiền
+                                        </div>
+                                        <a
+                                            href={billImage}
+                                            target='_blank'
+                                            rel='noreferrer'
+                                            className='text-xs text-blue-600 underline'
+                                        >
+                                            Mở ảnh bill trong tab mới
+                                        </a>
+                                        <div className='mt-2'>
+                                            <img
+                                                src={billImage}
+                                                alt='Bill hoàn tiền'
+                                                className='max-h-60 rounded-md border object-contain'
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 ) : null}
             </Modal>
@@ -1704,10 +1971,6 @@ export default function BookingList() {
                             setPaymentDiscount(Number(all.discount || 0) || 0)
                         }
                     >
-                        {/* ... nguyên phần form thanh toán của anh, giữ nguyên ... */}
-                        {/* (em không sửa đoạn dưới vì anh đã để rất chi tiết rồi) */}
-                        {/* --- BẮT ĐẦU COPY TỪ CODE CŨ CỦA ANH TỚI HẾT MODAL NÀY --- */}
-                        {/* (đoạn này em giữ y chang như anh gửi, chỉ cắt bớt comment cho gọn) */}
                         <Card
                             size='small'
                             style={{ marginBottom: 16, borderRadius: 10 }}
@@ -1724,20 +1987,20 @@ export default function BookingList() {
                                     </div>
                                     {(paymentBooking.customerInfo?.phone ||
                                         paymentBooking.customerId?.phone) && (
-                                        <div className='text-xs text-gray-500'>
-                                            SĐT:{' '}
-                                            {paymentBooking.customerInfo?.phone ||
-                                                paymentBooking.customerId?.phone}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                SĐT:{' '}
+                                                {paymentBooking.customerInfo?.phone ||
+                                                    paymentBooking.customerId?.phone}
+                                            </div>
+                                        )}
                                     {(paymentBooking.customerInfo?.email ||
                                         paymentBooking.customerId?.email) && (
-                                        <div className='text-xs text-gray-500'>
-                                            Email:{' '}
-                                            {paymentBooking.customerInfo?.email ||
-                                                paymentBooking.customerId?.email}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                Email:{' '}
+                                                {paymentBooking.customerInfo?.email ||
+                                                    paymentBooking.customerId?.email}
+                                            </div>
+                                        )}
                                 </div>
 
                                 <div className='w-px bg-gray-200 mx-2' />
@@ -1901,7 +2164,6 @@ export default function BookingList() {
                                 </div>
                             </div>
                         </Card>
-                        {/* --- HẾT ĐOẠN CŨ --- */}
                     </Form>
                 )}
             </Modal>
@@ -2184,6 +2446,68 @@ export default function BookingList() {
                     <div className='text-center text-sm text-gray-500'>
                         Không có dữ liệu hóa đơn.
                     </div>
+                )}
+            </Modal>
+
+            {/* Modal NHẬP LÝ DO TỪ CHỐI HOÀN TIỀN */}
+            <Modal
+                centered
+                open={rejectModal.open}
+                onCancel={() => setRejectModal({ open: false, booking: null })}
+                onOk={submitRejectRefund}
+                okText='Xác nhận từ chối'
+                cancelText='Hủy'
+                title={
+                    rejectModal.booking
+                        ? `Từ chối hoàn tiền - ${rejectModal.booking.code}`
+                        : 'Từ chối hoàn tiền'
+                }
+            >
+                <p className='mb-2 text-sm text-gray-600'>
+                    Lý do này sẽ được hiển thị cho khách hàng ở trang &quot;Đơn của tôi&quot;.
+                </p>
+                <TextArea
+                    rows={4}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder='VD: Đơn đã quá hạn hoàn tiền, khách sử dụng dịch vụ đầy đủ...'
+                />
+            </Modal>
+
+            {/* Modal UPLOAD ẢNH BILL HOÀN TIỀN */}
+            <Modal
+                centered
+                open={billModal.open}
+                onCancel={() => {
+                    setBillModal({ open: false, booking: null });
+                    setBillFileList([]);
+                }}
+                onOk={submitCompleteRefund}
+                okText='Xác nhận đã hoàn tiền'
+                cancelText='Hủy'
+                okButtonProps={{ loading: billUploading }}
+                title={
+                    billModal.booking
+                        ? `Xác nhận hoàn tiền - ${billModal.booking.code}`
+                        : 'Xác nhận hoàn tiền'
+                }
+            >
+                <p className='mb-2 text-sm text-gray-600'>
+                    Chọn ảnh hoá đơn / bill hoàn tiền (sau khi chuyển khoản cho khách). Ảnh này sẽ
+                    hiển thị cho khách hàng khi xem chi tiết đơn hoàn tiền.
+                </p>
+                <Upload
+                    listType='picture'
+                    maxCount={1}
+                    fileList={billFileList}
+                    beforeUpload={() => false} // không upload auto, để tự handle
+                    onChange={({ fileList }) => setBillFileList(fileList)}
+                    accept='image/*'
+                >
+                    <Button icon={<UploadOutlined />}>Chọn ảnh bill</Button>
+                </Upload>
+                {billFileList.length > 0 && (
+                    <p className='mt-2 text-xs text-gray-500'>Đã chọn: {billFileList[0].name}</p>
                 )}
             </Modal>
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Button, Tag, Spin, Empty, Modal, Input } from 'antd';
+import { Button, Tag, Spin, Empty, Modal, Input, Image } from 'antd';
 import { ToastContainer, toast } from 'react-toastify';
 import api from '@/common/utils/api';
 import 'react-toastify/dist/ReactToastify.css';
@@ -109,6 +109,7 @@ const MyBookings: React.FC = () => {
         bankName: '',
         note: '',
     });
+
     const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
 
     //  THANH TOÁN LẠI ĐƠN CHƯA THANH TOÁN
@@ -148,7 +149,7 @@ const MyBookings: React.FC = () => {
         } catch (err: any) {
             toast.error(
                 err?.response?.data?.message ||
-                    'Không thể thanh toán lại đơn này, vui lòng thử lại!'
+                'Không thể thanh toán lại đơn này, vui lòng thử lại!'
             );
             setPayingBookingId(null);
         }
@@ -421,10 +422,9 @@ const MyBookings: React.FC = () => {
                                 key={tab.key}
                                 onClick={() => handleTabChange(tab.key)}
                                 className={`relative py-3 text-sm md:text-base whitespace-nowrap transition-all
-                                    ${
-                                        activeTab === tab.key
-                                            ? 'text-green-600 border-b-2 border-green-600 font-semibold'
-                                            : 'text-gray-500 border-b-2 border-transparent hover:text-green-600 hover:border-green-200'
+                                    ${activeTab === tab.key
+                                        ? 'text-green-600 border-b-2 border-green-600 font-semibold'
+                                        : 'text-gray-500 border-b-2 border-transparent hover:text-green-600 hover:border-green-200'
                                     }`}
                             >
                                 {tab.label}{' '}
@@ -451,6 +451,11 @@ const MyBookings: React.FC = () => {
                                 const refundStatus =
                                     booking.refundStatus ||
                                     (booking.paymentStatus === 'refunded' ? 'refunded' : 'none');
+                                const refundBillImage =
+                                    booking.refundBillImage ||
+                                    booking.refund?.billImage ||
+                                    booking.refund?.bill?.image;
+                                console.log('booking client list >>>', booking);
 
                                 const canRequestRefund =
                                     booking.status === 'cancelled' &&
@@ -521,7 +526,7 @@ const MyBookings: React.FC = () => {
                                                         <Tag
                                                             color={
                                                                 PAYMENT_COLORS[
-                                                                    booking.paymentStatus
+                                                                booking.paymentStatus
                                                                 ] || 'default'
                                                             }
                                                             className='rounded-full px-3 py-1 text-xs md:text-sm'
@@ -543,24 +548,49 @@ const MyBookings: React.FC = () => {
                                                             </p>
                                                         )}
 
-                                                    {/* TRẠNG THÁI HOÀN TIỀN */}
+                                                    {/* TRẠNG THÁI HOÀN TIỀN + ẢNH BILL */}
                                                     {refundStatus !== 'none' && (
-                                                        <div className='flex flex-wrap items-center gap-2'>
-                                                            <span className='text-gray-500'>
-                                                                Hoàn tiền:
-                                                            </span>
-                                                            <Tag
-                                                                color={
-                                                                    REFUND_STATUS_COLORS[
+                                                        <div className='flex flex-col gap-1 mt-1'>
+                                                            <div className='flex flex-wrap items-center gap-2'>
+                                                                <span className='text-gray-500'>
+                                                                    Hoàn tiền:
+                                                                </span>
+                                                                <Tag
+                                                                    color={
+                                                                        REFUND_STATUS_COLORS[
                                                                         refundStatus
-                                                                    ] || 'default'
-                                                                }
-                                                                className='rounded-full px-3 py-1 text-xs md:text-sm'
-                                                            >
-                                                                {REFUND_STATUS_LABELS[
-                                                                    refundStatus
-                                                                ] || 'Hoàn tiền'}
-                                                            </Tag>
+                                                                        ] || 'default'
+                                                                    }
+                                                                    className='rounded-full px-3 py-1 text-xs md:text-sm'
+                                                                >
+                                                                    {REFUND_STATUS_LABELS[
+                                                                        refundStatus
+                                                                    ] || 'Hoàn tiền'}
+                                                                </Tag>
+                                                            </div>
+
+                                                            {refundBillImage && (
+                                                                <div className='mt-2 space-y-1'>
+                                                                    <span className='text-xs text-gray-500'>
+                                                                        Ảnh bill chuyển khoản:
+                                                                    </span>
+                                                                    <a
+                                                                        href={refundBillImage}
+                                                                        target='_blank'
+                                                                        rel='noreferrer'
+                                                                        className='text-xs text-emerald-600 underline hover:text-emerald-700'
+                                                                    >
+                                                                        Mở ảnh bill trong tab mới
+                                                                    </a>
+                                                                    <div className='mt-1'>
+                                                                        <Image
+                                                                            src={refundBillImage}
+                                                                            alt='Bill hoàn tiền'
+                                                                            className='max-h-64 rounded-md border cursor-pointer'
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
