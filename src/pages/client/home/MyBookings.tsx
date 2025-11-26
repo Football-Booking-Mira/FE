@@ -11,7 +11,7 @@ import { printInvoiceMira } from '@/common/utils/printInvoice';
 import { useNavigate } from 'react-router';
 
 dayjs.locale('vi');
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Chờ xác nhận',
@@ -251,7 +251,7 @@ const MyBookings: React.FC = () => {
     useEffect(() => {
         fetchBookings();
 
-        const socket = io(API_URL, {
+        const socket = io(SOCKET_URL, {
             withCredentials: true,
             reconnection: true,
             reconnectionAttempts: 10,
@@ -260,14 +260,14 @@ const MyBookings: React.FC = () => {
         socketRef.current = socket;
 
         const handleBookingUpdated = () => {
-            fetchBookings();
-
             const now = Date.now();
             if (now - lastSocketUpdateRef.current < 400) {
                 lastSocketUpdateRef.current = now;
                 return;
             }
             lastSocketUpdateRef.current = now;
+
+            fetchBookings();
 
             toast.info('Lịch đặt sân của bạn vừa được cập nhật', {
                 autoClose: 1500,
