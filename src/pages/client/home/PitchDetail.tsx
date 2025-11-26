@@ -42,7 +42,7 @@ const PitchDetail: React.FC = () => {
 
     const [court, setCourt] = useState<Court | null>(null);
     const [loading, setLoading] = useState(true);
-    const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null);
+    const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
     const [currentImage, setCurrentImage] = useState(0);
 
     const socketRef = useRef<Socket | null>(null);
@@ -98,9 +98,9 @@ const PitchDetail: React.FC = () => {
         };
     }, [id]);
 
-    // ===== ĐẶT SÂN (CHUYỂN QUA CHECKOUT) =====
+    // ===== ĐẶT SÂN (CHUYỂN QUA TRANG CHÍNH SÁCH) =====
     const handleBooking = () => {
-        if (!selectedSlot || !court?._id) {
+        if (!selectedSlots.length || !court?._id) {
             toast.error('Vui lòng chọn khung giờ trước khi đặt sân!');
             return;
         }
@@ -124,29 +124,31 @@ const PitchDetail: React.FC = () => {
             return;
         }
 
+        const totalPrice = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+        const totalDuration = selectedSlots.reduce((sum, s) => sum + s.duration, 0);
+        const date = selectedSlots[0].date;
+
+        const sortedByTime = [...selectedSlots].sort((a, b) =>
+            a.startTime.localeCompare(b.startTime)
+        );
+        const overallStart = sortedByTime[0].startTime;
+        const overallEnd = sortedByTime[sortedByTime.length - 1].endTime;
+
         const checkoutData = {
             courtId: court._id,
             courtName: court.name,
-            date: selectedSlot.date,
-            startTime: selectedSlot.startTime,
-            endTime: selectedSlot.endTime,
-            totalPrice: selectedSlot.price,
-            duration: selectedSlot.duration,
+            date,
+            slots: selectedSlots,
+            totalPrice,
+            totalDuration,
+            overallStart,
+            overallEnd,
         };
 
-        // Lưu dữ liệu cho trang Checkout
         localStorage.setItem('checkout-data', JSON.stringify(checkoutData));
 
-        toast.success('Vui lòng hoàn tất thanh toán để xác nhận đặt sân!', {
-            position: 'top-right',
-            autoClose: 800,
-            theme: 'colored',
-        });
-
-        // Dùng reload full page => không cần F5 nữa
-        setTimeout(() => {
-            window.location.href = '/checkout';
-        }, 800);
+        // chuyển sang trang chính sách
+        window.location.href = '/booking-policy';
     };
 
     if (loading) {
@@ -155,6 +157,28 @@ const PitchDetail: React.FC = () => {
 
     if (!court) {
         return <p className='text-center mt-10 text-gray-600'>Không tìm thấy sân.</p>;
+    }
+
+    const totalPrice = selectedSlots.reduce((sum, s) => sum + s.price, 0);
+    const totalDuration = selectedSlots.reduce((sum, s) => sum + s.duration, 0);
+
+    const dateDisplay = selectedSlots.length ? formatVNDate(new Date(selectedSlots[0].date)) : '--';
+
+    const timeDisplay = selectedSlots.length
+        ? selectedSlots.map((s) => `${s.startTime} - ${s.endTime}`).join(', ')
+        : '--';
+
+    let priceTypeLabel = '--';
+    if (selectedSlots.length) {
+        const hasPeak = selectedSlots.some((s) => parseInt(s.startTime) >= 16);
+        const hasNormal = selectedSlots.some((s) => parseInt(s.startTime) < 16);
+        if (hasPeak && hasNormal) {
+            priceTypeLabel = 'Kết hợp giờ thường + cao điểm';
+        } else if (hasPeak) {
+            priceTypeLabel = 'Giá cao điểm (16h – 22h)';
+        } else {
+            priceTypeLabel = 'Giá thường (06h – 16h)';
+        }
     }
 
     return (
@@ -201,7 +225,7 @@ const PitchDetail: React.FC = () => {
                         courtId={court._id}
                         basePrice={court.basePrice}
                         peakPrice={court.peakPrice}
-                        onSlotSelected={(slot) => setSelectedSlot(slot)}
+                        onSlotSelected={(slots) => setSelectedSlots(slots)}
                     />
                 </div>
 
@@ -212,9 +236,7 @@ const PitchDetail: React.FC = () => {
                     <div className='space-y-3 text-[15px] text-gray-700'>
                         <div className='flex justify-between border-b pb-1'>
                             <span>Ngày đặt sân:</span>
-                            <span className='font-semibold'>
-                                {selectedSlot ? formatVNDate(new Date(selectedSlot.date)) : '--'}
-                            </span>
+                            <span className='font-semibold'>{dateDisplay}</span>
                         </div>
 
                         <div className='flex justify-between border-b pb-1'>
@@ -250,30 +272,18 @@ const PitchDetail: React.FC = () => {
 
                         <div className='flex justify-between border-b pb-1'>
                             <span>Khung giờ:</span>
-                            <span className='font-semibold'>
-                                {selectedSlot
-                                    ? `${selectedSlot.startTime} - ${selectedSlot.endTime}`
-                                    : '--'}
-                            </span>
+                            <span className='font-semibold text-right'>{timeDisplay}</span>
                         </div>
 
-                        {selectedSlot && (
+                        {selectedSlots.length > 0 && (
                             <>
                                 <div className='flex justify-between border-b pb-1'>
                                     <span>Loại giá:</span>
-                                    <span className='font-semibold'>
-                                        {parseInt(selectedSlot.startTime) >= 16
-                                            ? 'Giá cao điểm (16h – 22h)'
-                                            : 'Giá thường (06h – 16h)'}
-                                    </span>
+                                    <span className='font-semibold'>{priceTypeLabel}</span>
                                 </div>
                                 <div className='flex justify-between border-b pb-1'>
-                                    <span>Số giờ:</span>
-                                    <span>
-                                        {selectedSlot.duration
-                                            ? `${selectedSlot.duration / 60} giờ`
-                                            : '0 giờ'}
-                                    </span>
+                                    <span>Tổng số giờ:</span>
+                                    <span>{totalDuration / 60} giờ</span>
                                 </div>
                             </>
                         )}
@@ -315,18 +325,16 @@ const PitchDetail: React.FC = () => {
                         <div className='flex justify-between items-center text-green-700 font-extrabold text-xl border-t pt-3'>
                             <span>Tổng tiền:</span>
                             <span>
-                                {selectedSlot
-                                    ? `${selectedSlot.price.toLocaleString('vi-VN')} VNĐ`
-                                    : '0 VNĐ'}
+                                {totalPrice ? `${totalPrice.toLocaleString('vi-VN')} VNĐ` : '0 VNĐ'}
                             </span>
                         </div>
                     </div>
 
                     <button
                         onClick={handleBooking}
-                        disabled={!selectedSlot}
+                        disabled={!selectedSlots.length}
                         className={`w-full mt-6 font-bold py-3 rounded-lg transition ${
-                            selectedSlot
+                            selectedSlots.length
                                 ? 'bg-green-600 hover:bg-green-700 text-white'
                                 : 'bg-gray-300 text-gray-600 cursor-not-allowed'
                         }`}
@@ -335,7 +343,7 @@ const PitchDetail: React.FC = () => {
                     </button>
 
                     <p className='text-xs text-gray-400 mt-10 leading-relaxed italic border-t border-gray-100 pt-5'>
-                        * Có thể hủy trước 2 giờ
+                        * Có thể hủy sớm cách giờ đá trên 6 giờ
                         <br />* Thời tiết xấu sẽ được hỗ trợ sắp xếp lại
                     </p>
                 </div>
