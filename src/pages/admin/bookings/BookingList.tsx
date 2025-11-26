@@ -575,15 +575,24 @@ export default function BookingList() {
             const res = await api.get('/bookings');
             const rawList: Booking[] = res.data.data || [];
 
-            // 👉 Tự động convert sang 'partial' nếu đã có cọc
             const list = rawList.map((b) => {
                 const hasDepositPaid = (b.depositAmount || 0) > 0 && b.depositStatus === 'paid';
+                const deposit = Number(b.depositAmount || 0);
+                const total = Number(b.total || 0);
 
-                let paymentStatus = b.paymentStatus || 'unpaid';
+                let paymentStatus: Booking['paymentStatus'] = (b.paymentStatus as any) || 'unpaid';
 
-                // nếu đã có cọc mà paymentStatus vẫn unpaid thì đổi sang partial
-                if (hasDepositPaid && paymentStatus === 'unpaid') {
-                    paymentStatus = 'partial';
+                // Chỉ tự tính lại khi booking chưa được BE đánh dấu paid/refunded
+                if (paymentStatus === 'unpaid' || paymentStatus === 'partial') {
+                    if (hasDepositPaid) {
+                        // ✅ Thanh toán online đủ 100% (VD VNPAY) -> "Đã thanh toán"
+                        if (total > 0 && deposit >= total) {
+                            paymentStatus = 'paid';
+                        } else {
+                            // Có cọc nhưng chưa đủ -> "Thanh toán một phần"
+                            paymentStatus = 'partial';
+                        }
+                    }
                 }
 
                 return {
@@ -737,7 +746,7 @@ export default function BookingList() {
                 endTime,
             });
 
-            toast.success('✅ Đã cập nhật giờ / sân!');
+            toast.success(' Đã cập nhật giờ / sân!');
             setEditModalOpen(false);
             setEditingBooking(null);
             setEditValues({

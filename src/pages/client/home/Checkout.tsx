@@ -5,15 +5,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import api from '@/common/utils/api';
+
+interface SlotItem {
+    date: string;
+    startTime: string;
+    endTime: string;
+    price: number;
+    duration: number; // phút
+}
 
 interface CheckoutData {
     courtId: string;
     courtName: string;
     date: string; // ISO string
-    startTime: string;
-    endTime: string;
+    slots: SlotItem[];
     totalPrice: number;
+    totalDuration: number;
+    overallStart: string;
+    overallEnd: string;
     bookingId?: string;
+
+    // backward compatible
+    startTime?: string;
+    endTime?: string;
+
+    //  khi đi từ MyBookings (Thanh toán lại)
+    isRetryPayment?: boolean;
+    total?: number; // tổng tiền booking, nếu có
 }
 
 const formatDate = (value: string) => {
@@ -33,12 +52,49 @@ const Checkout: React.FC = () => {
         return JSON.parse(window.localStorage.getItem('checkout-data') || 'null');
     });
 
+    // Tổng tiền thực sự sẽ thanh toán (booking mới = tổng đơn, thanh toán lại = còn thiếu)
+    const [totalAmount, setTotalAmount] = useState<number>(0);
+    const [retryInfo, setRetryInfo] = useState<{
+        bookingId: string;
+        amountToPay: number;
+    } | null>(null);
+
+    // nếu không có bookingData thì đá về home
     useEffect(() => {
         if (!bookingData) {
             toast.error('Không có thông tin đặt sân, đang điều hướng về trang chủ...');
             navigate('/');
         }
     }, [bookingData, navigate]);
+
+    // ĐỌC checkout-data & gọi API thanh toán lại (nếu có)
+    useEffect(() => {
+        if (!bookingData) return;
+
+        // TH1: từ MyBookings, đang Thanh toán lại
+        if (bookingData.isRetryPayment && bookingData.bookingId) {
+            api.get(`/bookings/${bookingData.bookingId}/retry-payment-info`)
+                .then((res) => {
+                    const info = res.data.data;
+                    setRetryInfo({
+                        bookingId: info.bookingId,
+                        amountToPay: info.amountToPay,
+                    });
+                    setTotalAmount(info.amountToPay);
+                })
+                .catch((err) => {
+                    const msg = err?.response?.data?.message || 'Không thể thanh toán lại đơn này!';
+                    toast.error(msg);
+                    // fallback về tổng cũ nếu có
+                    const fallback = bookingData.totalPrice ?? bookingData.total ?? 0;
+                    setTotalAmount(fallback);
+                });
+        } else {
+            // TH2: flow đặt sân mới
+            const amount = bookingData.totalPrice ?? bookingData.total ?? 0;
+            setTotalAmount(amount);
+        }
+    }, [bookingData]);
 
     const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo'>('vnpay');
     const [name, setName] = useState('');
@@ -47,6 +103,33 @@ const Checkout: React.FC = () => {
     const [isPaying, setIsPaying] = useState(false);
 
     const [errors, setErrors] = useState<{ name?: string; phone?: string; email?: string }>({});
+
+    if (!bookingData) return null;
+
+    //  TÍNH TOÁN TỪ DỮ LIỆU MỚI
+    const totalPrice = bookingData.totalPrice ?? bookingData.total ?? 0;
+    const totalHours =
+        bookingData.totalDuration && bookingData.totalDuration > 0
+            ? bookingData.totalDuration / 60
+            : bookingData.slots?.reduce((sum, s) => sum + s.duration, 0) / 60 || 0;
+
+    const slotsDisplay =
+        bookingData.slots && bookingData.slots.length
+            ? bookingData.slots.map((s) => `${s.startTime} - ${s.endTime}`).join(', ')
+            : bookingData.startTime && bookingData.endTime
+            ? `${bookingData.startTime} - ${bookingData.endTime}`
+            : '--';
+
+    const firstSlot = bookingData.slots?.[0];
+    const lastSlot =
+        bookingData.slots && bookingData.slots.length > 0
+            ? bookingData.slots[bookingData.slots.length - 1]
+            : undefined;
+
+    const bookingStartTime =
+        bookingData.overallStart || firstSlot?.startTime || bookingData.startTime || '06:00';
+    const bookingEndTime =
+        bookingData.overallEnd || lastSlot?.endTime || bookingData.endTime || '07:00';
 
     const handleSubmit = async () => {
         if (!bookingData) {
@@ -93,7 +176,7 @@ const Checkout: React.FC = () => {
 
             let bookingId = bookingData.bookingId;
 
-            // 1. Tạo booking nếu chưa có
+            //  Tạo booking nếu chưa có (flow đặt sân mới)
             if (!bookingId) {
                 const resBooking = await fetch('http://localhost:3000/api/bookings', {
                     method: 'POST',
@@ -105,8 +188,8 @@ const Checkout: React.FC = () => {
                         courtId: bookingData.courtId,
                         customerId: user._id,
                         date: bookingData.date,
-                        startTime: bookingData.startTime,
-                        endTime: bookingData.endTime,
+                        startTime: bookingStartTime,
+                        endTime: bookingEndTime,
                         paymentMethod, // vnpay / momo
                         note: '',
                         customerInfo: {
@@ -114,6 +197,8 @@ const Checkout: React.FC = () => {
                             phone: phoneTrim,
                             email: emailTrim,
                         },
+                        slots: bookingData.slots,
+                        totalFieldAmount: totalPrice,
                     }),
                 });
 
@@ -135,16 +220,32 @@ const Checkout: React.FC = () => {
                 localStorage.setItem('checkout-data', JSON.stringify(newCheckoutData));
             }
 
-            // 2. Thanh toán VNPay
+            //  Thanh toán VNPay đặt sân mới + thanh toán lại
             if (paymentMethod === 'vnpay') {
+                if (totalAmount <= 0) {
+                    toast.error('Số tiền thanh toán không hợp lệ!');
+                    setIsPaying(false);
+                    return;
+                }
+
+                const payload: any = {
+                    bookingId,
+                    amount: totalAmount, // ⭐ dùng số tiền thực sự cần trả
+                };
+
+                const isRetry = bookingData.isRetryPayment || !!retryInfo;
+                if (isRetry) {
+                    payload.isRetryPayment = true;
+                }
+
                 const res = await fetch('http://localhost:3000/api/payment/vnpay/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookingId }),
+                    body: JSON.stringify(payload),
                 });
 
                 const data = await res.json();
-                const paymentUrl = data.paymentUrl || data?.data?.url;
+                const paymentUrl = data.paymentUrl || data?.data?.paymentUrl || data?.data?.url;
 
                 if (data.success && paymentUrl) {
                     toast.success('Đang chuyển tới trang thanh toán VNPay...');
@@ -156,13 +257,14 @@ const Checkout: React.FC = () => {
                 return;
             }
 
-            // 3. Giả lập MoMo
+            //  Giả lập MoMo
             if (paymentMethod === 'momo') {
                 const payload = {
                     ...bookingData,
                     bookingId,
                     customer: { name: nameTrim, phone: phoneTrim, email: emailTrim },
                     paymentMethod: 'momo',
+                    amount: totalAmount || totalPrice,
                 };
                 console.log('Dữ liệu gửi thanh toán MoMo:', payload);
                 toast.success('Giả lập thanh toán MoMo thành công!');
@@ -174,8 +276,6 @@ const Checkout: React.FC = () => {
             setIsPaying(false);
         }
     };
-
-    if (!bookingData) return null;
 
     return (
         <div className='min-h-screen bg-white flex justify-center items-start py-12 px-4'>
@@ -201,19 +301,39 @@ const Checkout: React.FC = () => {
                                 {formatDate(bookingData.date)}
                             </span>
 
-                            <span>Giờ:</span>
-                            <span className='font-medium text-gray-800'>
-                                {bookingData.startTime} - {bookingData.endTime}
-                            </span>
+                            <span>Các khung giờ:</span>
+                            <div className='flex flex-col gap-1'>
+                                {bookingData.slots && bookingData.slots.length > 0 ? (
+                                    bookingData.slots.map((s, idx) => (
+                                        <span
+                                            key={idx}
+                                            className='font-medium text-gray-800 min-w-[140px]'
+                                        >
+                                            {s.startTime} - {s.endTime}
+                                        </span>
+                                    ))
+                                ) : (
+                                    <span className='font-medium text-gray-800 min-w-[140px]'>
+                                        {bookingData.startTime} - {bookingData.endTime}
+                                    </span>
+                                )}
+                            </div>
+
+                            <span>Tổng số giờ:</span>
+                            <span className='font-medium text-gray-800'>{totalHours} giờ</span>
 
                             <span>Tổng tiền:</span>
                             <span className='font-bold text-green-700 text-lg'>
-                                {formatCurrency(bookingData.totalPrice)}
+                                {/* ưu tiên hiển thị số tiền thực sự sẽ thanh toán */}
+                                {formatCurrency(totalAmount || totalPrice)}
                             </span>
                         </div>
                     </div>
 
                     {/* Thông tin người đặt */}
+                    {/* (phần dưới giữ nguyên như cũ) */}
+                    {/* ... Toàn bộ phần form name/phone/email, chọn phương thức, Button gọi handleSubmit ... */}
+
                     <div className='space-y-4'>
                         <h2 className='font-semibold text-lg text-gray-700'>Thông tin người đặt</h2>
                         <div className='grid gap-4'>
