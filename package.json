@@ -19,7 +19,7 @@
         "@tailwindcss/vite": "^4.1.14",
         "@tanstack/react-query": "^5.90.5",
         "antd": "^5.27.6",
-        "axios": "^1.12.2",
+        "axios": "^1.13.2",
         "browser-image-compression": "^2.0.2",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
