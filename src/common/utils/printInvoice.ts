@@ -15,7 +15,23 @@ export const printInvoiceMira = (invoiceDetail: any) => {
     if (!invoiceDetail?.invoice) return;
 
     const inv = invoiceDetail.invoice;
-    const items = invoiceDetail.items || [];
+    const rawItems = invoiceDetail.items || [];
+    const mergedMap: Record<string, any> = {};
+    rawItems.forEach((it: any) => {
+        const key = `${it.name || ''}_${it.unit || ''}_${it.price || 0}`;
+        if (mergedMap[key]) {
+            mergedMap[key].qty += it.qty || 0;
+            mergedMap[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
+        } else {
+            mergedMap[key] = {
+                ...it,
+                qty: it.qty || 0,
+                subtotal: it.subtotal || (it.qty || 0) * (it.price || 0),
+            };
+        }
+    });
+
+    const items = Object.values(mergedMap);
     const booking = inv.bookingId || {};
     const customer = booking.customerInfo || booking.customerId || inv.customerId || {};
     const methodLabel = PAYMENT_METHOD_TEXT[inv.method] || inv.method || '—';
