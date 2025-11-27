@@ -9,6 +9,7 @@ import PitchDetail from '@/pages/client/home/PitchDetail';
 import MyBookings from '@/pages/client/home/MyBookings';
 import PaymentSuccessPage from '@/pages/client/home/PaymentSuccessPage';
 import BookingPolicyPage from '@/pages/client/home/BookingPolicyPage.tsx';
+import Profile from '@/pages/client/home/Profile';
 
 export const PublicRoutes: RouteObject[] = [
     {
@@ -24,6 +25,7 @@ export const PublicRoutes: RouteObject[] = [
             { path: 'reset-password', element: <ResetPasswordPage /> },
             { path: 'payment-return', element: <PaymentSuccessPage /> },
             { path: 'booking-policy', element: <BookingPolicyPage /> },
+            { path: 'profile', element: <Profile /> },
         ],
     },
 ];
