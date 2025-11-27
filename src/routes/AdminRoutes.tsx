@@ -3,7 +3,7 @@ import AdminLayout from '@/layouts/AdminLayout';
 import DashBoard from '@/pages/admin/dashboard/DashBoard';
 import CourtManagement from '../pages/admin/courts/CourtManagement';
 import BookingCreate from '../pages/admin/bookings/BookingCreate';
-import Users from '../pages/admin/users/users';
+import Users from '../pages/admin/users/Users.tsx';
 import EquipmentList from '../pages/admin/equipments/EquipmentList.tsx';
 import BookingList from '../pages/admin/bookings/BookingList.tsx';
 import RoleRoute from '@/common/middlewares/RoleRoute';
