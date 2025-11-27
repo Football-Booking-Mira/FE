@@ -18,6 +18,7 @@ import {
     Form,
     Spin,
     Upload,
+    Tooltip,
 } from 'antd';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
@@ -34,7 +35,7 @@ import {
     FileTextOutlined,
     EyeOutlined,
     EditOutlined,
-    UploadOutlined, // 👈 thêm
+    UploadOutlined,
 } from '@ant-design/icons';
 import { io } from 'socket.io-client';
 
@@ -1136,12 +1137,12 @@ export default function BookingList() {
                     s === 'confirmed'
                         ? 'blue'
                         : s === 'pending'
-                            ? 'orange'
-                            : s === 'in_use'
-                                ? 'purple'
-                                : s === 'completed'
-                                    ? 'green'
-                                    : 'gray';
+                        ? 'orange'
+                        : s === 'in_use'
+                        ? 'purple'
+                        : s === 'completed'
+                        ? 'green'
+                        : 'gray';
 
                 return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
             },
@@ -1150,6 +1151,9 @@ export default function BookingList() {
             title: 'Thao tác',
             key: 'actions',
             render: (b: Booking) => {
+                //  true nếu đơn là NGÀY TƯƠNG LAI (sau hôm nay)
+                const isFutureBooking = dayjs(b.date).isAfter(dayjs(), 'day');
+
                 if (b.status === 'cancelled') {
                     return (
                         <Tag color='default'>
@@ -1162,7 +1166,6 @@ export default function BookingList() {
                     const canPay = b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial';
 
                     if (canPay) {
-                        // còn tiền phải thu -> cho tạo hóa đơn
                         return (
                             <Button
                                 size='small'
@@ -1174,7 +1177,6 @@ export default function BookingList() {
                         );
                     }
 
-                    // đã paid/refunded -> chỉ cho xem hóa đơn
                     return (
                         <Button
                             size='small'
@@ -1216,13 +1218,26 @@ export default function BookingList() {
 
                         {b.status === 'confirmed' && (
                             <>
-                                <Button
-                                    size='small'
-                                    icon={<PlayCircleOutlined />}
-                                    onClick={() => handleAction(b._id, 'checkin')}
+                                {/* ❌ Không cho checkin trước ngày đá */}
+                                <Tooltip
+                                    title={
+                                        isFutureBooking
+                                            ? 'Chỉ được check-in từ 00:00 đúng ngày đá'
+                                            : undefined
+                                    }
                                 >
-                                    Check-in
-                                </Button>
+                                    <span>
+                                        <Button
+                                            size='small'
+                                            icon={<PlayCircleOutlined />}
+                                            onClick={() => handleAction(b._id, 'checkin')}
+                                            disabled={isFutureBooking}
+                                        >
+                                            Check-in
+                                        </Button>
+                                    </span>
+                                </Tooltip>
+
                                 <Button
                                     size='small'
                                     icon={<EditOutlined />}
@@ -1369,9 +1384,9 @@ export default function BookingList() {
             render: (b: Booking) => {
                 const hasAdminDetail = Boolean(
                     b.refund?.adminReason ||
-                    b.refund?.billImage ||
-                    b.refundAdminReason ||
-                    b.refundBillImage
+                        b.refund?.billImage ||
+                        b.refundAdminReason ||
+                        b.refundBillImage
                 );
 
                 return hasAdminDetail ? (
@@ -1987,20 +2002,20 @@ export default function BookingList() {
                                     </div>
                                     {(paymentBooking.customerInfo?.phone ||
                                         paymentBooking.customerId?.phone) && (
-                                            <div className='text-xs text-gray-500'>
-                                                SĐT:{' '}
-                                                {paymentBooking.customerInfo?.phone ||
-                                                    paymentBooking.customerId?.phone}
-                                            </div>
-                                        )}
+                                        <div className='text-xs text-gray-500'>
+                                            SĐT:{' '}
+                                            {paymentBooking.customerInfo?.phone ||
+                                                paymentBooking.customerId?.phone}
+                                        </div>
+                                    )}
                                     {(paymentBooking.customerInfo?.email ||
                                         paymentBooking.customerId?.email) && (
-                                            <div className='text-xs text-gray-500'>
-                                                Email:{' '}
-                                                {paymentBooking.customerInfo?.email ||
-                                                    paymentBooking.customerId?.email}
-                                            </div>
-                                        )}
+                                        <div className='text-xs text-gray-500'>
+                                            Email:{' '}
+                                            {paymentBooking.customerInfo?.email ||
+                                                paymentBooking.customerId?.email}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className='w-px bg-gray-200 mx-2' />
