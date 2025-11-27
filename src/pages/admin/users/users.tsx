@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Table, Tag, Button, Modal, Popconfirm, Select, Input } from "antd";
+import { Table, Tag, Button, Modal, Popconfirm, Select, Input, Form } from "antd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "@/lib/axios";
 
@@ -26,35 +26,51 @@ const updateRole = async ({ userId, role }: { userId: string; role: string }) =>
     return axios.put(`/api/users/${userId}`, { role });
 };
 
-const blockUser = async (userId: string) => {
-    return axios.patch(`/api/users/${userId}/block`);
-};
-
-const unblockUser = async (userId: string) => {
-    return axios.patch(`/api/users/${userId}/unlock`);
-};
-
-
-const deleteUser = async (userId: string) => {
-    return axios.delete(`/api/users/${userId}`);
-};
+const blockUser = async (userId: string) => axios.patch(`/api/users/${userId}/block`);
+const unblockUser = async (userId: string) => axios.patch(`/api/users/${userId}/unlock`);
+const deleteUser = async (userId: string) => axios.delete(`/api/users/${userId}`);
+const createUser = async (payload: any) => axios.post("/api/users", payload);
 
 const Users = () => {
     const queryClient = useQueryClient();
+
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [modalCreateVisible, setModalCreateVisible] = useState(false);
     const [searchText, setSearchText] = useState("");
+
+    const [form] = Form.useForm();
 
     const { data: users, isLoading } = useQuery({
         queryKey: ["users"],
         queryFn: fetchUsers,
     });
 
-    const mutationUpdateRole = useMutation({ mutationFn: updateRole, onSuccess: () => queryClient.invalidateQueries(["users"]) });
-    const mutationBlock = useMutation({ mutationFn: blockUser, onSuccess: () => queryClient.invalidateQueries(["users"]) });
-    const mutationUnblock = useMutation({ mutationFn: unblockUser, onSuccess: () => queryClient.invalidateQueries(["users"]) });
+    const mutationCreate = useMutation({
+        mutationFn: createUser,
+        onSuccess: () => {
+            queryClient.invalidateQueries(["users"]);
+            setModalCreateVisible(false);
+            form.resetFields();
+        },
+    });
 
-    const mutationDeleteUser = useMutation({ mutationFn: deleteUser, onSuccess: () => queryClient.invalidateQueries(["users"]) });
+    const mutationUpdateRole = useMutation({
+        mutationFn: updateRole,
+        onSuccess: () => queryClient.invalidateQueries(["users"]),
+    });
+    const mutationBlock = useMutation({
+        mutationFn: blockUser,
+        onSuccess: () => queryClient.invalidateQueries(["users"]),
+    });
+    const mutationUnblock = useMutation({
+        mutationFn: unblockUser,
+        onSuccess: () => queryClient.invalidateQueries(["users"]),
+    });
+    const mutationDeleteUser = useMutation({
+        mutationFn: deleteUser,
+        onSuccess: () => queryClient.invalidateQueries(["users"]),
+    });
 
     const handleView = (user: User) => {
         setSelectedUser(user);
@@ -78,7 +94,9 @@ const Users = () => {
                 <Select
                     defaultValue={role}
                     style={{ width: 120 }}
-                    onChange={(value) => mutationUpdateRole.mutate({ userId: record._id, role: value })}
+                    onChange={(value) =>
+                        mutationUpdateRole.mutate({ userId: record._id, role: value })
+                    }
                 >
                     <Option value="user">User</Option>
                     <Option value="admin">Admin</Option>
@@ -101,15 +119,16 @@ const Users = () => {
             align: "right" as const,
             render: (_: any, record: User) => (
                 <div className="flex gap-2">
-                    <Button size="small" onClick={() => handleView(record)}>Chi tiết</Button>
+                    <Button size="small" onClick={() => handleView(record)}>
+                        Chi tiết
+                    </Button>
+
                     <Button
                         size="small"
                         onClick={() => {
-                            if (record.status === "active") {
-                                mutationBlock.mutate(record._id);
-                            } else {
-                                mutationUnblock.mutate(record._id);
-                            }
+                            record.status === "active"
+                                ? mutationBlock.mutate(record._id)
+                                : mutationUnblock.mutate(record._id);
                         }}
                     >
                         {record.status === "active" ? "Chặn" : "Bỏ chặn"}
@@ -121,7 +140,9 @@ const Users = () => {
                         okText="Xóa"
                         cancelText="Hủy"
                     >
-                        <Button size="small" danger>Xóa</Button>
+                        <Button size="small" danger>
+                            Xóa
+                        </Button>
                     </Popconfirm>
                 </div>
             ),
@@ -130,13 +151,21 @@ const Users = () => {
 
     return (
         <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">Quản lý khách hàng</h2>
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">Quản lý khách hàng</h2>
+
+                <Button type="primary" onClick={() => setModalCreateVisible(true)}>
+                    ➕ Thêm người dùng
+                </Button>
+            </div>
+
             <Search
                 placeholder="Tìm kiếm tên hoặc email"
                 allowClear
                 onSearch={(value) => setSearchText(value)}
                 style={{ width: 300, marginBottom: 16 }}
             />
+
             <Table
                 columns={columns}
                 dataSource={filteredUsers}
@@ -144,6 +173,34 @@ const Users = () => {
                 loading={isLoading}
                 pagination={{ pageSize: 10 }}
             />
+
+            {/* MODAL CREATE USER */}
+            <Modal
+                title="Thêm người dùng mới"
+                open={modalCreateVisible}
+                onCancel={() => setModalCreateVisible(false)}
+                onOk={() => form.submit()}
+                okText="Tạo"
+                cancelText="Hủy"
+            >
+                <Form form={form} layout="vertical" onFinish={mutationCreate.mutate}>
+                    <Form.Item label="Tên" name="name" rules={[{ required: true }]}>
+                        <Input placeholder="Nhập tên" />
+                    </Form.Item>
+
+                    <Form.Item label="Email" name="email" rules={[{ required: true }]}>
+                        <Input placeholder="Nhập email" />
+                    </Form.Item>
+
+                    <Form.Item label="Số điện thoại" name="phone" rules={[{ required: true }]}>
+                        <Input placeholder="Nhập số điện thoại" />
+                    </Form.Item>
+
+                    <Form.Item label="Mật khẩu" name="password" rules={[{ required: true }]}>
+                        <Input.Password placeholder="Nhập mật khẩu" />
+                    </Form.Item>
+                </Form>
+            </Modal>
 
             <Modal
                 title="Thông tin khách hàng"
@@ -202,7 +259,6 @@ const Users = () => {
                     </div>
                 )}
             </Modal>
-
         </div>
     );
 };
