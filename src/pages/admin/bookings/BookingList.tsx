@@ -36,6 +36,7 @@ import {
     EyeOutlined,
     EditOutlined,
     UploadOutlined,
+    PlusOutlined,
 } from '@ant-design/icons';
 import { io } from 'socket.io-client';
 
@@ -264,6 +265,7 @@ export default function BookingList() {
     });
     const [courts, setCourts] = useState<CourtOption[]>([]);
     const [loading, setLoading] = useState(false);
+    const [checkinMode, setCheckinMode] = useState<'checkin' | 'add_equipment'>('checkin');
 
     const [filters, setFilters] = useState({
         search: '',
@@ -540,8 +542,9 @@ export default function BookingList() {
         }
     };
 
-    const openCheckinModal = async (b: Booking) => {
+    const openCheckinModal = async (b: Booking, mode: 'checkin' | 'add_equipment' = 'checkin') => {
         setCheckinBooking(b);
+        setCheckinMode(mode);
         setCheckinModalOpen(true);
         setEquipmentQty({});
         await loadCheckinEquipments(b._id);
@@ -556,7 +559,6 @@ export default function BookingList() {
             return { ...prev, [key]: next };
         });
     };
-
     const handleConfirmCheckin = async () => {
         if (!checkinBooking) return;
 
@@ -584,12 +586,22 @@ export default function BookingList() {
             );
 
         try {
-            await api.patch(`/bookings/${checkinBooking._id}/checkin`, {
+            const url =
+                checkinMode === 'checkin'
+                    ? `/bookings/${checkinBooking._id}/checkin`
+                    : `/bookings/${checkinBooking._id}/equipments`; //  API mới cho thêm thiết bị
+
+            await api.patch(url, {
                 items,
                 equipmentTotal,
             });
 
-            toast.success('📦 Check-in thành công, đã cộng tiền thiết bị và trừ tồn kho!');
+            toast.success(
+                checkinMode === 'checkin'
+                    ? '📦 Check-in thành công, đã cộng tiền thiết bị và trừ tồn kho!'
+                    : '📦 Đã thêm thiết bị cho đơn đang sử dụng!'
+            );
+
             setCheckinModalOpen(false);
             setCheckinBooking(null);
             setEquipmentQty({});
@@ -826,7 +838,7 @@ export default function BookingList() {
             } else if (action === 'checkin') {
                 const booking = bookings.find((b) => b._id === id);
                 if (booking) {
-                    openCheckinModal(booking);
+                    openCheckinModal(booking, 'checkin');
                 }
                 return;
             } else if (action === 'checkout') {
@@ -1256,13 +1268,22 @@ export default function BookingList() {
                         )}
 
                         {b.status === 'in_use' && (
-                            <Button
-                                size='small'
-                                icon={<StopOutlined />}
-                                onClick={() => handleAction(b._id, 'checkout')}
-                            >
-                                Check-out
-                            </Button>
+                            <Space>
+                                <Button
+                                    size='small'
+                                    icon={<PlusOutlined />}
+                                    onClick={() => openCheckinModal(b, 'add_equipment')}
+                                >
+                                    Thêm thiết bị
+                                </Button>
+                                <Button
+                                    size='small'
+                                    icon={<StopOutlined />}
+                                    onClick={() => handleAction(b._id, 'checkout')}
+                                >
+                                    Check-out
+                                </Button>
+                            </Space>
                         )}
                     </Space>
                 );
@@ -1692,11 +1713,13 @@ export default function BookingList() {
                 open={checkinModalOpen}
                 onCancel={() => setCheckinModalOpen(false)}
                 onOk={handleConfirmCheckin}
-                okText='Xác nhận Check-in'
+                okText={checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
                 cancelText='Hủy'
                 title={
                     checkinBooking
-                        ? `Check-in và chọn thiết bị - ${checkinBooking.code}`
+                        ? checkinMode === 'checkin'
+                            ? `Check-in và chọn thiết bị - ${checkinBooking.code}`
+                            : `Thêm thiết bị -${checkinBooking.code}`
                         : 'Check-in và chọn thiết bị'
                 }
             >
