@@ -1,109 +1,120 @@
 import React from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 interface CheckoutData {
-    courtId?: string;
-    courtName?: string;
-    date?: string;
-    startTime?: string;
-    endTime?: string;
-    totalPrice?: number;
+  courtId?: string;
+  courtName?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  totalPrice?: number;
 }
 
 const PaymentResultPage: React.FC = () => {
-    const [searchParams] = useSearchParams();
-    const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
-    const rspCode = searchParams.get('vnp_ResponseCode');
-    const rawAmount = searchParams.get('vnp_Amount');
-    const txnRef = searchParams.get('vnp_TxnRef');
+  const rspCode = searchParams.get('vnp_ResponseCode');
+  const rawAmount = searchParams.get('vnp_Amount');
+  const txnRef = searchParams.get('vnp_TxnRef');
 
-    const amount = rawAmount && !Number.isNaN(Number(rawAmount)) ? Number(rawAmount) / 100 : 0;
-    const isSuccess = rspCode === '00';
-    const formattedAmount = amount > 0 ? amount.toLocaleString('vi-VN') + ' VNĐ' : '—';
+  const amount = rawAmount && !Number.isNaN(Number(rawAmount)) ? Number(rawAmount) / 100 : 0;
+  const isSuccess = rspCode === '00';
+  const formattedAmount = amount > 0 ? amount.toLocaleString('vi-VN') + ' VNĐ' : '—';
 
-    // Lấy lại thông tin checkout cuối cùng (để quay lại đúng sân)
-    const checkoutData: CheckoutData | null = JSON.parse(
-        window.localStorage.getItem('checkout-data') || 'null'
-    );
+  // Lấy lại thông tin checkout cuối cùng (để quay lại đúng sân)
+  const checkoutData: CheckoutData | null = JSON.parse(
+    window.localStorage.getItem('checkout-data') || 'null'
+  );
 
-    const handleRetryBooking = () => {
-        // Nếu có courtId thì quay lại đúng trang sân
-        if (checkoutData?.courtId) {
-            navigate(`/pitch/${checkoutData.courtId}`);
-        } else {
-            // fallback: quay về trang đặt sân chung
-            navigate('/booking');
-        }
-    };
+  const handleRetryBooking = () => {
+    // Nếu có courtId thì quay lại đúng trang sân
+    if (checkoutData?.courtId) {
+      navigate(`/pitch/${checkoutData.courtId}`);
+    } else {
+      // fallback: quay về trang đặt sân chung
+      navigate('/booking');
+    }
+  };
 
-    return (
-        <div className='min-h-screen bg-gray-50 flex items-center justify-center px-4'>
-            <div className='max-w-md w-full'>
-                <div className='bg-white rounded-2xl shadow-lg p-8 text-center'>
-                    <div
-                        className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-6
+  return (
+    <div className='min-h-screen bg-gray-50 flex items-center justify-center px-4'>
+      <div className='max-w-md w-full'>
+        <div className='bg-white rounded-2xl shadow-lg p-8 text-center'>
+          <div
+            className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-6
                         ${isSuccess ? 'bg-green-100' : 'bg-red-100'}`}
-                    >
-                        {isSuccess ? (
-                            <CheckCircle className='w-12 h-12 text-green-600' />
-                        ) : (
-                            <XCircle className='w-12 h-12 text-red-600' />
-                        )}
-                    </div>
+          >
+            {isSuccess ? (
+              <CheckCircle className='w-12 h-12 text-green-600' />
+            ) : (
+              <XCircle className='w-12 h-12 text-red-600' />
+            )}
+          </div>
 
-                    <h1 className='text-3xl font-bold text-gray-900 mb-3'>
-                        {isSuccess ? 'Đặt Sân Thành Công' : 'Thanh Toán Không Thành Công'}
-                    </h1>
+          <h1 className='text-3xl font-bold text-gray-900 mb-3'>
+            {isSuccess ? 'Đặt Sân Thành Công' : 'Thanh Toán Không Thành Công'}
+          </h1>
 
-                    <p className='text-gray-600 mb-6'>
-                        {isSuccess
-                            ? 'Cảm ơn bạn đã đặt sân. Chúc bạn có trận đấu vui vẻ!'
-                            : 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Bạn vui lòng thử lại hoặc chọn phương thức khác.'}
-                    </p>
+          <p className='text-gray-600 mb-6'>
+            {isSuccess
+              ? 'Cảm ơn bạn đã đặt sân. Chúc bạn có trận đấu vui vẻ!'
+              : 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Bạn vui lòng thử lại hoặc chọn phương thức khác.'}
+          </p>
 
-                    {/* Thông tin đơn hàng */}
-                    <div className='text-left text-sm text-gray-700 mb-6 space-y-1'>
-                        <p>
-                            <span className='font-medium'>Mã đơn hàng:</span>{' '}
-                            <span>{txnRef || '—'}</span>
-                        </p>
-                        <p>
-                            <span className='font-medium'>Số tiền:</span>{' '}
-                            <span>{formattedAmount}</span>
-                        </p>
-                        {/* ĐÃ BỎ MÃ PHẢN HỒI VNPay  */}
-                    </div>
+          {/* Thông tin đơn hàng */}
+          <div className='text-left text-sm text-gray-700 mb-6 space-y-1'>
+            <p>
+              <span className='font-medium'>Mã đơn hàng:</span>{' '}
+              <span>{txnRef || '—'}</span>
+            </p>
+            <p>
+              <span className='font-medium'>Số tiền:</span>{' '}
+              <span>{formattedAmount}</span>
+            </p>
+          </div>
 
-                    <div className='space-y-3'>
-                        {isSuccess ? (
-                            <button
-                                onClick={() => navigate('/my-bookings')}
-                                className='w-full px-6 py-3 !mb-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors'
-                            >
-                                Xem Đơn Đặt Sân
-                            </button>
-                        ) : (
-                            <button
-                                onClick={handleRetryBooking}
-                                className='w-full px-6 py-3 !mb-3 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors'
-                            >
-                                Đặt Lại Sân
-                            </button>
-                        )}
+          <div className='space-y-3'>
+            {isSuccess ? (
+              <button
+                onClick={() => navigate('/my-bookings')}
+                className='w-full px-6 py-3 !mb-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors'
+              >
+                Xem Đơn Đặt Sân
+              </button>
+            ) : (
+              <button
+                onClick={handleRetryBooking}
+                className='w-full px-6 py-3 !mb-3 bg-orange-500 text-white font-medium rounded-lg hover:bg-orange-600 transition-colors'
+              >
+                Đặt Lại Sân
+              </button>
+            )}
 
-                        <button
-                            onClick={() => navigate('/')}
-                            className='w-full px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors'
-                        >
-                            Về Trang Chủ
-                        </button>
-                    </div>
-                </div>
-            </div>
+            {/* Nút VỀ ĐƠN ĐẶT SÂN – nền xanh nhạt, hover full xanh */}
+            <Button
+              variant='outline'
+              onClick={() => navigate('/my-bookings')}
+              className='w-full px-6 py-3 rounded-lg border-green-500 text-green-600 bg-green-50
+                   hover:bg-green-500 hover:text-white transition-colors'
+            >
+              Về đơn đặt sân
+            </Button>
+
+            <button
+              onClick={() => navigate('/')}
+              className='w-full px-6 py-3 rounded-lg bg-slate-100 text-slate-700 font-medium
+                   hover:bg-slate-200 hover:text-slate-900 transition-colors'
+            >
+              Về Trang Chủ
+            </button>
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default PaymentResultPage;

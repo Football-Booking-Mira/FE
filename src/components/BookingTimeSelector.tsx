@@ -1,17 +1,20 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
+interface SelectedSlot {
+    date: string;
+    startTime: string;
+    endTime: string;
+    price: number;
+    duration: number; // phút
+}
+
 interface Props {
     courtId: string;
     basePrice: number;
     peakPrice: number;
-    onSlotSelected: (slot: {
-        date: string;
-        startTime: string;
-        endTime: string;
-        price: number;
-        duration: number;
-    }) => void;
+    // giờ trả ra MẢNG ca đã chọn
+    onSlotSelected: (slots: SelectedSlot[]) => void;
 }
 
 interface BookedSlot {
@@ -92,9 +95,8 @@ const BookingTimeSelector: React.FC<Props> = ({
     onSlotSelected,
 }) => {
     const [selectedDateStr, setSelectedDateStr] = useState<string>(getLocalDateStr());
-    const [rangeStart, setRangeStart] = useState('');
-    const [rangeEnd, setRangeEnd] = useState('');
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
+    const [selectedSlots, setSelectedSlots] = useState<string[]>([]); // lưu startTime
     const [totalPrice, setTotalPrice] = useState(0);
     const [selectedHours, setSelectedHours] = useState(0);
     const [breakMinutes, setBreakMinutes] = useState(0);
@@ -115,8 +117,7 @@ const BookingTimeSelector: React.FC<Props> = ({
 
     //* lần đầu / đổi ngày
     useEffect(() => {
-        setRangeStart('');
-        setRangeEnd('');
+        setSelectedSlots([]);
         setTotalPrice(0);
         setSelectedHours(0);
         setBreakMinutes(0);
@@ -181,123 +182,77 @@ const BookingTimeSelector: React.FC<Props> = ({
         return slotTime < now;
     };
 
-    const isInRange = (s: string, e: string) => {
-        if (!rangeStart) return false;
-        const effectiveEnd = rangeEnd || rangeStart;
-        const sMin = timeToMin(s);
-        const rStartMin = timeToMin(rangeStart);
-        const rEndMin = timeToMin(effectiveEnd);
-        return sMin >= rStartMin && timeToMin(e) <= rEndMin;
-    };
-
-    const checkConflict = (start: string, end: string) => {
-        const startMin = timeToMin(start);
-        const endMin = timeToMin(end);
-        const slotsInRange = TIME_SLOTS.filter((slot) => {
-            const slotS = timeToMin(slot.start);
-            const slotE = timeToMin(slot.end);
-            return slotS >= startMin && slotE <= endMin;
-        });
-        return slotsInRange.some((slot) => isBooked(slot.start, slot.end));
-    };
+    const isSelected = (s: string) => selectedSlots.includes(s);
 
     const handleSlotClick = (s: string, e: string) => {
         if (isPast(s) || isBooked(s, e)) return;
 
-        if (!rangeStart) {
-            setRangeStart(s);
-            setRangeEnd(e);
-            return;
-        }
-
-        const sMin = timeToMin(s);
-        const startMin = timeToMin(rangeStart);
-
-        const currentSlot = TIME_SLOTS.find((t) => t.start === rangeStart);
-        const isSingleSlotSelected = currentSlot && currentSlot.end === rangeEnd;
-
-        // bỏ chọn
-        if (s === rangeStart && e === rangeEnd) {
-            setRangeStart('');
-            setRangeEnd('');
-            return;
-        }
-
-        if (isSingleSlotSelected) {
-            if (sMin > startMin) {
-                if (checkConflict(rangeStart, e)) {
-                    alert('Khoảng chọn bị vướng lịch đã đặt!');
-                    return;
-                }
-                setRangeEnd(e);
-                return;
+        setSelectedSlots((prev) => {
+            // đã chọn -> bỏ chọn
+            if (prev.includes(s)) {
+                return prev.filter((x) => x !== s);
             }
-            if (sMin < startMin) {
-                if (checkConflict(s, rangeEnd)) {
-                    alert('Khoảng chọn bị vướng lịch đã đặt!');
-                    return;
-                }
-                setRangeStart(s);
-                return;
-            }
-        }
-
-        setRangeStart(s);
-        setRangeEnd(e);
+            // chưa chọn -> thêm
+            return [...prev, s].sort((a, b) => timeToMin(a) - timeToMin(b));
+        });
     };
 
-    const handleStartChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newStart = e.target.value;
-        setRangeStart(newStart);
-        const slot = TIME_SLOTS.find((t) => t.start === newStart);
-        if (slot) setRangeEnd(slot.end);
-    };
-
-    const handleEndChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newEnd = e.target.value;
-        if (checkConflict(rangeStart, newEnd)) {
-            alert('Khoảng thời gian này có chứa lịch đã đặt!');
-            return;
-        }
-        setRangeEnd(newEnd);
-    };
-
-    // tính tiền mỗi khi đổi range
+    // tính tiền mỗi khi đổi selectedSlots
     useEffect(() => {
-        if (!rangeStart || !rangeEnd) {
+        if (selectedSlots.length === 0) {
             setTotalPrice(0);
             setSelectedHours(0);
             setBreakMinutes(0);
+            onSlotSelected([]);
             return;
         }
+
         let total = 0;
-        let validSlotsCount = 0;
+        const chosenSlots: SelectedSlot[] = [];
+        const chosenIndexes: number[] = [];
 
-        TIME_SLOTS.forEach((slot) => {
-            const sMin = timeToMin(slot.start);
-            const eMin = timeToMin(slot.end);
-            const rStart = timeToMin(rangeStart);
-            const rEnd = timeToMin(rangeEnd);
-
-            if (sMin >= rStart && eMin <= rEnd) {
+        TIME_SLOTS.forEach((slot, idx) => {
+            if (selectedSlots.includes(slot.start)) {
+                const sMin = timeToMin(slot.start);
                 const isPeak = sMin / 60 >= PEAK_START;
-                total += isPeak ? peakPrice : basePrice;
-                validSlotsCount++;
+                const price = isPeak ? peakPrice : basePrice;
+                total += price;
+
+                chosenIndexes.push(idx);
+                chosenSlots.push({
+                    date: selectedDateStr,
+                    startTime: slot.start,
+                    endTime: slot.end,
+                    price,
+                    duration: 60,
+                });
             }
         });
 
-        setTotalPrice(total);
-        setSelectedHours(validSlotsCount);
-        setBreakMinutes(validSlotsCount > 1 ? (validSlotsCount - 1) * BREAK_DURATION : 0);
+        chosenIndexes.sort((a, b) => a - b);
+        let breaks = 0;
+        for (let i = 0; i < chosenIndexes.length - 1; i++) {
+            if (chosenIndexes[i + 1] === chosenIndexes[i] + 1) {
+                breaks++;
+            }
+        }
 
-        onSlotSelected({
-            date: selectedDateStr,
-            startTime: rangeStart,
-            endTime: rangeEnd,
-            price: total,
-            duration: validSlotsCount * 60,
-        });
-    }, [rangeStart, rangeEnd, selectedDateStr, basePrice, peakPrice, onSlotSelected]);
+        setTotalPrice(total);
+        setSelectedHours(chosenSlots.length);
+        setBreakMinutes(breaks * BREAK_DURATION);
+
+        onSlotSelected(chosenSlots);
+    }, [selectedSlots, selectedDateStr, basePrice, peakPrice, onSlotSelected]);
+
+    // chuỗi hiển thị các khung giờ đã chọn
+    const selectedDisplay =
+        selectedSlots.length === 0
+            ? '--:--'
+            : TIME_SLOTS.filter((slot) => selectedSlots.includes(slot.start))
+                  .map(
+                      (slot) => `${formatDisplayTime(slot.start)} - ${formatDisplayTime(slot.end)}`
+                  )
+                  .join(', ');
 
     return (
         <div className='w-full max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-4 font-sans'>
@@ -313,7 +268,7 @@ const BookingTimeSelector: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* FILTER */}
+            {/* CHỌN NGÀY */}
             <div className='grid grid-cols-1 md:grid-cols-3 gap-3 mb-5'>
                 <div>
                     <label className='block text-xs font-semibold text-gray-600 mb-1'>
@@ -331,67 +286,20 @@ const BookingTimeSelector: React.FC<Props> = ({
                     </div>
                 </div>
 
-                <div>
-                    <label className='block text-xs font-semibold text-gray-600 mb-1'>
-                        Giờ bắt đầu
-                    </label>
-                    <select
-                        value={rangeStart}
-                        onChange={handleStartChange}
-                        className='w-full bg-white border border-gray-300 rounded-lg px-3 h-9 focus:ring-2 focus:ring-green-500 outline-none font-medium text-sm'
-                    >
-                        <option value=''>--Chọn--</option>
-                        {TIME_SLOTS.map((slot) => {
-                            if (isPast(slot.start) || isBooked(slot.start, slot.end)) return null;
-                            return (
-                                <option key={slot.start} value={slot.start}>
-                                    {formatDisplayTime(slot.start)}
-                                </option>
-                            );
-                        })}
-                    </select>
-                </div>
-
-                <div>
-                    <label className='block text-xs font-semibold text-gray-600 mb-1'>
-                        Giờ kết thúc
-                    </label>
-                    <select
-                        value={rangeEnd}
-                        onChange={handleEndChange}
-                        disabled={!rangeStart}
-                        className={`w-full border border-gray-300 rounded-lg px-3 h-9 focus:ring-2 focus:ring-green-500 outline-none font-medium text-sm ${
-                            !rangeStart
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-white'
-                        }`}
-                    >
-                        <option value=''>--Chọn--</option>
-                        {rangeStart &&
-                            TIME_SLOTS.map((slot) => {
-                                const startMin = timeToMin(rangeStart);
-                                const currentSlotStart = timeToMin(slot.start);
-                                if (currentSlotStart < startMin) return null;
-                                return (
-                                    <option key={slot.end} value={slot.end}>
-                                        {formatDisplayTime(slot.end)}
-                                    </option>
-                                );
-                            })}
-                    </select>
+                <div className='md:col-span-2 flex items-center text-xs text-gray-500'>
+                    <p>
+                        * Click vào ô giờ để chọn / bỏ chọn. Bạn có thể chọn nhiều ca trong cùng một
+                        ngày (ví dụ: 6h–7h, 7h15–8h15 và 19h45–20h45).
+                    </p>
                 </div>
             </div>
-
-            <p className='text-[11px] text-gray-500 mb-3 italic'>
-                * Click vào ô giờ để chọn. Click thêm ca khác để chọn nhiều ca liền kề.
-            </p>
 
             {/* GRID GIỜ */}
             <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-4'>
                 {TIME_SLOTS.map((slot, index) => {
                     const past = isPast(slot.start);
                     const booked = isBooked(slot.start, slot.end);
-                    const selected = isInRange(slot.start, slot.end);
+                    const selected = isSelected(slot.start);
                     const startMin = timeToMin(slot.start);
                     const isPeak = startMin / 60 >= PEAK_START;
                     const price = isPeak ? peakPrice : basePrice;
@@ -463,15 +371,9 @@ const BookingTimeSelector: React.FC<Props> = ({
                     </div>
                     <div className='flex-1'>
                         <p className='text-[10px] text-blue-700 font-bold uppercase tracking-wide mb-1'>
-                            KHUNG GIỜ ĐÃ CHỌN
+                            CÁC KHUNG GIỜ ĐÃ CHỌN
                         </p>
-                        <p className='text-blue-900 font-bold text-lg'>
-                            {rangeStart && rangeEnd
-                                ? `${formatDisplayTime(rangeStart)} - ${formatDisplayTime(
-                                      rangeEnd
-                                  )}`
-                                : '--:--'}
-                        </p>
+                        <p className='text-blue-900 font-bold text-sm'>{selectedDisplay}</p>
                     </div>
                 </div>
 

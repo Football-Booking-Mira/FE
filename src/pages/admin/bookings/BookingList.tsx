@@ -45,6 +45,13 @@ const { TextArea } = Input;
 const formatVND = (v: number = 0) =>
   v.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
 
+interface RefundInfo {
+  status: "none" | "requested" | "processing" | "rejected" | "completed";
+  customerReason?: string;
+  adminReason?: string;
+  billImage?: string;
+}
+
 interface Booking {
   _id: string;
   code: string;
@@ -101,7 +108,7 @@ interface CourtOption {
   name: string;
 }
 
-// ===== CẤU HÌNH KHUNG GIỜ =====
+//  CẤU HÌNH KHUNG GIỜ
 const START_HOUR = 6;
 const SLOT_DURATION = 60;
 const BREAK_DURATION = 15;
@@ -218,7 +225,7 @@ const getRefundActionOptions = (
   });
 };
 
-// ===== THIẾT BỊ KHI CHECK-IN =====
+//  THIẾT BỊ KHI CHECK-IN
 interface EquipmentItem {
   key: string;
   equipmentId: string;

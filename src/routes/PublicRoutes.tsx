@@ -10,6 +10,7 @@ import MyBookings from "@/pages/client/home/MyBookings";
 import PaymentSuccessPage from "@/pages/client/home/PaymentSuccessPage";
 import CreateMatchSchedule from "@/pages/client/home/CreateMatchSchedule";
 import ContactPages from "@/pages/client/home/ContactPages";
+import Profile from "@/pages/client/home/Profile";
 
 export const PublicRoutes: RouteObject[] = [
   {
@@ -26,6 +27,7 @@ export const PublicRoutes: RouteObject[] = [
       { path: "payment-return", element: <PaymentSuccessPage /> },
       { path: "contact", element: <ContactPages /> },
       { path: "lich-thi-dau", element: <CreateMatchSchedule /> },
+      { path: "profile", element: <Profile /> },
     ],
   },
 ];
