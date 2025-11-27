@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import api from '@/common/utils/api';
 import { printInvoiceMira } from '@/common/utils/printInvoice';
 import {
@@ -299,6 +299,64 @@ export default function BookingList() {
         booking: null,
     });
 
+    // Staete xem chi tiết
+    const [detailModalOpen, setDetailModalOpen] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(false);
+    const [detailData, setDetailData] = useState<{
+        booking: Booking;
+        items: {
+            _id: string;
+            name: string;
+            mode: 'rent' | 'sell';
+            qty: number;
+            price: number;
+            subtotal: number;
+            unit?: string;
+        }[];
+    } | null>(null);
+    // Gộp các thiết bị có cùng tên + mode (Thuê/Bán) lại thành 1 dòng
+    const mergedDetailItems = useMemo(() => {
+        if (!detailData?.items) return [];
+
+        const map: Record<string, (typeof detailData.items)[number]> = {};
+
+        detailData.items.forEach((it) => {
+            // key gộp theo tên + loại (thuê/bán)
+            const key = `${it.name}_${it.mode}`;
+
+            if (map[key]) {
+                map[key] = {
+                    ...map[key],
+                    qty: map[key].qty + it.qty,
+                    subtotal: map[key].subtotal + it.subtotal,
+                };
+            } else {
+                map[key] = { ...it };
+            }
+        });
+
+        return Object.values(map);
+    }, [detailData]);
+
+    const openBookingDetailModal = async (bookingId: string) => {
+        setDetailModalOpen(true);
+        setDetailLoading(true);
+        setDetailData(null);
+
+        try {
+            const res = await api.get(`/bookings/${bookingId}/admin-detail`);
+            const data = res.data?.data || res.data;
+
+            setDetailData(data);
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || 'Không thể tải chi tiết đơn đặt sân!';
+            toast.error(msg);
+            setDetailModalOpen(false);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
     const [billFileList, setBillFileList] = useState<any[]>([]); // danh sách file upload
     const [billUploading, setBillUploading] = useState(false); //  loading khi upload
 
@@ -330,6 +388,7 @@ export default function BookingList() {
     const [checkinBooking, setCheckinBooking] = useState<Booking | null>(null);
     const [equipmentList, setEquipmentList] = useState<EquipmentItem[]>([]);
     const [equipmentQty, setEquipmentQty] = useState<Record<string, number>>({});
+    const [equipmentBaseQty, setEquipmentBaseQty] = useState<Record<string, number>>({});
 
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
     const [paymentBooking, setPaymentBooking] = useState<Booking | null>(null);
@@ -343,10 +402,17 @@ export default function BookingList() {
     const [invoiceLoading, setInvoiceLoading] = useState(false);
     const invoicePrintRef = useRef<HTMLDivElement | null>(null);
 
+    // tính thêm thiết bị
     const equipmentTotal = equipmentList.reduce((sum, item) => {
-        const qty = equipmentQty[item.key] || 0;
-        return sum + qty * item.price;
+        const totalQty = equipmentQty[item.key] || 0;
+        const base = equipmentBaseQty[item.key] || 0;
+        const addQty = Math.max(0, totalQty - base); //chỉ tính phần thêm mới
+        return sum + addQty * item.price;
     }, 0);
+    //Tổng tiền thiết bị
+    const addedEquipmentTotal = equipmentTotal;
+    const oldEquipmentTotal = checkinBooking?.equipmentTotal || 0;
+    const newEquipmentTotal = oldEquipmentTotal + addedEquipmentTotal;
 
     const getEditDateStr = () => {
         if (!editValues.date) return null;
@@ -492,11 +558,37 @@ export default function BookingList() {
         });
     };
 
-    const loadCheckinEquipments = async (_bookingId?: string) => {
+    const loadCheckinEquipments = async (bookingId?: string) => {
         try {
-            const res = await api.get('/equipments');
-            const rawEquipments = res.data?.data || res.data || [];
+            //  Lấy danh sách thiết bị
+            const equipRes = await api.get('/equipments');
+            const rawEquipments = equipRes.data?.data || equipRes.data || [];
 
+            // Nếu có bookingId -> lấy thêm các BookingItem hiện có
+            let baseQty: Record<string, number> = {};
+            if (bookingId) {
+                try {
+                    const itemsRes = await api.get(`/bookings/${bookingId}/equipments-detail`);
+                    const items = itemsRes.data?.data || [];
+
+                    items.forEach((it: any) => {
+                        const mode: 'rent' | 'sell' = it.mode === 'sell' ? 'sell' : 'rent';
+                        const eqId =
+                            typeof it.equipmentId === 'string'
+                                ? it.equipmentId
+                                : it.equipmentId?._id || it.equipmentId?.id;
+
+                        if (!eqId) return;
+
+                        const key = `${eqId}_${mode}`;
+                        baseQty[key] = (baseQty[key] || 0) + (it.qty || 0);
+                    });
+                } catch (err) {
+                    console.error('Không lấy được thiết bị đã thuê:', err);
+                }
+            }
+
+            // Build danh sách EquipmentItem như cũ
             const equipments: EquipmentItem[] = [];
 
             rawEquipments.forEach((e: any) => {
@@ -533,12 +625,14 @@ export default function BookingList() {
             });
 
             setEquipmentList(equipments);
-            setEquipmentQty({});
+            setEquipmentBaseQty(baseQty); // nhớ lại số đã thuê
+            setEquipmentQty(baseQty); // UI hiển thị sẵn, vd Áo pitch = 2
         } catch (err) {
             console.error(err);
             toast.error('Không thể tải danh sách thiết bị!');
             setEquipmentList([]);
             setEquipmentQty({});
+            setEquipmentBaseQty({});
         }
     };
 
@@ -552,10 +646,15 @@ export default function BookingList() {
 
     const changeEquipmentQty = (key: string, delta: number, maxStock: number) => {
         setEquipmentQty((prev) => {
-            const current = prev[key] || 0;
+            const current = prev[key] ?? 0;
+            const base = equipmentBaseQty[key] || 0; // số đã thuê
             let next = current + delta;
-            if (next < 0) next = 0;
-            if (next > maxStock) next = maxStock;
+            // Không cho giảm dưới số đã thuê trước đó
+            if (next < base) next = base;
+            // Tổng tối đa = base (đã thuê) + maxStock (còn trong kho)
+            const maxTotal = base + maxStock;
+            if (next > maxTotal) next = maxTotal;
+
             return { ...prev, [key]: next };
         });
     };
@@ -564,7 +663,10 @@ export default function BookingList() {
 
         const items = equipmentList
             .map((item) => {
-                const qty = equipmentQty[item.key] || 0;
+                const totalQty = equipmentQty[item.key] || 0;
+                const base = equipmentBaseQty[item.key] || 0;
+                const qty = Math.max(0, totalQty - base); // chỉ phần thêm mới
+
                 if (qty <= 0) return null;
 
                 return {
@@ -842,8 +944,10 @@ export default function BookingList() {
                 }
                 return;
             } else if (action === 'checkout') {
-                await api.patch(`/bookings/${id}/checkout`);
+                const res = await api.patch(`/bookings/${id}/checkout`);
                 toast.success('🏁 Check-out thành công!');
+                const update: Booking = res.data?.data || bookings.find((b) => b._id === id);
+                openPaymentModal(update);
             }
 
             fetchBookings();
@@ -1269,6 +1373,13 @@ export default function BookingList() {
 
                         {b.status === 'in_use' && (
                             <Space>
+                                <Button
+                                    size='small'
+                                    icon={<EyeOutlined />}
+                                    onClick={() => openBookingDetailModal(b._id)}
+                                >
+                                    Xem chi tiết
+                                </Button>
                                 <Button
                                     size='small'
                                     icon={<PlusOutlined />}
@@ -1760,6 +1871,10 @@ export default function BookingList() {
                                     const qty = equipmentQty[item.key] || 0;
                                     const lineTotal = qty * item.price;
 
+                                    //không cho giảm dưới base và tổng tối đa = base + stock
+                                    const base = equipmentBaseQty[item.key] || 0;
+                                    const maxTotal = base + item.stock;
+
                                     return (
                                         <Card
                                             key={item.key}
@@ -1807,7 +1922,7 @@ export default function BookingList() {
                                                                 item.stock
                                                             )
                                                         }
-                                                        disabled={qty <= 0}
+                                                        disabled={qty <= base}
                                                     >
                                                         -
                                                     </Button>
@@ -1823,7 +1938,7 @@ export default function BookingList() {
                                                                 item.stock
                                                             )
                                                         }
-                                                        disabled={qty >= item.stock}
+                                                        disabled={qty >= maxTotal}
                                                     >
                                                         +
                                                     </Button>
@@ -1836,15 +1951,23 @@ export default function BookingList() {
                         )}
 
                         <div className='flex justify-between items-center pt-2 border-t text-sm'>
-                            <span className='text-gray-600'>Tổng tiền thiết bị:</span>
+                            <span className='text-gray-600'>
+                                {checkinMode === 'checkin'
+                                    ? 'Tổng tiền thiết bị:'
+                                    : 'Tiền thiết bị thêm lần này:'}
+                            </span>
                             <span className='font-semibold text-blue-600'>
-                                {formatVND(equipmentTotal)}
+                                {formatVND(addedEquipmentTotal)}
                             </span>
                         </div>
-
-                        <div className='text-xs text-gray-500'>
-                            💡 Tiền thiết bị sẽ được cộng vào tổng tiền đơn và lưu lại khi check-in.
-                        </div>
+                        {checkinMode === 'add_equipment' && (
+                            <div className='flex justify-between items-center text-xs text-gray-500'>
+                                <span>Tổng tiền thiết bị sau khi thêm:</span>
+                                <span className='font-semibold'>
+                                    {formatVND(newEquipmentTotal)}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>
@@ -2248,7 +2371,27 @@ export default function BookingList() {
                         const customer =
                             inv.customerId || booking.customerId || booking.customerInfo || {};
                         const methodLabel = PAYMENT_METHOD_TEXT[inv.method] || inv.method || '—';
+                        //GỘP CÁC ITEM TRÙNG NHAU (cùng name + mode + price + unit)
+                        const mergedItems: any[] = [];
+                        const map: Record<string, any> = {};
 
+                        items.forEach((it: any) => {
+                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${
+                                it.unit || ''
+                            }`;
+                            if (map[key]) {
+                                map[key].qty += it.qty || 0;
+                                map[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
+                            } else {
+                                map[key] = {
+                                    ...it,
+                                    qty: it.qty || 0,
+                                    subtotal: it.subtotal || (it.qty || 0) * (it.price || 0),
+                                };
+                            }
+                        });
+
+                        Object.values(map).forEach((v) => mergedItems.push(v));
                         const fieldAmount = booking.fieldAmount ?? booking.total ?? 0;
                         const equipmentTotal = booking.equipmentTotal ?? 0;
                         const bookingTotal = booking.total ?? fieldAmount + equipmentTotal;
@@ -2386,7 +2529,7 @@ export default function BookingList() {
                                 </Card>
 
                                 {/* hạng mục / thiết bị */}
-                                {items.length > 0 && (
+                                {mergedItems.length > 0 && (
                                     <Card
                                         size='small'
                                         bodyStyle={{ padding: 16 }}
@@ -2396,8 +2539,11 @@ export default function BookingList() {
                                             Thiết bị / hạng mục
                                         </div>
                                         <div className='space-y-1 text-xs'>
-                                            {items.map((it: any) => (
-                                                <div key={it._id} className='flex justify-between'>
+                                            {mergedItems.map((it: any, idx: number) => (
+                                                <div
+                                                    key={`${it._id || it.name || 'item'}_${idx}`}
+                                                    className='flex justify-between'
+                                                >
                                                     <div>
                                                         <div className='font-medium'>
                                                             {it.name || 'Hạng mục'}
@@ -2546,6 +2692,131 @@ export default function BookingList() {
                 </Upload>
                 {billFileList.length > 0 && (
                     <p className='mt-2 text-xs text-gray-500'>Đã chọn: {billFileList[0].name}</p>
+                )}
+            </Modal>
+            <Modal
+                centered
+                open={detailModalOpen}
+                onCancel={() => {
+                    setDetailModalOpen(false);
+                    setDetailData(null);
+                }}
+                footer={null}
+                width={700}
+                title={
+                    detailData?.booking
+                        ? `Chi tiết đơn ${detailData.booking.code}`
+                        : 'Chi tiết đơn đặt sân'
+                }
+            >
+                {detailLoading ? (
+                    <div className='flex justify-center py-8'>
+                        <Spin />
+                    </div>
+                ) : detailData?.booking ? (
+                    <div className='space-y-4'>
+                        {/* Thông tin chung */}
+                        <Card size='small' bodyStyle={{ padding: 12 }}>
+                            <div className='grid grid-cols-1 md:grid-cols-2 gap-2 text-sm'>
+                                <div>
+                                    <div>
+                                        <span className='text-gray-500'>Khách hàng: </span>
+                                        <b>
+                                            {detailData.booking.customerInfo?.name ||
+                                                detailData.booking.customerId?.name ||
+                                                detailData.booking.customerId?.username ||
+                                                'Khách lẻ'}
+                                        </b>
+                                    </div>
+                                    {detailData.booking.customerInfo?.phone ||
+                                    detailData.booking.customerId?.phone ? (
+                                        <div>
+                                            <span className='text-gray-500'>SĐT: </span>
+                                            {detailData.booking.customerInfo?.phone ||
+                                                detailData.booking.customerId?.phone}
+                                        </div>
+                                    ) : null}
+                                </div>
+                                <div>
+                                    <div>
+                                        <span className='text-gray-500'>Sân: </span>
+                                        <b>{detailData.booking.courtId?.name || '-'}</b>
+                                    </div>
+                                    <div>
+                                        <span className='text-gray-500'>Ngày: </span>
+                                        {dayjs(detailData.booking.date).format('DD/MM/YYYY')}
+                                    </div>
+                                    <div>
+                                        <span className='text-gray-500'>Giờ: </span>
+                                        {detailData.booking.startTime} -{' '}
+                                        {detailData.booking.endTime}
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Danh sách thiết bị */}
+                        <Card size='small' title='Thiết bị đã thêm' bodyStyle={{ padding: 12 }}>
+                            {detailData.items && detailData.items.length > 0 ? (
+                                <Table
+                                    size='small'
+                                    rowKey={(record) => `${record.name}_${record.mode}`}
+                                    pagination={false}
+                                    dataSource={mergedDetailItems}
+                                    columns={[
+                                        {
+                                            title: 'Thiết bị',
+                                            dataIndex: 'name',
+                                            key: 'name',
+                                        },
+                                        {
+                                            title: 'Loại',
+                                            dataIndex: 'mode',
+                                            key: 'mode',
+                                            render: (m: 'rent' | 'sell') =>
+                                                m === 'rent' ? 'Thuê' : 'Bán',
+                                        },
+                                        {
+                                            title: 'SL',
+                                            dataIndex: 'qty',
+                                            key: 'qty',
+                                            width: 70,
+                                        },
+                                        {
+                                            title: 'Đơn giá',
+                                            dataIndex: 'price',
+                                            key: 'price',
+                                            render: (v: number) => formatVND(v),
+                                        },
+                                        {
+                                            title: 'Thành tiền',
+                                            dataIndex: 'subtotal',
+                                            key: 'subtotal',
+                                            render: (v: number) => formatVND(v),
+                                        },
+                                    ]}
+                                />
+                            ) : (
+                                <div className='text-sm text-gray-500'>
+                                    Đơn này chưa có thiết bị nào.
+                                </div>
+                            )}
+                        </Card>
+
+                        {/* Tổng tiền */}
+                        <div className='flex justify-end'>
+                            <div className='text-right text-sm'>
+                                <div className='text-gray-500'>Tổng tiền đơn</div>
+                                <div className='text-lg font-semibold text-blue-600'>
+                                    {formatVND(detailData.booking.total || 0)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className='text-center text-sm text-gray-500'>
+                        Không có dữ liệu chi tiết.
+                    </div>
                 )}
             </Modal>
         </div>
