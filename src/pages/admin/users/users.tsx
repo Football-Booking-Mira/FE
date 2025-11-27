@@ -26,9 +26,14 @@ const updateRole = async ({ userId, role }: { userId: string; role: string }) =>
     return axios.put(`/api/users/${userId}`, { role });
 };
 
-const toggleStatus = async (userId: string) => {
-    return axios.patch(`/api/users/${userId}/toggle-status`);
+const blockUser = async (userId: string) => {
+    return axios.patch(`/api/users/${userId}/block`);
 };
+
+const unblockUser = async (userId: string) => {
+    return axios.patch(`/api/users/${userId}/unlock`);
+};
+
 
 const deleteUser = async (userId: string) => {
     return axios.delete(`/api/users/${userId}`);
@@ -46,7 +51,9 @@ const Users = () => {
     });
 
     const mutationUpdateRole = useMutation({ mutationFn: updateRole, onSuccess: () => queryClient.invalidateQueries(["users"]) });
-    const mutationToggleStatus = useMutation({ mutationFn: toggleStatus, onSuccess: () => queryClient.invalidateQueries(["users"]) });
+    const mutationBlock = useMutation({ mutationFn: blockUser, onSuccess: () => queryClient.invalidateQueries(["users"]) });
+    const mutationUnblock = useMutation({ mutationFn: unblockUser, onSuccess: () => queryClient.invalidateQueries(["users"]) });
+
     const mutationDeleteUser = useMutation({ mutationFn: deleteUser, onSuccess: () => queryClient.invalidateQueries(["users"]) });
 
     const handleView = (user: User) => {
@@ -97,10 +104,17 @@ const Users = () => {
                     <Button size="small" onClick={() => handleView(record)}>Chi tiết</Button>
                     <Button
                         size="small"
-                        onClick={() => mutationToggleStatus.mutate(record._id)}
+                        onClick={() => {
+                            if (record.status === "active") {
+                                mutationBlock.mutate(record._id);
+                            } else {
+                                mutationUnblock.mutate(record._id);
+                            }
+                        }}
                     >
                         {record.status === "active" ? "Chặn" : "Bỏ chặn"}
                     </Button>
+
                     <Popconfirm
                         title="Bạn có chắc muốn xóa?"
                         onConfirm={() => mutationDeleteUser.mutate(record._id)}
@@ -116,7 +130,7 @@ const Users = () => {
 
     return (
         <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">Quản lý User</h2>
+            <h2 className="text-2xl font-bold mb-4">Quản lý khách hàng</h2>
             <Search
                 placeholder="Tìm kiếm tên hoặc email"
                 allowClear
@@ -132,7 +146,7 @@ const Users = () => {
             />
 
             <Modal
-                title="Thông tin User"
+                title="Thông tin khách hàng"
                 open={modalVisible}
                 onCancel={() => setModalVisible(false)}
                 footer={null}
