@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 
 interface SelectedSlot {
@@ -100,7 +100,6 @@ const BookingTimeSelector: React.FC<Props> = ({
     const [totalPrice, setTotalPrice] = useState(0);
     const [selectedHours, setSelectedHours] = useState(0);
     const [breakMinutes, setBreakMinutes] = useState(0);
-
     //* fetch slot đã đặt
     const fetchBooked = useCallback(async () => {
         if (!courtId || !selectedDateStr) return;
@@ -242,7 +241,7 @@ const BookingTimeSelector: React.FC<Props> = ({
         setBreakMinutes(breaks * BREAK_DURATION);
 
         onSlotSelected(chosenSlots);
-    }, [selectedSlots, selectedDateStr, basePrice, peakPrice, onSlotSelected]);
+    }, [selectedSlots, selectedDateStr, basePrice, peakPrice]);
 
     // chuỗi hiển thị các khung giờ đã chọn
     const selectedDisplay =
