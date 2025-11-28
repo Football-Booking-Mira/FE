@@ -9,6 +9,7 @@ import RoleRoute from '@/common/middlewares/RoleRoute';
 import CourtUpdate from '@/pages/admin/courts/CourtUpdate';
 import CourtDetail from '@/pages/admin/dashboard/CourtDetail';
 import Users from '@/pages/admin/users/users.tsx';
+import BookingPolicyPage from '@/pages/client/home/BookingPolicyPage';
 
 export const AdminRoutes: RouteObject[] = [
     {
@@ -27,6 +28,7 @@ export const AdminRoutes: RouteObject[] = [
             { path: 'bookings/create', element: <BookingCreate /> },
             { path: 'customers', element: <Users /> },
             { path: 'equipments', element: <EquipmentList /> }, // Thiết bị
+            { path: 'booking-policy', element: <BookingPolicyPage /> },
         ],
     },
 ];
