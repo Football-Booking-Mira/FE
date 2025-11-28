@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 
-interface SelectedSlot {
+export interface SelectedSlot {
     date: string;
     startTime: string;
     endTime: string;
     price: number;
     duration: number; // phút
 }
+
 
 interface Props {
     courtId: string;
@@ -241,17 +242,17 @@ const BookingTimeSelector: React.FC<Props> = ({
         setBreakMinutes(breaks * BREAK_DURATION);
 
         onSlotSelected(chosenSlots);
-    }, [selectedSlots, selectedDateStr, basePrice, peakPrice]);
+    }, [selectedSlots, selectedDateStr, basePrice, peakPrice, onSlotSelected]);
 
     // chuỗi hiển thị các khung giờ đã chọn
     const selectedDisplay =
         selectedSlots.length === 0
             ? '--:--'
             : TIME_SLOTS.filter((slot) => selectedSlots.includes(slot.start))
-                  .map(
-                      (slot) => `${formatDisplayTime(slot.start)} - ${formatDisplayTime(slot.end)}`
-                  )
-                  .join(', ');
+                .map(
+                    (slot) => `${formatDisplayTime(slot.start)} - ${formatDisplayTime(slot.end)}`
+                )
+                .join(', ');
 
     return (
         <div className='w-full max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-4 font-sans'>
@@ -332,9 +333,8 @@ const BookingTimeSelector: React.FC<Props> = ({
 
                             {!past && !booked && (
                                 <span
-                                    className={`text-[11px] font-bold ${
-                                        selected ? 'text-green-100' : 'text-green-700'
-                                    }`}
+                                    className={`text-[11px] font-bold ${selected ? 'text-green-100' : 'text-green-700'
+                                        }`}
                                 >
                                     {price.toLocaleString('vi-VN')} VNĐ
                                 </span>
