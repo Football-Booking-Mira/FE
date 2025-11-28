@@ -10,6 +10,7 @@ import RoleRoute from '@/common/middlewares/RoleRoute';
 import CourtUpdate from '../pages/admin/courts/CourtUpdate';
 import CourtDetail from '../pages/admin/dashboard/CourtDetail';
 import VoucherCreate from '../pages/admin/vouchers/VoucherCreate';
+import VoucherStats from '../pages/admin/vouchers/VoucherStats';
 
 export const AdminRoutes: RouteObject[] = [
     {
@@ -28,6 +29,7 @@ export const AdminRoutes: RouteObject[] = [
             { path: 'bookings/create', element: <BookingCreate /> },
             { path: 'customers', element: <Users /> },
             { path: 'equipments', element: <EquipmentList /> }, // Thiết bị
+            { path: 'vouchers', element: <VoucherStats /> },
             { path: 'vouchers/create', element: <VoucherCreate /> },
         ],
     },

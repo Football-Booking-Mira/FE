@@ -40,7 +40,8 @@ const AdminLayout: React.FC = () => {
         if (path.startsWith('/admin/equipments')) return 'equipments';
         if (path.startsWith('/admin/reports')) return 'reports';
         if (path.startsWith('/admin/invoices')) return 'invoices';
-        if (path.startsWith('/admin/vouchers')) return 'vouchers';
+        if (path.startsWith('/admin/vouchers/create')) return 'vouchers-create';
+        if (path.startsWith('/admin/vouchers')) return 'vouchers-stats';
         return 'dashboard';
     };
 
@@ -50,7 +51,13 @@ const AdminLayout: React.FC = () => {
     React.useEffect(() => {
         if (pathname.startsWith('/admin/bookings')) {
             setOpenKeys(['bookings']);
+            return;
         }
+        if (pathname.startsWith('/admin/vouchers')) {
+            setOpenKeys(['vouchers']);
+            return;
+        }
+        setOpenKeys([]);
     }, [pathname]);
 
     const userMenu = {
@@ -139,7 +146,17 @@ const AdminLayout: React.FC = () => {
                         {
                             key: 'vouchers',
                             icon: <GiftOutlined />,
-                            label: <Link to='/admin/vouchers/create'>Voucher</Link>,
+                            label: 'Voucher',
+                            children: [
+                                {
+                                    key: 'vouchers-stats',
+                                    label: <Link to='/admin/vouchers'>Thống kê</Link>,
+                                },
+                                {
+                                    key: 'vouchers-create',
+                                    label: <Link to='/admin/vouchers/create'>Tạo voucher</Link>,
+                                },
+                            ],
                         },
                         {
                             key: 'reports',
