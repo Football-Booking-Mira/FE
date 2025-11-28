@@ -237,12 +237,18 @@ interface EquipmentItem {
     unit?: string;
 }
 
-// helper: số tiền còn phải thu (total - cọc đã trả)
+// số tiền còn phải thu (total - cọc đã trả)
 const getOutstandingAmount = (b: Booking | null) => {
     if (!b) return 0;
     const total = Number(b.total || 0);
     const deposit = Number(b.depositAmount || 0);
     return Math.max(0, total - deposit);
+};
+// xác định thiết bị thuê hay bán
+const getModeText = (mode?: string | null) => {
+    if (mode === 'rent') return 'Thuê';
+    if (mode === 'sell') return 'Bán';
+    return '';
 };
 
 export default function BookingList() {
@@ -2500,25 +2506,49 @@ export default function BookingList() {
                                             Thiết bị / hạng mục
                                         </div>
                                         <div className='space-y-1 text-xs'>
-                                            {mergedItems.map((it: any, idx: number) => (
-                                                <div
-                                                    key={`${it._id || it.name || 'item'}_${idx}`}
-                                                    className='flex justify-between'
-                                                >
-                                                    <div>
-                                                        <div className='font-medium'>
-                                                            {it.name || 'Hạng mục'}
+                                            {mergedItems.map((it: any, idx: number) => {
+                                                const modeText = getModeText(it.mode);
+
+                                                return (
+                                                    <div
+                                                        key={`${
+                                                            it._id || it.name || 'item'
+                                                        }_${idx}`}
+                                                        className='flex justify-between'
+                                                    >
+                                                        <div>
+                                                            <div className='font-medium flex items-center gap-2'>
+                                                                <span>{it.name || 'Hạng mục'}</span>
+                                                                {modeText && (
+                                                                    <Tag
+                                                                        color={
+                                                                            it.mode === 'sell'
+                                                                                ? 'green'
+                                                                                : 'blue'
+                                                                        }
+                                                                        style={{ marginLeft: 2 }}
+                                                                    >
+                                                                        {modeText}
+                                                                    </Tag>
+                                                                )}
+                                                            </div>
+                                                            <div className='text-gray-500'>
+                                                                {modeText && (
+                                                                    <span>{modeText} • </span>
+                                                                )}
+                                                                {formatVND(it.price)} x {it.qty}{' '}
+                                                                {it.unit || ''}
+                                                            </div>
                                                         </div>
-                                                        <div className='text-gray-500'>
-                                                            {formatVND(it.price)} x {it.qty}{' '}
-                                                            {it.unit || ''}
+                                                        <div className='font-semibold'>
+                                                            {formatVND(
+                                                                it.subtotal ||
+                                                                    (it.qty || 0) * (it.price || 0)
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <div className='font-semibold'>
-                                                        {formatVND(it.subtotal)}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </Card>
                                 )}
