@@ -1491,12 +1491,14 @@ export default function BookingList() {
                         b.refundBillImage
                 );
 
-                return hasAdminDetail ? (
-                    <Button size='small' onClick={() => openRefundModal(b, 'admin')}>
+                return (
+                    <Button
+                        size='small'
+                        onClick={() => openRefundModal(b, 'admin')}
+                        disabled={!hasAdminDetail}
+                    >
                         Xem chi tiết
                     </Button>
-                ) : (
-                    <span className='text-xs text-gray-400'>-</span>
                 );
             },
         },
