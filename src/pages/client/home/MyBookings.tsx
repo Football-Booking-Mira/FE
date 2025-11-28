@@ -149,7 +149,7 @@ const MyBookings: React.FC = () => {
         } catch (err: any) {
             toast.error(
                 err?.response?.data?.message ||
-                'Không thể thanh toán lại đơn này, vui lòng thử lại!'
+                    'Không thể thanh toán lại đơn này, vui lòng thử lại!'
             );
             setPayingBookingId(null);
         }
@@ -422,9 +422,10 @@ const MyBookings: React.FC = () => {
                                 key={tab.key}
                                 onClick={() => handleTabChange(tab.key)}
                                 className={`relative py-3 text-sm md:text-base whitespace-nowrap transition-all
-                                    ${activeTab === tab.key
-                                        ? 'text-green-600 border-b-2 border-green-600 font-semibold'
-                                        : 'text-gray-500 border-b-2 border-transparent hover:text-green-600 hover:border-green-200'
+                                    ${
+                                        activeTab === tab.key
+                                            ? 'text-green-600 border-b-2 border-green-600 font-semibold'
+                                            : 'text-gray-500 border-b-2 border-transparent hover:text-green-600 hover:border-green-200'
                                     }`}
                             >
                                 {tab.label}{' '}
@@ -456,6 +457,12 @@ const MyBookings: React.FC = () => {
                                     booking.refund?.billImage ||
                                     booking.refund?.bill?.image;
                                 console.log('booking client list >>>', booking);
+
+                                const refundAdminReason =
+                                    booking.refundAdminReason ||
+                                    booking.refund?.adminReason ||
+                                    booking.refund?.reason ||
+                                    '';
 
                                 const canRequestRefund =
                                     booking.status === 'cancelled' &&
@@ -526,7 +533,7 @@ const MyBookings: React.FC = () => {
                                                         <Tag
                                                             color={
                                                                 PAYMENT_COLORS[
-                                                                booking.paymentStatus
+                                                                    booking.paymentStatus
                                                                 ] || 'default'
                                                             }
                                                             className='rounded-full px-3 py-1 text-xs md:text-sm'
@@ -558,7 +565,7 @@ const MyBookings: React.FC = () => {
                                                                 <Tag
                                                                     color={
                                                                         REFUND_STATUS_COLORS[
-                                                                        refundStatus
+                                                                            refundStatus
                                                                         ] || 'default'
                                                                     }
                                                                     className='rounded-full px-3 py-1 text-xs md:text-sm'
@@ -591,6 +598,16 @@ const MyBookings: React.FC = () => {
                                                                     </div>
                                                                 </div>
                                                             )}
+                                                            {refundStatus === 'rejected' &&
+                                                                refundAdminReason && (
+                                                                    <p className='mt-1 text-xs text-red-500'>
+                                                                        Lý do admin từ chối hoàn
+                                                                        tiền:{' '}
+                                                                        <span className='font-medium'>
+                                                                            {refundAdminReason}
+                                                                        </span>
+                                                                    </p>
+                                                                )}
                                                         </div>
                                                     )}
                                                 </div>

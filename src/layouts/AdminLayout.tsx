@@ -24,9 +24,9 @@ const { Header, Sider, Content } = Layout;
 const AdminLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [openKeys, setOpenKeys] = useState<string[]>([]);
-    const infoAdmin = localStorage.getItem("user");
+    const infoAdmin = localStorage.getItem('user');
     const name = infoAdmin ? JSON.parse(infoAdmin)?.name : undefined;
-    console.log(name);
+    //console.log(name);
     const {
         token: { colorBgContainer },
     } = theme.useToken();

@@ -8,5 +8,5 @@ export const rootRoutes: RouteObject[] = [
     ...AdminRoutes,
 
     { path: '/404', element: <NotFound /> },
-    { path: '*', element: <Navigate to='/404' replace /> },
+    { path: '**', element: <Navigate to='/404' replace /> },
 ];
