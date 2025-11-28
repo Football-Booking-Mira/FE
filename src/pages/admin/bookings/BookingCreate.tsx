@@ -577,7 +577,7 @@ import { SearchOutlined, UserOutlined, PlusOutlined } from "@ant-design/icons";
 import api from "@/common/utils/api";
 import { PAYMENT_METHOD } from "@/common/constants/enums.ts";
 import { toast } from "react-toastify";
-import BookingTimeSelector from "@/components/BookingTimeSelector";
+import BookingTimeSelector, { type SelectedSlot } from "@/components/BookingTimeSelector";
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -683,26 +683,25 @@ const BookingCreate: React.FC = () => {
   };
 
   // === Slot selected from BookingTimeSelector ===
-  const handleSlotSelected = useCallback(
-    (slot: {
-      date: string;
-      startTime: string;
-      endTime: string;
-      price: number;
-      duration: number;
-    }) => {
-      setDate(dayjs(slot.date));
-      setStartTime(slot.startTime);
-      setEndTime(slot.endTime);
-      setFieldPrice(slot.price || 0);
-      // reset deposit flag when slot changes
-      setIsDepositPaid(false);
+  const handleSlotSelected = useCallback((slots: SelectedSlot[]) => {
+    const slot = slots[0]; // admin đặt nhanh: lấy ca đầu tiên
 
-      // whenever slot picked, compute price & check conflict
-      // computePrice and checkConflict are defined below and called via effect too
-    },
-    []
-  );
+    if (!slot) {
+      setDate(null);
+      setStartTime(undefined);
+      setEndTime(undefined);
+      setFieldPrice(0);
+      setIsDepositPaid(false);
+      return;
+    }
+
+    setDate(dayjs(slot.date));
+    setStartTime(slot.startTime);
+    setEndTime(slot.endTime);
+    setFieldPrice(slot.price || 0);
+    setIsDepositPaid(false);
+  }, []);
+
 
   // Reset time & price when change court
   useEffect(() => {
@@ -857,15 +856,38 @@ const BookingCreate: React.FC = () => {
     if (!selectedCustomer)
       return toast.error("Vui lòng chọn hoặc thêm khách hàng");
     if (!isDepositPaid)
+
       return toast.error("Vui lòng xác nhận khách đã đặt cọc 50% trước");
     if (slotConflict)
       return toast.error(slotConflictMsg || "Khung giờ đã bị đặt");
 
     // Format date as YYYY-MM-DD (controller accepts date, it will normalize)
     const dateStr = date.format("YYYY-MM-DD");
+    // tính xem có đá trận sau không
+    // date dayjs
+    const now = dayjs();
+    const bookingDay = date.startOf("day");
+    //ghép ngày và giờ bắt đầu thành full datetime
+    const bookingStart = dayjs(`${dateStr} ${startTime}`);
+    const isFutureDay = bookingDay.isAfter(now, "day"); // khác ngày & ở tương lai
+    const isSameDay = bookingDay.isSame(now, "day"); // cùng ngày
+    const isFutureSameDay = isSameDay && bookingStart.isAfter(now); // cùng ngày nhưng giờ bắt đầu > hiện tại
 
-    // Optional: generate bookingCode on FE (BE also generates code field 'code'). Not required.
+    const isFutureMatch = isFutureDay || isFutureSameDay;
+    // Nếu là trận đá sau (khác ngày hoặc chiều/ tối đá) thì BẮT BUỘC cọc 50%
+    if (isFutureMatch && !isDepositPaid) {
+      return toast.error(
+        "Khách đặt sân đá sau (khác ngày hoặc khác giờ) bắt buộc phải cọc 50% trước!"
+      );
+    }
+
+    if (slotConflict) {
+      return toast.error(slotConflictMsg || "Khung giờ đã bị đặt");
+    }
+    //bookingCode Be và FE tự sinh riêng 
+
     const bookingCode = generateBookingCode(dateStr);
+
 
     const payload = {
       // NOTE: backend's createBooking expects fields like courtId, customerId, date, startTime, endTime, paymentMethod, note, isOffline, customerInfo, paidAtCreation
@@ -878,7 +900,10 @@ const BookingCreate: React.FC = () => {
       note: note || "",
       isOffline: true,
       paymentMethod: PAYMENT_METHOD?.CASH || "cash",
-      paidAtCreation: isDepositPaid, // boolean if deposit paid at creation
+      //BE dùng paidAtCreation để:
+      // - Nếu offline + cash + isFutureMatch: bắt buộc true → coi là đã cọc 50%
+      // - Nếu offline + cash + đá luôn: true = đã trả đủ, false = chưa trả
+      paidAtCreation: isDepositPaid,
       depositAmount,
       isDepositPaid,
       // FE snapshot of customer
