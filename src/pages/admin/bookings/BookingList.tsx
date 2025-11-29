@@ -19,6 +19,7 @@ import {
     Spin,
     Upload,
     Tooltip,
+    Checkbox,
 } from 'antd';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
@@ -316,6 +317,9 @@ export default function BookingList() {
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [paymentForm] = Form.useForm();
     const [paymentDiscount, setPaymentDiscount] = useState<number>(0);
+    // modal sate ỦY ĐƠN TIỀN MẶT (admin)
+    const [cancelRefundDeposit, setCancelRefundDeposit] = useState(false);
+    const [cancelAdminReason, setCancelAdminReason] = useState('');
 
     // modal hóa đơn
     const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
@@ -901,6 +905,72 @@ export default function BookingList() {
             toast.error(msg);
         }
     };
+    const handleAdminCancelCash = (record: Booking) => {
+        // reset mỗi lần mở modal
+        setCancelRefundDeposit(false);
+        setCancelAdminReason('');
+
+        Modal.confirm({
+            centered: true,
+            title: 'Hủy đơn tiền mặt',
+            okText: 'Xác nhận hủy',
+            cancelText: 'Đóng',
+            content: (
+                <>
+                    <p>
+                        Mã đơn: <b>{record.code}</b>
+                    </p>
+                    <p>
+                        Thời gian:{' '}
+                        <b>
+                            {dayjs(record.date).format('DD/MM/YYYY')} {record.startTime} -{' '}
+                            {record.endTime}
+                        </b>
+                    </p>
+                    <p>
+                        Tiền cọc:{' '}
+                        <b>{formatVND(record.depositAmount || 0)}</b>
+                    </p>
+
+                    <Checkbox
+                        className='mt-2'
+                        checked={cancelRefundDeposit}
+                        onChange={(e) => setCancelRefundDeposit(e.target.checked)}
+                    >
+                        Đã hoàn lại tiền (cọc / toàn bộ) cho khách
+                    </Checkbox>
+
+                    <TextArea
+                        className='mt-2'
+                        rows={3}
+                        value={cancelAdminReason}
+                        onChange={(e) => setCancelAdminReason(e.target.value)}
+                        placeholder='Ghi chú lý do hủy / hoàn tiền (tùy chọn)'
+                    />
+                </>
+            ),
+            onOk: async () => {
+                try {
+                    await api.post(`/bookings/${record._id}/admin-cancel-cash`, {
+                        refundDeposit: cancelRefundDeposit,
+                        adminReason: cancelAdminReason,
+                    });
+
+                    toast.success('Đã hủy đơn tiền mặt và cập nhật trạng thái tiền');
+                    setCancelRefundDeposit(false);
+                    setCancelAdminReason('');
+
+                    fetchBookings();
+                    fetchStats();
+                } catch (err: any) {
+                    const msg = err?.response?.data?.message || 'Lỗi khi hủy đơn tiền mặt!';
+                    toast.error(msg);
+                    // không cần throw cũng được, modal sẽ tự đóng
+                }
+            },
+        });
+    };
+
 
     const handleAction = async (
         id: string,
@@ -1318,10 +1388,19 @@ export default function BookingList() {
                                 <Button
                                     size='small'
                                     danger
-                                    onClick={() => handleAction(b._id, 'cancel')}
+                                    onClick={() => {
+                                        if (b.paymentMethod === 'cash') {
+                                            // Đơn tiền mặt / COD: dùng luồng admin hủy + hoàn/giữ cọc
+                                            handleAdminCancelCash(b);
+                                        } else {
+                                            //  Đơn online (VNPAY/Momo...): dùng API cancelBooking cũ
+                                            handleAction(b._id, 'cancel');
+                                        }
+                                    }}
                                 >
                                     <CloseCircleOutlined /> Hủy
                                 </Button>
+
                             </>
                         )}
 
@@ -1356,10 +1435,17 @@ export default function BookingList() {
                                 <Button
                                     size='small'
                                     danger
-                                    onClick={() => handleAction(b._id, 'cancel')}
+                                    onClick={() => {
+                                        if (b.paymentMethod === 'cash') {
+                                            handleAdminCancelCash(b);      // đơn tiền mặt / cọc tại sân
+                                        } else {
+                                            handleAction(b._id, 'cancel'); // online (VNPAY/Momo...) dùng API hủy cũ
+                                        }
+                                    }}
                                 >
                                     Hủy
                                 </Button>
+
                             </>
                         )}
 
