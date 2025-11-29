@@ -23,7 +23,9 @@ const { Header, Sider, Content } = Layout;
 const AdminLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [openKeys, setOpenKeys] = useState<string[]>([]);
-
+    const infoAdmin = localStorage.getItem('user');
+    const name = infoAdmin ? JSON.parse(infoAdmin)?.name : undefined;
+    //console.log(name);
     const {
         token: { colorBgContainer },
     } = theme.useToken();
@@ -204,7 +206,7 @@ const AdminLayout: React.FC = () => {
                             }}
                         >
                             <Avatar icon={<UserOutlined />} />
-                            <span>Administrator</span>
+                            <span>{name}</span>
                         </div>
                     </Dropdown>
                 </Header>

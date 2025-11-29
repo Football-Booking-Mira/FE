@@ -8,7 +8,10 @@ import Checkout from '@/pages/client/home/Checkout';
 import PitchDetail from '@/pages/client/home/PitchDetail';
 import MyBookings from '@/pages/client/home/MyBookings';
 import PaymentSuccessPage from '@/pages/client/home/PaymentSuccessPage';
+import CreateMatchSchedule from '@/pages/client/home/CreateMatchSchedule';
+import ContactPages from '@/pages/client/home/ContactPages';
 import Profile from '@/pages/client/home/Profile';
+import BookingPolicyPage from '@/pages/client/home/BookingPolicyPage.tsx';
 
 export const PublicRoutes: RouteObject[] = [
     {
@@ -23,7 +26,10 @@ export const PublicRoutes: RouteObject[] = [
             { path: 'verify-email', element: <VerifyEmailPage /> },
             { path: 'reset-password', element: <ResetPasswordPage /> },
             { path: 'payment-return', element: <PaymentSuccessPage /> },
+            { path: 'contact', element: <ContactPages /> },
+            { path: 'lich-thi-dau', element: <CreateMatchSchedule /> },
             { path: 'profile', element: <Profile /> },
+            { path: 'booking-policy', element: <BookingPolicyPage /> },
         ],
     },
 ];
