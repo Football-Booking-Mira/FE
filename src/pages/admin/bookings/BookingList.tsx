@@ -686,6 +686,8 @@ export default function BookingList() {
         }
     };
 
+
+
     const fetchStats = async () => {
         try {
             const res = await api.get('/bookings/admin/dashboard');
@@ -1839,9 +1841,18 @@ export default function BookingList() {
             <Modal
                 open={checkinModalOpen}
                 onCancel={() => setCheckinModalOpen(false)}
-                onOk={handleConfirmCheckin}
-                okText={checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
-                cancelText='Hủy'
+                footer={[
+                    <Button key='cancel' onClick={() => setCheckinModalOpen(false)}>
+                        Hủy
+                    </Button>,
+                    <Button
+                        key='ok'
+                        type='primary'
+                        onClick={handleConfirmCheckin}
+                    >
+                        {checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
+                    </Button>,
+                ]}
                 title={
                     checkinBooking
                         ? checkinMode === 'checkin'
@@ -1850,6 +1861,7 @@ export default function BookingList() {
                         : 'Check-in và chọn thiết bị'
                 }
             >
+
                 {checkinBooking && (
                     <div className='space-y-4'>
                         <Card size='small' style={{ borderRadius: 8 }}>
