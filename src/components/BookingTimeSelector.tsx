@@ -16,6 +16,7 @@ interface Props {
     peakPrice: number;
     // giờ trả ra MẢNG ca đã chọn
     onSlotSelected: (slots: SelectedSlot[]) => void;
+    single?: boolean
 }
 
 interface BookedSlot {
@@ -94,6 +95,7 @@ const BookingTimeSelector: React.FC<Props> = ({
     basePrice,
     peakPrice,
     onSlotSelected,
+    single
 }) => {
     const [selectedDateStr, setSelectedDateStr] = useState<string>(getLocalDateStr());
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
@@ -188,14 +190,20 @@ const BookingTimeSelector: React.FC<Props> = ({
         if (isPast(s) || isBooked(s, e)) return;
 
         setSelectedSlots((prev) => {
-            // đã chọn -> bỏ chọn
+            if (single) {
+                //  Chế độ 1 ca: click lại để bỏ chọn
+                if (prev.includes(s)) return [];
+                return [s];
+            }
+
+            //  Chế độ bình thường: chọn nhiều ca
             if (prev.includes(s)) {
                 return prev.filter((x) => x !== s);
             }
-            // chưa chọn -> thêm
             return [...prev, s].sort((a, b) => timeToMin(a) - timeToMin(b));
         });
     };
+
 
     // tính tiền mỗi khi đổi selectedSlots
     useEffect(() => {
