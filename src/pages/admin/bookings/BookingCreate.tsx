@@ -684,9 +684,9 @@ const BookingCreate: React.FC = () => {
 
   // === Slot selected from BookingTimeSelector ===
   const handleSlotSelected = useCallback((slots: SelectedSlot[]) => {
-    const slot = slots[0]; // admin đặt nhanh: lấy ca đầu tiên
 
-    if (!slot) {
+
+    if (!slots.length) {
       setDate(null);
       setStartTime(undefined);
       setEndTime(undefined);
@@ -695,10 +695,20 @@ const BookingCreate: React.FC = () => {
       return;
     }
 
-    setDate(dayjs(slot.date));
-    setStartTime(slot.startTime);
-    setEndTime(slot.endTime);
-    setFieldPrice(slot.price || 0);
+
+    // sắp theo thời gian
+    const sorted = [...slots].sort((a, b) =>
+      a.startTime.localeCompare(b.startTime)
+    );
+
+    // ngày theo slot đầu
+    setDate(dayjs(sorted[0].date));
+    setStartTime(sorted[0].startTime);
+    setEndTime(sorted[sorted.length - 1].endTime);
+
+    // tổng tiền = cộng price từng ca
+    const total = sorted.reduce((sum, s) => sum + (s.price || 0), 0);
+    setFieldPrice(total);
     setIsDepositPaid(false);
   }, []);
 
@@ -1102,6 +1112,7 @@ const BookingCreate: React.FC = () => {
                 basePrice={selectedCourt.basePrice}
                 peakPrice={selectedCourt.peakPrice}
                 onSlotSelected={handleSlotSelected}
+
               />
             ) : (
               <Text type="secondary">
