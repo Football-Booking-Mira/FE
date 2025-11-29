@@ -1210,14 +1210,33 @@ export default function BookingList() {
         {
             title: 'Thanh toán',
             dataIndex: 'paymentStatus',
-            render: (s: string) => {
+            render: (_: any, record: Booking) => {
+                const s = record.paymentStatus;
+                const deposit = Number(record.depositAmount || 0);
+                const fieldAmount = Number(record.fieldAmount || 0);
+                const hasDepositPaid = record.depositStatus === 'paid' && deposit > 0;
+
                 let color: string = 'red';
                 if (s === 'paid' || s === 'refunded') color = 'green';
                 else if (s === 'partial') color = 'orange';
 
+                //  Đơn đã đặt cọc (PARTIAL + depositStatus = paid)
+                if (s === 'partial' && hasDepositPaid) {
+                    const percent =
+                        fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
+
+                    return (
+                        <Tag color={color}>
+                            Đã đặt cọc {percent}% tiền sân
+                        </Tag>
+                    );
+                }
+
+
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
             },
         },
+
         {
             title: 'Trạng thái',
             dataIndex: 'status',
@@ -1226,12 +1245,12 @@ export default function BookingList() {
                     s === 'confirmed'
                         ? 'blue'
                         : s === 'pending'
-                        ? 'orange'
-                        : s === 'in_use'
-                        ? 'purple'
-                        : s === 'completed'
-                        ? 'green'
-                        : 'gray';
+                            ? 'orange'
+                            : s === 'in_use'
+                                ? 'purple'
+                                : s === 'completed'
+                                    ? 'green'
+                                    : 'gray';
 
                 return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
             },
@@ -1439,14 +1458,31 @@ export default function BookingList() {
         {
             title: 'Thanh toán',
             dataIndex: 'paymentStatus',
-            render: (s: string) => {
+            render: (_: any, record: Booking) => {
+                const s = record.paymentStatus;
+                const deposit = Number(record.depositAmount || 0);
+                const fieldAmount = Number(record.fieldAmount || 0);
+                const hasDepositPaid = record.depositStatus === 'paid' && deposit > 0;
+
                 let color: string = 'red';
                 if (s === 'paid' || s === 'refunded') color = 'green';
                 else if (s === 'partial') color = 'orange';
 
+                if (s === 'partial' && hasDepositPaid) {
+                    const percent =
+                        fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
+
+                    return (
+                        <Tag color={color}>
+                            Đã đặt cọc {percent}% tiền sân
+                        </Tag>
+                    );
+                }
+
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
             },
         },
+
         {
             title: 'Trạng thái hoàn tiền',
             dataIndex: 'refundStatus',
@@ -1486,9 +1522,9 @@ export default function BookingList() {
             render: (b: Booking) => {
                 const hasAdminDetail = Boolean(
                     b.refund?.adminReason ||
-                        b.refund?.billImage ||
-                        b.refundAdminReason ||
-                        b.refundBillImage
+                    b.refund?.billImage ||
+                    b.refundAdminReason ||
+                    b.refundBillImage
                 );
 
                 return (
@@ -2122,20 +2158,20 @@ export default function BookingList() {
                                     </div>
                                     {(paymentBooking.customerInfo?.phone ||
                                         paymentBooking.customerId?.phone) && (
-                                        <div className='text-xs text-gray-500'>
-                                            SĐT:{' '}
-                                            {paymentBooking.customerInfo?.phone ||
-                                                paymentBooking.customerId?.phone}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                SĐT:{' '}
+                                                {paymentBooking.customerInfo?.phone ||
+                                                    paymentBooking.customerId?.phone}
+                                            </div>
+                                        )}
                                     {(paymentBooking.customerInfo?.email ||
                                         paymentBooking.customerId?.email) && (
-                                        <div className='text-xs text-gray-500'>
-                                            Email:{' '}
-                                            {paymentBooking.customerInfo?.email ||
-                                                paymentBooking.customerId?.email}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                Email:{' '}
+                                                {paymentBooking.customerInfo?.email ||
+                                                    paymentBooking.customerId?.email}
+                                            </div>
+                                        )}
                                 </div>
 
                                 <div className='w-px bg-gray-200 mx-2' />
@@ -2349,9 +2385,8 @@ export default function BookingList() {
                         // gộp item trùng nhau (name + mode + price + unit)
                         const map: Record<string, any> = {};
                         items.forEach((it: any) => {
-                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${
-                                it.unit || ''
-                            }`;
+                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${it.unit || ''
+                                }`;
                             if (map[key]) {
                                 map[key].qty += it.qty || 0;
                                 map[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
@@ -2513,9 +2548,8 @@ export default function BookingList() {
 
                                                 return (
                                                     <div
-                                                        key={`${
-                                                            it._id || it.name || 'item'
-                                                        }_${idx}`}
+                                                        key={`${it._id || it.name || 'item'
+                                                            }_${idx}`}
                                                         className='flex justify-between'
                                                     >
                                                         <div>
@@ -2545,7 +2579,7 @@ export default function BookingList() {
                                                         <div className='font-semibold'>
                                                             {formatVND(
                                                                 it.subtotal ||
-                                                                    (it.qty || 0) * (it.price || 0)
+                                                                (it.qty || 0) * (it.price || 0)
                                                             )}
                                                         </div>
                                                     </div>
@@ -2722,7 +2756,7 @@ export default function BookingList() {
                                         </b>
                                     </div>
                                     {detailData.booking.customerInfo?.phone ||
-                                    detailData.booking.customerId?.phone ? (
+                                        detailData.booking.customerId?.phone ? (
                                         <div>
                                             <span className='text-gray-500'>SĐT: </span>
                                             {detailData.booking.customerInfo?.phone ||
