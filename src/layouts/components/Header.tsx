@@ -63,7 +63,7 @@ const Header = () => {
             key: '3',
             label: (
                 <Link
-                    to='/bang-gia'
+                    to='/equipments'
                     style={{
                         textDecoration: 'none',
                         fontFamily: 'Arial, sans-serif',
@@ -74,7 +74,7 @@ const Header = () => {
                     }}
                     {...hoverHandlers}
                 >
-                    Bảng giá
+                    Dịch vụ
                 </Link>
             ),
         },
