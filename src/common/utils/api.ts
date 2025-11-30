@@ -100,13 +100,13 @@ api.interceptors.response.use(
 
   (error: AxiosError<any>) => {
     // Log lỗi raw để debug
-    console.error("🔥 API RAW ERROR:", error);
+    console.error(" API RAW ERROR:", error);
 
     const status = error.response?.status;
     const data = error.response?.data;
 
-    console.error("📥 API RESPONSE STATUS:", status);
-    console.error("📥 API RESPONSE DATA:", data);
+    console.error(" API RESPONSE STATUS:", status);
+    console.error(" API RESPONSE DATA:", data);
 
     // GIỮ NGUYÊN lỗi, không tạo Error mới
     // để client có thể đọc error.response đầy đủ

@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import api from '@/common/utils/api';
+import { useVoucherValidation } from '@/common/hooks';
+import { useAuth } from '@/common/contexts';
 
 interface SlotItem {
     date: string;
@@ -47,6 +49,7 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Checkout: React.FC = () => {
     const navigate = useNavigate();
+    const { isAuthenticated } = useAuth();
 
     const [bookingData, setBookingData] = useState<CheckoutData | null>(() => {
         return JSON.parse(window.localStorage.getItem('checkout-data') || 'null');
@@ -59,6 +62,9 @@ const Checkout: React.FC = () => {
         amountToPay: number;
     } | null>(null);
 
+    // Voucher state
+    const [voucherInput, setVoucherInput] = useState('');
+
     // nếu không có bookingData thì đá về home
     useEffect(() => {
         if (!bookingData) {
@@ -66,6 +72,43 @@ const Checkout: React.FC = () => {
             navigate('/');
         }
     }, [bookingData, navigate]);
+
+    // Tính toán base total (trước voucher)
+    const baseTotal = bookingData
+        ? bookingData.isRetryPayment && retryInfo
+            ? retryInfo.amountToPay
+            : bookingData.totalPrice ?? bookingData.total ?? 0
+        : 0;
+
+    // Voucher validation hook
+    const {
+        validating: validatingVoucher,
+        voucherResult,
+        error: voucherError,
+        validateVoucher,
+        clearVoucher,
+        discountAmount,
+        finalTotal,
+    } = useVoucherValidation({
+        orderTotal: baseTotal,
+        courtId: bookingData?.courtId || '',
+        bookingDate: bookingData?.date,
+        startTime: bookingData?.overallStart || bookingData?.startTime,
+    });
+
+    // Cập nhật totalAmount khi có voucher hoặc thay đổi baseTotal
+    // Chỉ áp dụng voucher khi tạo booking mới, không phải retry payment
+    useEffect(() => {
+        if (bookingData?.isRetryPayment) {
+            // Retry payment: không áp dụng voucher
+            return;
+        }
+        if (voucherResult && finalTotal > 0) {
+            setTotalAmount(finalTotal);
+        } else {
+            setTotalAmount(baseTotal);
+        }
+    }, [voucherResult, finalTotal, baseTotal, bookingData?.isRetryPayment]);
 
     // ĐỌC checkout-data & gọi API thanh toán lại (nếu có)
     useEffect(() => {
@@ -130,6 +173,28 @@ const Checkout: React.FC = () => {
         bookingData.overallStart || firstSlot?.startTime || bookingData.startTime || '06:00';
     const bookingEndTime =
         bookingData.overallEnd || lastSlot?.endTime || bookingData.endTime || '07:00';
+
+    // Xử lý apply voucher
+    const handleApplyVoucher = async () => {
+        if (!voucherInput.trim()) {
+            toast.error('Vui lòng nhập mã voucher!');
+            return;
+        }
+
+        if (!isAuthenticated) {
+            toast.error('Vui lòng đăng nhập để sử dụng voucher!');
+            return;
+        }
+
+        await validateVoucher(voucherInput);
+    };
+
+    // Xử lý xóa voucher
+    const handleRemoveVoucher = () => {
+        clearVoucher();
+        setVoucherInput('');
+        setTotalAmount(baseTotal);
+    };
 
     const handleSubmit = async () => {
         if (!bookingData) {
@@ -199,6 +264,7 @@ const Checkout: React.FC = () => {
                         },
                         slots: bookingData.slots,
                         totalFieldAmount: totalPrice,
+                        voucherCode: voucherResult?.code || undefined,
                     }),
                 });
 
@@ -329,6 +395,80 @@ const Checkout: React.FC = () => {
                             </span>
                         </div>
                     </div>
+
+                    {/* Phần Voucher - Chỉ hiển thị khi tạo booking mới, không phải retry payment */}
+                    {!bookingData.isRetryPayment && (
+                        <div className='bg-blue-50 rounded-xl p-6 shadow-inner border border-blue-200'>
+                            <h2 className='font-semibold text-lg text-gray-700 mb-4'>
+                                Mã giảm giá (Voucher)
+                            </h2>
+                            {!voucherResult ? (
+                                <div className='space-y-3'>
+                                    <div className='flex gap-2'>
+                                        <Input
+                                            value={voucherInput}
+                                            onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
+                                            onKeyPress={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    handleApplyVoucher();
+                                                }
+                                            }}
+                                            placeholder='Nhập mã voucher'
+                                            disabled={validatingVoucher || !isAuthenticated}
+                                            className='flex-1 border-blue-300 focus:border-blue-500 focus:ring-blue-200'
+                                        />
+                                        <Button
+                                            onClick={handleApplyVoucher}
+                                            disabled={validatingVoucher || !isAuthenticated || !voucherInput.trim()}
+                                            className='bg-blue-600 hover:bg-blue-700 text-white px-6'
+                                        >
+                                            {validatingVoucher ? 'Đang kiểm tra...' : 'Áp dụng'}
+                                        </Button>
+                                    </div>
+                                    {!isAuthenticated && (
+                                        <p className='text-sm text-amber-600'>
+                                            ⚠️ Vui lòng đăng nhập để sử dụng voucher
+                                        </p>
+                                    )}
+                                    {voucherError && (
+                                        <p className='text-sm text-red-600 bg-red-50 p-2 rounded'>
+                                            ❌ {voucherError}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className='space-y-3'>
+                                    <div className='bg-green-100 border border-green-300 rounded-lg p-4'>
+                                        <div className='flex items-center justify-between mb-2'>
+                                            <div className='flex items-center gap-2'>
+                                                <span className='font-semibold text-green-800'>
+                                                    ✓ Voucher đã áp dụng: {voucherResult.code}
+                                                </span>
+                                            </div>
+                                            <Button
+                                                onClick={handleRemoveVoucher}
+                                                variant='outline'
+                                                size='sm'
+                                                className='text-red-600 border-red-300 hover:bg-red-50'
+                                            >
+                                                Xóa
+                                            </Button>
+                                        </div>
+                                        <div className='grid grid-cols-2 gap-2 text-sm text-gray-700'>
+                                            <span>Giảm giá:</span>
+                                            <span className='font-bold text-green-700'>
+                                                -{formatCurrency(discountAmount)}
+                                            </span>
+                                            <span>Tổng tiền sau giảm:</span>
+                                            <span className='font-bold text-green-700 text-lg'>
+                                                {formatCurrency(finalTotal)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Thông tin người đặt */}
                     {/* (phần dưới giữ nguyên như cũ) */}
