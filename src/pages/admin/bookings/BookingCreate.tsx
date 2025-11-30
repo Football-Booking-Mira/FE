@@ -577,7 +577,7 @@ import { SearchOutlined, UserOutlined, PlusOutlined } from "@ant-design/icons";
 import api from "@/common/utils/api";
 import { PAYMENT_METHOD } from "@/common/constants/enums.ts";
 import { toast } from "react-toastify";
-import BookingTimeSelector from "@/components/BookingTimeSelector";
+import BookingTimeSelector, { type SelectedSlot } from "@/components/BookingTimeSelector";
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -642,10 +642,9 @@ const BookingCreate: React.FC = () => {
   const depositAmount = Math.round(fieldPrice * 0.5);
   const [isDepositPaid, setIsDepositPaid] = useState(false);
 
-  // slot conflict / validation
-  const [slotConflict, setSlotConflict] = useState(false);
-  const [slotConflictMsg, setSlotConflictMsg] = useState<string | null>(null);
-  const [calculatingPrice, setCalculatingPrice] = useState(false);
+  // tính giờ 
+  const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
+
 
   // === Load list of courts from API ===
   useEffect(() => {
@@ -682,120 +681,55 @@ const BookingCreate: React.FC = () => {
     }
   };
 
-  // === Slot selected from BookingTimeSelector ===
-  const handleSlotSelected = useCallback(
-    (slot: {
-      date: string;
-      startTime: string;
-      endTime: string;
-      price: number;
-      duration: number;
-    }) => {
-      setDate(dayjs(slot.date));
-      setStartTime(slot.startTime);
-      setEndTime(slot.endTime);
-      setFieldPrice(slot.price || 0);
-      // reset deposit flag when slot changes
+  const handleSlotSelected = useCallback((slots: SelectedSlot[]) => {
+    if (!slots.length) {
+      setSelectedSlots([]);
+      setDate(null);
+      setStartTime(undefined);
+      setEndTime(undefined);
+      setFieldPrice(0);
       setIsDepositPaid(false);
+      return;
+    }
 
-      // whenever slot picked, compute price & check conflict
-      // computePrice and checkConflict are defined below and called via effect too
-    },
-    []
-  );
+    // sắp theo giờ
+    const sorted = [...slots].sort((a, b) =>
+      a.startTime.localeCompare(b.startTime)
+    );
 
-  // Reset time & price when change court
+    // lưu full danh sách để hiển thị
+    setSelectedSlots(sorted);
+
+    // ngày theo slot đầu
+    setDate(dayjs(sorted[0].date));
+
+    // dùng ca đầu & ca cuối để gửi BE (ok, BE đang nhận kiểu này)
+    setStartTime(sorted[0].startTime);
+    setEndTime(sorted[sorted.length - 1].endTime);
+
+    // tổng tiền = cộng tất cả ca
+    const total = sorted.reduce((sum, s) => sum + (s.price || 0), 0);
+    setFieldPrice(total);
+    setIsDepositPaid(false);
+  }, []);
+
+
   useEffect(() => {
     if (!selectedCourt) {
+      setSelectedSlots([]);
       setFieldPrice(0);
       setDate(null);
       setStartTime(undefined);
       setEndTime(undefined);
       setIsDepositPaid(false);
-      setSlotConflict(false);
-      setSlotConflictMsg(null);
     }
   }, [selectedCourt]);
 
-  // Whenever court/date/time change, calculate price & check conflict
-  useEffect(() => {
-    const shouldCalc =
-      selectedCourt && date && startTime && endTime && startTime < endTime;
-    if (shouldCalc) {
-      calculateFieldPrice(selectedCourt._id, startTime!, endTime!);
-      checkSlotOverlap(
-        selectedCourt._id,
-        date.format("YYYY-MM-DD"),
-        startTime!,
-        endTime!
-      );
-    } else {
-      setFieldPrice(0);
-      setSlotConflict(false);
-      setSlotConflictMsg(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCourt, date, startTime, endTime]);
 
-  // === Calculate price using BE endpoint: GET /bookings/calculate?courtId=...&startTime=...&endTime=...
-  const calculateFieldPrice = async (
-    courtId: string,
-    sTime: string,
-    eTime: string
-  ) => {
-    try {
-      setCalculatingPrice(true);
-      const res = await api.get("/bookings/calculate", {
-        params: { courtId, startTime: sTime, endTime: eTime },
-      });
-      const data = res.data?.data || res.data;
-      // controller returns { fieldAmount, total, ... } — use total or fieldAmount
-      const amount = data?.fieldAmount ?? data?.total ?? 0;
-      setFieldPrice(amount || 0);
-    } catch (err: any) {
-      // if BE rejects (invalid slot / outside hours) show message
-      const msg = err?.response?.data?.message || "Không tính được tiền sân";
-      toast.error(msg);
-      setFieldPrice(0);
-    } finally {
-      setCalculatingPrice(false);
-    }
-  };
 
-  // === Check overlap using BE endpoint: GET /bookings/court/:courtId?startDate=...&endDate=...
-  // and then check startTime/endTime overlap locally (controller returns bookings)
-  const checkSlotOverlap = async (
-    courtId: string,
-    dateStr: string,
-    sTime: string,
-    eTime: string
-  ) => {
-    try {
-      const res = await api.get(`/bookings/court/${courtId}`, {
-        params: { startDate: dateStr, endDate: dateStr },
-      });
-      const bookings = res.data?.data || res.data || [];
 
-      // overlap check: existing.startTime < eTime && existing.endTime > sTime
-      const overlap = (existing: any) =>
-        existing.startTime < eTime && existing.endTime > sTime;
 
-      const found = Array.isArray(bookings) && bookings.some(overlap);
 
-      if (found) {
-        setSlotConflict(true);
-        setSlotConflictMsg("Khung giờ này đã có người đặt!");
-      } else {
-        setSlotConflict(false);
-        setSlotConflictMsg(null);
-      }
-    } catch (err: any) {
-      // If endpoint fails, be conservative: do not block but notify
-      console.error("Lỗi khi kiểm tra trùng giờ:", err);
-      setSlotConflict(false);
-      setSlotConflictMsg(null);
-    }
-  };
 
   // === Create new customer ===
   const handleCreateCustomer = async () => {
@@ -857,15 +791,35 @@ const BookingCreate: React.FC = () => {
     if (!selectedCustomer)
       return toast.error("Vui lòng chọn hoặc thêm khách hàng");
     if (!isDepositPaid)
+
       return toast.error("Vui lòng xác nhận khách đã đặt cọc 50% trước");
-    if (slotConflict)
-      return toast.error(slotConflictMsg || "Khung giờ đã bị đặt");
+
 
     // Format date as YYYY-MM-DD (controller accepts date, it will normalize)
     const dateStr = date.format("YYYY-MM-DD");
+    // tính xem có đá trận sau không
+    // date dayjs
+    const now = dayjs();
+    const bookingDay = date.startOf("day");
+    //ghép ngày và giờ bắt đầu thành full datetime
+    const bookingStart = dayjs(`${dateStr} ${startTime}`);
+    const isFutureDay = bookingDay.isAfter(now, "day"); // khác ngày & ở tương lai
+    const isSameDay = bookingDay.isSame(now, "day"); // cùng ngày
+    const isFutureSameDay = isSameDay && bookingStart.isAfter(now); // cùng ngày nhưng giờ bắt đầu > hiện tại
 
-    // Optional: generate bookingCode on FE (BE also generates code field 'code'). Not required.
+    const isFutureMatch = isFutureDay || isFutureSameDay;
+    // Nếu là trận đá sau (khác ngày hoặc chiều/ tối đá) thì BẮT BUỘC cọc 50%
+    if (isFutureMatch && !isDepositPaid) {
+      return toast.error(
+        "Khách đặt sân đá sau (khác ngày hoặc khác giờ) bắt buộc phải cọc 50% trước!"
+      );
+    }
+
+
+    //bookingCode Be và FE tự sinh riêng 
+
     const bookingCode = generateBookingCode(dateStr);
+
 
     const payload = {
       // NOTE: backend's createBooking expects fields like courtId, customerId, date, startTime, endTime, paymentMethod, note, isOffline, customerInfo, paidAtCreation
@@ -878,7 +832,10 @@ const BookingCreate: React.FC = () => {
       note: note || "",
       isOffline: true,
       paymentMethod: PAYMENT_METHOD?.CASH || "cash",
-      paidAtCreation: isDepositPaid, // boolean if deposit paid at creation
+      //BE dùng paidAtCreation để:
+      // - Nếu offline + cash + isFutureMatch: bắt buộc true → coi là đã cọc 50%
+      // - Nếu offline + cash + đá luôn: true = đã trả đủ, false = chưa trả
+      paidAtCreation: isDepositPaid,
       depositAmount,
       isDepositPaid,
       // FE snapshot of customer
@@ -1077,6 +1034,7 @@ const BookingCreate: React.FC = () => {
                 basePrice={selectedCourt.basePrice}
                 peakPrice={selectedCourt.peakPrice}
                 onSlotSelected={handleSlotSelected}
+
               />
             ) : (
               <Text type="secondary">
@@ -1084,14 +1042,7 @@ const BookingCreate: React.FC = () => {
               </Text>
             )}
 
-            {/* show conflict message under selector */}
-            {slotConflictMsg && (
-              <div style={{ marginTop: 12 }}>
-                <Text type="danger" style={{ color: "#cf1322" }}>
-                  ⚠ {slotConflictMsg}
-                </Text>
-              </div>
-            )}
+
           </Card>
 
           <Card title="Ghi chú">
@@ -1141,23 +1092,23 @@ const BookingCreate: React.FC = () => {
               <div>
                 <Text type="secondary">Giờ</Text>
                 <br />
-                {startTime && endTime ? (
+                {selectedSlots.length ? (
                   <Text strong>
-                    {startTime} - {endTime}
+                    {selectedSlots
+                      .map((s) => `${s.startTime} - ${s.endTime}`)
+                      .join(", ")}
                   </Text>
                 ) : (
                   <Text>Chưa chọn</Text>
                 )}
               </div>
 
+
               <div>
                 <Text type="secondary">Tiền sân</Text>
                 <br />
                 <Text strong>
-                  {calculatingPrice
-                    ? "Đang tính..."
-                    : fieldPrice.toLocaleString("vi-VN")}{" "}
-                  đ
+                  {fieldPrice.toLocaleString('vi-VN')}VNĐ
                 </Text>
               </div>
 
@@ -1184,7 +1135,7 @@ const BookingCreate: React.FC = () => {
                 size="large"
                 block
                 onClick={handleSubmitBooking}
-                disabled={slotConflict || !selectedCustomer || !selectedCourt}
+                disabled={!selectedCustomer || !selectedCourt}
               >
                 Xác nhận đặt sân
               </Button>

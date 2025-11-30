@@ -19,6 +19,7 @@ import {
     Spin,
     Upload,
     Tooltip,
+    Checkbox,
 } from 'antd';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
@@ -237,12 +238,18 @@ interface EquipmentItem {
     unit?: string;
 }
 
-// helper: số tiền còn phải thu (total - cọc đã trả)
+// số tiền còn phải thu (total - cọc đã trả)
 const getOutstandingAmount = (b: Booking | null) => {
     if (!b) return 0;
     const total = Number(b.total || 0);
     const deposit = Number(b.depositAmount || 0);
     return Math.max(0, total - deposit);
+};
+// xác định thiết bị thuê hay bán
+const getModeText = (mode?: string | null) => {
+    if (mode === 'rent') return 'Thuê';
+    if (mode === 'sell') return 'Bán';
+    return '';
 };
 
 export default function BookingList() {
@@ -310,6 +317,9 @@ export default function BookingList() {
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [paymentForm] = Form.useForm();
     const [paymentDiscount, setPaymentDiscount] = useState<number>(0);
+    // modal sate ỦY ĐƠN TIỀN MẶT (admin)
+    const [cancelRefundDeposit, setCancelRefundDeposit] = useState(false);
+    const [cancelAdminReason, setCancelAdminReason] = useState('');
 
     // modal hóa đơn
     const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
@@ -680,6 +690,8 @@ export default function BookingList() {
         }
     };
 
+
+
     const fetchStats = async () => {
         try {
             const res = await api.get('/bookings/admin/dashboard');
@@ -893,6 +905,72 @@ export default function BookingList() {
             toast.error(msg);
         }
     };
+    const handleAdminCancelCash = (record: Booking) => {
+        // reset mỗi lần mở modal
+        setCancelRefundDeposit(false);
+        setCancelAdminReason('');
+
+        Modal.confirm({
+            centered: true,
+            title: 'Hủy đơn tiền mặt',
+            okText: 'Xác nhận hủy',
+            cancelText: 'Đóng',
+            content: (
+                <>
+                    <p>
+                        Mã đơn: <b>{record.code}</b>
+                    </p>
+                    <p>
+                        Thời gian:{' '}
+                        <b>
+                            {dayjs(record.date).format('DD/MM/YYYY')} {record.startTime} -{' '}
+                            {record.endTime}
+                        </b>
+                    </p>
+                    <p>
+                        Tiền cọc:{' '}
+                        <b>{formatVND(record.depositAmount || 0)}</b>
+                    </p>
+
+                    <Checkbox
+                        className='mt-2'
+                        checked={cancelRefundDeposit}
+                        onChange={(e) => setCancelRefundDeposit(e.target.checked)}
+                    >
+                        Đã hoàn lại tiền (cọc / toàn bộ) cho khách
+                    </Checkbox>
+
+                    <TextArea
+                        className='mt-2'
+                        rows={3}
+                        value={cancelAdminReason}
+                        onChange={(e) => setCancelAdminReason(e.target.value)}
+                        placeholder='Ghi chú lý do hủy / hoàn tiền (tùy chọn)'
+                    />
+                </>
+            ),
+            onOk: async () => {
+                try {
+                    await api.post(`/bookings/${record._id}/admin-cancel-cash`, {
+                        refundDeposit: cancelRefundDeposit,
+                        adminReason: cancelAdminReason,
+                    });
+
+                    toast.success('Đã hủy đơn tiền mặt và cập nhật trạng thái tiền');
+                    setCancelRefundDeposit(false);
+                    setCancelAdminReason('');
+
+                    fetchBookings();
+                    fetchStats();
+                } catch (err: any) {
+                    const msg = err?.response?.data?.message || 'Lỗi khi hủy đơn tiền mặt!';
+                    toast.error(msg);
+                    // không cần throw cũng được, modal sẽ tự đóng
+                }
+            },
+        });
+    };
+
 
     const handleAction = async (
         id: string,
@@ -1204,14 +1282,33 @@ export default function BookingList() {
         {
             title: 'Thanh toán',
             dataIndex: 'paymentStatus',
-            render: (s: string) => {
+            render: (_: any, record: Booking) => {
+                const s = record.paymentStatus;
+                const deposit = Number(record.depositAmount || 0);
+                const fieldAmount = Number(record.fieldAmount || 0);
+                const hasDepositPaid = record.depositStatus === 'paid' && deposit > 0;
+
                 let color: string = 'red';
                 if (s === 'paid' || s === 'refunded') color = 'green';
                 else if (s === 'partial') color = 'orange';
 
+                //  Đơn đã đặt cọc (PARTIAL + depositStatus = paid)
+                if (s === 'partial' && hasDepositPaid) {
+                    const percent =
+                        fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
+
+                    return (
+                        <Tag color={color}>
+                            Đã đặt cọc {percent}% tiền sân
+                        </Tag>
+                    );
+                }
+
+
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
             },
         },
+
         {
             title: 'Trạng thái',
             dataIndex: 'status',
@@ -1220,12 +1317,12 @@ export default function BookingList() {
                     s === 'confirmed'
                         ? 'blue'
                         : s === 'pending'
-                        ? 'orange'
-                        : s === 'in_use'
-                        ? 'purple'
-                        : s === 'completed'
-                        ? 'green'
-                        : 'gray';
+                            ? 'orange'
+                            : s === 'in_use'
+                                ? 'purple'
+                                : s === 'completed'
+                                    ? 'green'
+                                    : 'gray';
 
                 return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
             },
@@ -1291,10 +1388,19 @@ export default function BookingList() {
                                 <Button
                                     size='small'
                                     danger
-                                    onClick={() => handleAction(b._id, 'cancel')}
+                                    onClick={() => {
+                                        if (b.paymentMethod === 'cash') {
+                                            // Đơn tiền mặt / COD: dùng luồng admin hủy + hoàn/giữ cọc
+                                            handleAdminCancelCash(b);
+                                        } else {
+                                            //  Đơn online (VNPAY/Momo...): dùng API cancelBooking cũ
+                                            handleAction(b._id, 'cancel');
+                                        }
+                                    }}
                                 >
                                     <CloseCircleOutlined /> Hủy
                                 </Button>
+
                             </>
                         )}
 
@@ -1329,10 +1435,17 @@ export default function BookingList() {
                                 <Button
                                     size='small'
                                     danger
-                                    onClick={() => handleAction(b._id, 'cancel')}
+                                    onClick={() => {
+                                        if (b.paymentMethod === 'cash') {
+                                            handleAdminCancelCash(b);      // đơn tiền mặt / cọc tại sân
+                                        } else {
+                                            handleAction(b._id, 'cancel'); // online (VNPAY/Momo...) dùng API hủy cũ
+                                        }
+                                    }}
                                 >
                                     Hủy
                                 </Button>
+
                             </>
                         )}
 
@@ -1433,14 +1546,31 @@ export default function BookingList() {
         {
             title: 'Thanh toán',
             dataIndex: 'paymentStatus',
-            render: (s: string) => {
+            render: (_: any, record: Booking) => {
+                const s = record.paymentStatus;
+                const deposit = Number(record.depositAmount || 0);
+                const fieldAmount = Number(record.fieldAmount || 0);
+                const hasDepositPaid = record.depositStatus === 'paid' && deposit > 0;
+
                 let color: string = 'red';
                 if (s === 'paid' || s === 'refunded') color = 'green';
                 else if (s === 'partial') color = 'orange';
 
+                if (s === 'partial' && hasDepositPaid) {
+                    const percent =
+                        fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
+
+                    return (
+                        <Tag color={color}>
+                            Đã đặt cọc {percent}% tiền sân
+                        </Tag>
+                    );
+                }
+
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
             },
         },
+
         {
             title: 'Trạng thái hoàn tiền',
             dataIndex: 'refundStatus',
@@ -1480,17 +1610,19 @@ export default function BookingList() {
             render: (b: Booking) => {
                 const hasAdminDetail = Boolean(
                     b.refund?.adminReason ||
-                        b.refund?.billImage ||
-                        b.refundAdminReason ||
-                        b.refundBillImage
+                    b.refund?.billImage ||
+                    b.refundAdminReason ||
+                    b.refundBillImage
                 );
 
-                return hasAdminDetail ? (
-                    <Button size='small' onClick={() => openRefundModal(b, 'admin')}>
+                return (
+                    <Button
+                        size='small'
+                        onClick={() => openRefundModal(b, 'admin')}
+                        disabled={!hasAdminDetail}
+                    >
                         Xem chi tiết
                     </Button>
-                ) : (
-                    <span className='text-xs text-gray-400'>-</span>
                 );
             },
         },
@@ -1795,9 +1927,18 @@ export default function BookingList() {
             <Modal
                 open={checkinModalOpen}
                 onCancel={() => setCheckinModalOpen(false)}
-                onOk={handleConfirmCheckin}
-                okText={checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
-                cancelText='Hủy'
+                footer={[
+                    <Button key='cancel' onClick={() => setCheckinModalOpen(false)}>
+                        Hủy
+                    </Button>,
+                    <Button
+                        key='ok'
+                        type='primary'
+                        onClick={handleConfirmCheckin}
+                    >
+                        {checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
+                    </Button>,
+                ]}
                 title={
                     checkinBooking
                         ? checkinMode === 'checkin'
@@ -1806,6 +1947,7 @@ export default function BookingList() {
                         : 'Check-in và chọn thiết bị'
                 }
             >
+
                 {checkinBooking && (
                     <div className='space-y-4'>
                         <Card size='small' style={{ borderRadius: 8 }}>
@@ -2114,20 +2256,20 @@ export default function BookingList() {
                                     </div>
                                     {(paymentBooking.customerInfo?.phone ||
                                         paymentBooking.customerId?.phone) && (
-                                        <div className='text-xs text-gray-500'>
-                                            SĐT:{' '}
-                                            {paymentBooking.customerInfo?.phone ||
-                                                paymentBooking.customerId?.phone}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                SĐT:{' '}
+                                                {paymentBooking.customerInfo?.phone ||
+                                                    paymentBooking.customerId?.phone}
+                                            </div>
+                                        )}
                                     {(paymentBooking.customerInfo?.email ||
                                         paymentBooking.customerId?.email) && (
-                                        <div className='text-xs text-gray-500'>
-                                            Email:{' '}
-                                            {paymentBooking.customerInfo?.email ||
-                                                paymentBooking.customerId?.email}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                Email:{' '}
+                                                {paymentBooking.customerInfo?.email ||
+                                                    paymentBooking.customerId?.email}
+                                            </div>
+                                        )}
                                 </div>
 
                                 <div className='w-px bg-gray-200 mx-2' />
@@ -2341,9 +2483,8 @@ export default function BookingList() {
                         // gộp item trùng nhau (name + mode + price + unit)
                         const map: Record<string, any> = {};
                         items.forEach((it: any) => {
-                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${
-                                it.unit || ''
-                            }`;
+                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${it.unit || ''
+                                }`;
                             if (map[key]) {
                                 map[key].qty += it.qty || 0;
                                 map[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
@@ -2500,25 +2641,48 @@ export default function BookingList() {
                                             Thiết bị / hạng mục
                                         </div>
                                         <div className='space-y-1 text-xs'>
-                                            {mergedItems.map((it: any, idx: number) => (
-                                                <div
-                                                    key={`${it._id || it.name || 'item'}_${idx}`}
-                                                    className='flex justify-between'
-                                                >
-                                                    <div>
-                                                        <div className='font-medium'>
-                                                            {it.name || 'Hạng mục'}
+                                            {mergedItems.map((it: any, idx: number) => {
+                                                const modeText = getModeText(it.mode);
+
+                                                return (
+                                                    <div
+                                                        key={`${it._id || it.name || 'item'
+                                                            }_${idx}`}
+                                                        className='flex justify-between'
+                                                    >
+                                                        <div>
+                                                            <div className='font-medium flex items-center gap-2'>
+                                                                <span>{it.name || 'Hạng mục'}</span>
+                                                                {modeText && (
+                                                                    <Tag
+                                                                        color={
+                                                                            it.mode === 'sell'
+                                                                                ? 'green'
+                                                                                : 'blue'
+                                                                        }
+                                                                        style={{ marginLeft: 2 }}
+                                                                    >
+                                                                        {modeText}
+                                                                    </Tag>
+                                                                )}
+                                                            </div>
+                                                            <div className='text-gray-500'>
+                                                                {modeText && (
+                                                                    <span>{modeText} • </span>
+                                                                )}
+                                                                {formatVND(it.price)} x {it.qty}{' '}
+                                                                {it.unit || ''}
+                                                            </div>
                                                         </div>
-                                                        <div className='text-gray-500'>
-                                                            {formatVND(it.price)} x {it.qty}{' '}
-                                                            {it.unit || ''}
+                                                        <div className='font-semibold'>
+                                                            {formatVND(
+                                                                it.subtotal ||
+                                                                (it.qty || 0) * (it.price || 0)
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <div className='font-semibold'>
-                                                        {formatVND(it.subtotal)}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </Card>
                                 )}
@@ -2690,7 +2854,7 @@ export default function BookingList() {
                                         </b>
                                     </div>
                                     {detailData.booking.customerInfo?.phone ||
-                                    detailData.booking.customerId?.phone ? (
+                                        detailData.booking.customerId?.phone ? (
                                         <div>
                                             <span className='text-gray-500'>SĐT: </span>
                                             {detailData.booking.customerInfo?.phone ||

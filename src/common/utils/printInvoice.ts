@@ -10,6 +10,12 @@ const PAYMENT_METHOD_TEXT: Record<string, string> = {
     vnpay: 'VNPAY',
     qr: 'Quẹt thẻ / QR',
 };
+//Xác định thiết bị thuê mua hay bán ở hóa đơn
+const renderMode = (mode?: string | null): string => {
+    if (mode === 'rent') return 'Thuê';
+    if (mode === 'sell') return 'Bán';
+    return '';
+};
 
 export const printInvoiceMira = (invoiceDetail: any) => {
     if (!invoiceDetail?.invoice) return;
@@ -18,7 +24,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
     const rawItems = invoiceDetail.items || [];
     const mergedMap: Record<string, any> = {};
     rawItems.forEach((it: any) => {
-        const key = `${it.name || ''}_${it.unit || ''}_${it.price || 0}`;
+        const key = `${it.name || ''}_${it.unit || ''}_${it.price || 0}_${it.mode || ''}}`;
         if (mergedMap[key]) {
             mergedMap[key].qty += it.qty || 0;
             mergedMap[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
@@ -58,6 +64,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
               <tr>
                 <td>${idx + 1}</td>
                 <td>${it.name || 'Hạng mục'}</td>
+                <td>${renderMode(it.mode)}</td>
                 <td>${it.unit || ''}</td>
                 <td class="text-right">${it.qty || 0}</td>
                 <td class="text-right">${formatVND(it.price || 0)}</td>
@@ -70,7 +77,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
                   .join('')
             : `
         <tr>
-          <td colspan="6" class="no-items">
+          <td colspan="7" class="no-items">
             Không có thiết bị / hạng mục thêm.
           </td>
         </tr>
@@ -257,6 +264,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
           <tr>
             <th style="width:4%">#</th>
             <th style="width:36%">Tên thiết bị</th>
+            <th style="width:14%">Hình thức</th>
             <th style="width:14%">Đơn vị</th>
             <th style="width:10%">SL</th>
             <th style="width:18%">Đơn giá</th>

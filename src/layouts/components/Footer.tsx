@@ -80,11 +80,6 @@ const Footer = () => {
               </a>
             </li>
             <li>
-              <a href="/lich-thi-dau" className="hover:text-green-500">
-                Lịch thi đấu
-              </a>
-            </li>
-            <li>
               <a href="/bang-gia" className="hover:text-green-500">
                 Bảng giá
               </a>

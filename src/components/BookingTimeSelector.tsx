@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 
-interface SelectedSlot {
+export interface SelectedSlot {
     date: string;
     startTime: string;
     endTime: string;
@@ -9,12 +9,14 @@ interface SelectedSlot {
     duration: number; // phút
 }
 
+
 interface Props {
     courtId: string;
     basePrice: number;
     peakPrice: number;
     // giờ trả ra MẢNG ca đã chọn
     onSlotSelected: (slots: SelectedSlot[]) => void;
+    single?: boolean
 }
 
 interface BookedSlot {
@@ -93,6 +95,7 @@ const BookingTimeSelector: React.FC<Props> = ({
     basePrice,
     peakPrice,
     onSlotSelected,
+    single
 }) => {
     const [selectedDateStr, setSelectedDateStr] = useState<string>(getLocalDateStr());
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
@@ -100,7 +103,6 @@ const BookingTimeSelector: React.FC<Props> = ({
     const [totalPrice, setTotalPrice] = useState(0);
     const [selectedHours, setSelectedHours] = useState(0);
     const [breakMinutes, setBreakMinutes] = useState(0);
-
     //* fetch slot đã đặt
     const fetchBooked = useCallback(async () => {
         if (!courtId || !selectedDateStr) return;
@@ -188,14 +190,20 @@ const BookingTimeSelector: React.FC<Props> = ({
         if (isPast(s) || isBooked(s, e)) return;
 
         setSelectedSlots((prev) => {
-            // đã chọn -> bỏ chọn
+            if (single) {
+                //  Chế độ 1 ca: click lại để bỏ chọn
+                if (prev.includes(s)) return [];
+                return [s];
+            }
+
+            //  Chế độ bình thường: chọn nhiều ca
             if (prev.includes(s)) {
                 return prev.filter((x) => x !== s);
             }
-            // chưa chọn -> thêm
             return [...prev, s].sort((a, b) => timeToMin(a) - timeToMin(b));
         });
     };
+
 
     // tính tiền mỗi khi đổi selectedSlots
     useEffect(() => {
@@ -249,10 +257,10 @@ const BookingTimeSelector: React.FC<Props> = ({
         selectedSlots.length === 0
             ? '--:--'
             : TIME_SLOTS.filter((slot) => selectedSlots.includes(slot.start))
-                  .map(
-                      (slot) => `${formatDisplayTime(slot.start)} - ${formatDisplayTime(slot.end)}`
-                  )
-                  .join(', ');
+                .map(
+                    (slot) => `${formatDisplayTime(slot.start)} - ${formatDisplayTime(slot.end)}`
+                )
+                .join(', ');
 
     return (
         <div className='w-full max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-4 font-sans'>
@@ -333,9 +341,8 @@ const BookingTimeSelector: React.FC<Props> = ({
 
                             {!past && !booked && (
                                 <span
-                                    className={`text-[11px] font-bold ${
-                                        selected ? 'text-green-100' : 'text-green-700'
-                                    }`}
+                                    className={`text-[11px] font-bold ${selected ? 'text-green-100' : 'text-green-700'
+                                        }`}
                                 >
                                     {price.toLocaleString('vi-VN')} VNĐ
                                 </span>
