@@ -690,8 +690,6 @@ export default function BookingList() {
         }
     };
 
-
-
     const fetchStats = async () => {
         try {
             const res = await api.get('/bookings/admin/dashboard');
@@ -883,7 +881,7 @@ export default function BookingList() {
         try {
             await api.patch(`/bookings/${editingBooking._id}/time`, {
                 courtId,
-                date: date.toISOString(),
+                date: dayjs(date).format('YYYY-MM-DD'),
                 startTime,
                 endTime,
             });
@@ -928,8 +926,7 @@ export default function BookingList() {
                         </b>
                     </p>
                     <p>
-                        Tiền cọc:{' '}
-                        <b>{formatVND(record.depositAmount || 0)}</b>
+                        Tiền cọc: <b>{formatVND(record.depositAmount || 0)}</b>
                     </p>
 
                     <Checkbox
@@ -970,7 +967,6 @@ export default function BookingList() {
             },
         });
     };
-
 
     const handleAction = async (
         id: string,
@@ -1297,13 +1293,8 @@ export default function BookingList() {
                     const percent =
                         fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
 
-                    return (
-                        <Tag color={color}>
-                            Đã đặt cọc {percent}% tiền sân
-                        </Tag>
-                    );
+                    return <Tag color={color}>Đã đặt cọc {percent}% tiền sân</Tag>;
                 }
-
 
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
             },
@@ -1317,12 +1308,12 @@ export default function BookingList() {
                     s === 'confirmed'
                         ? 'blue'
                         : s === 'pending'
-                            ? 'orange'
-                            : s === 'in_use'
-                                ? 'purple'
-                                : s === 'completed'
-                                    ? 'green'
-                                    : 'gray';
+                        ? 'orange'
+                        : s === 'in_use'
+                        ? 'purple'
+                        : s === 'completed'
+                        ? 'green'
+                        : 'gray';
 
                 return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
             },
@@ -1400,7 +1391,6 @@ export default function BookingList() {
                                 >
                                     <CloseCircleOutlined /> Hủy
                                 </Button>
-
                             </>
                         )}
 
@@ -1437,7 +1427,7 @@ export default function BookingList() {
                                     danger
                                     onClick={() => {
                                         if (b.paymentMethod === 'cash') {
-                                            handleAdminCancelCash(b);      // đơn tiền mặt / cọc tại sân
+                                            handleAdminCancelCash(b); // đơn tiền mặt / cọc tại sân
                                         } else {
                                             handleAction(b._id, 'cancel'); // online (VNPAY/Momo...) dùng API hủy cũ
                                         }
@@ -1445,7 +1435,6 @@ export default function BookingList() {
                                 >
                                     Hủy
                                 </Button>
-
                             </>
                         )}
 
@@ -1560,11 +1549,7 @@ export default function BookingList() {
                     const percent =
                         fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
 
-                    return (
-                        <Tag color={color}>
-                            Đã đặt cọc {percent}% tiền sân
-                        </Tag>
-                    );
+                    return <Tag color={color}>Đã đặt cọc {percent}% tiền sân</Tag>;
                 }
 
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
@@ -1610,9 +1595,9 @@ export default function BookingList() {
             render: (b: Booking) => {
                 const hasAdminDetail = Boolean(
                     b.refund?.adminReason ||
-                    b.refund?.billImage ||
-                    b.refundAdminReason ||
-                    b.refundBillImage
+                        b.refund?.billImage ||
+                        b.refundAdminReason ||
+                        b.refundBillImage
                 );
 
                 return (
@@ -1907,6 +1892,8 @@ export default function BookingList() {
                 onOk={handleSaveEdit}
                 okText='Lưu thay đổi'
                 cancelText='Hủy'
+                width={900}
+                centered
                 title={
                     editingBooking
                         ? `Chỉnh sửa đặt sân - ${editingBooking.code}`
@@ -1914,11 +1901,141 @@ export default function BookingList() {
                 }
             >
                 {editingBooking && (
-                    <div className='space-y-3'>
-                        <div className='text-sm text-gray-600'>
-                            Đã chọn {selectedSlotsCount} ca, nghỉ {selectedBreakMinutes} phút.
+                    <div className='space-y-4'>
+                        {/* chọn sân + ngày */}
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <div className='text-xs font-semibold text-gray-600 mb-1'>
+                                    Chọn sân
+                                </div>
+                                <Select
+                                    style={{ width: '100%' }}
+                                    placeholder='Chọn sân'
+                                    value={editValues.courtId}
+                                    options={courts.map((c) => ({
+                                        value: c._id,
+                                        label: c.name,
+                                    }))}
+                                    onChange={(value) =>
+                                        setEditValues((prev) => ({
+                                            ...prev,
+                                            courtId: value,
+                                            // đổi sân thì reset khoảng giờ
+                                            startTime: '',
+                                            endTime: '',
+                                            priceInfo: undefined,
+                                        }))
+                                    }
+                                />
+                            </Col>
+                            <Col span={12}>
+                                <div className='text-xs font-semibold text-gray-600 mb-1'>
+                                    Chọn ngày đá
+                                </div>
+                                <DatePicker
+                                    style={{ width: '100%' }}
+                                    format='DD/MM/YYYY'
+                                    value={editValues.date}
+                                    onChange={(value) =>
+                                        setEditValues((prev) => ({
+                                            ...prev,
+                                            date: value,
+                                            // đổi ngày cũng reset giờ
+                                            startTime: '',
+                                            endTime: '',
+                                            priceInfo: undefined,
+                                        }))
+                                    }
+                                />
+                            </Col>
+                        </Row>
+
+                        {/* info số ca + phút nghỉ */}
+                        <div className='text-sm text-gray-700'>
+                            Đã chọn <b>{selectedSlotsCount}</b> ca, nghỉ{' '}
+                            <b>{selectedBreakMinutes}</b> phút.
                         </div>
-                        {/* ông nếu muốn hiển thị grid ca giờ thì render TIME_SLOTS ở đây */}
+
+                        {/* GRID chọn ca giờ giống BookingTimeSelector */}
+                        <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2'>
+                            {TIME_SLOTS.map((slot, idx) => {
+                                const past = isSlotPast(slot.start);
+                                const booked = isSlotBooked(slot.start, slot.end);
+                                const selected = isSlotSelected(slot.start, slot.end);
+
+                                let btnClass =
+                                    'border rounded-lg p-2 flex flex-col items-center justify-center min-h-[70px] text-sm transition-all ';
+
+                                if (past) {
+                                    btnClass +=
+                                        'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-60';
+                                } else if (booked) {
+                                    btnClass +=
+                                        'bg-red-500 border-red-600 text-white cursor-not-allowed';
+                                } else if (selected) {
+                                    btnClass +=
+                                        'bg-green-600 border-green-600 text-white shadow-md scale-[1.02]';
+                                } else {
+                                    btnClass +=
+                                        'bg-white border-gray-200 hover:border-green-500 hover:bg-green-50 cursor-pointer';
+                                }
+
+                                return (
+                                    <button
+                                        key={idx}
+                                        type='button'
+                                        disabled={past || booked}
+                                        className={btnClass}
+                                        onClick={() => handleSlotClickEdit(slot.start, slot.end)}
+                                    >
+                                        <span className='font-semibold'>
+                                            {slot.start} - {slot.end}
+                                        </span>
+                                        {booked && (
+                                            <span className='mt-1 text-[11px] font-bold uppercase'>
+                                                ĐÃ ĐẶT
+                                            </span>
+                                        )}
+                                        {past && !booked && (
+                                            <span className='mt-1 text-[11px] text-gray-400'>
+                                                QUÁ HẠN
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* hiển thị tiền sân sau khi BE tính */}
+                        {editValues.priceInfo && (
+                            <Card size='small' className='mt-2'>
+                                <div className='text-sm font-semibold mb-1'>
+                                    Tiền sân sau khi chỉnh sửa
+                                </div>
+                                <div className='text-sm space-y-1'>
+                                    <div className='flex justify-between'>
+                                        <span>Tiền sân</span>
+                                        <span>{formatVND(editValues.priceInfo.fieldAmount)}</span>
+                                    </div>
+                                    <div className='flex justify-between'>
+                                        <span>Tiền thiết bị</span>
+                                        <span>
+                                            {formatVND(editValues.priceInfo.equipmentTotal)}
+                                        </span>
+                                    </div>
+                                    <div className='flex justify-between'>
+                                        <span>Giảm giá</span>
+                                        <span>
+                                            -{formatVND(editValues.priceInfo.discountTotal)}
+                                        </span>
+                                    </div>
+                                    <div className='border-t mt-1 pt-1 flex justify-between font-semibold'>
+                                        <span>Tổng sau chỉnh sửa</span>
+                                        <span>{formatVND(editValues.priceInfo.total)}</span>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
                     </div>
                 )}
             </Modal>
@@ -1931,11 +2048,7 @@ export default function BookingList() {
                     <Button key='cancel' onClick={() => setCheckinModalOpen(false)}>
                         Hủy
                     </Button>,
-                    <Button
-                        key='ok'
-                        type='primary'
-                        onClick={handleConfirmCheckin}
-                    >
+                    <Button key='ok' type='primary' onClick={handleConfirmCheckin}>
                         {checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
                     </Button>,
                 ]}
@@ -1947,7 +2060,6 @@ export default function BookingList() {
                         : 'Check-in và chọn thiết bị'
                 }
             >
-
                 {checkinBooking && (
                     <div className='space-y-4'>
                         <Card size='small' style={{ borderRadius: 8 }}>
@@ -2256,20 +2368,20 @@ export default function BookingList() {
                                     </div>
                                     {(paymentBooking.customerInfo?.phone ||
                                         paymentBooking.customerId?.phone) && (
-                                            <div className='text-xs text-gray-500'>
-                                                SĐT:{' '}
-                                                {paymentBooking.customerInfo?.phone ||
-                                                    paymentBooking.customerId?.phone}
-                                            </div>
-                                        )}
+                                        <div className='text-xs text-gray-500'>
+                                            SĐT:{' '}
+                                            {paymentBooking.customerInfo?.phone ||
+                                                paymentBooking.customerId?.phone}
+                                        </div>
+                                    )}
                                     {(paymentBooking.customerInfo?.email ||
                                         paymentBooking.customerId?.email) && (
-                                            <div className='text-xs text-gray-500'>
-                                                Email:{' '}
-                                                {paymentBooking.customerInfo?.email ||
-                                                    paymentBooking.customerId?.email}
-                                            </div>
-                                        )}
+                                        <div className='text-xs text-gray-500'>
+                                            Email:{' '}
+                                            {paymentBooking.customerInfo?.email ||
+                                                paymentBooking.customerId?.email}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className='w-px bg-gray-200 mx-2' />
@@ -2483,8 +2595,9 @@ export default function BookingList() {
                         // gộp item trùng nhau (name + mode + price + unit)
                         const map: Record<string, any> = {};
                         items.forEach((it: any) => {
-                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${it.unit || ''
-                                }`;
+                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${
+                                it.unit || ''
+                            }`;
                             if (map[key]) {
                                 map[key].qty += it.qty || 0;
                                 map[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
@@ -2646,8 +2759,9 @@ export default function BookingList() {
 
                                                 return (
                                                     <div
-                                                        key={`${it._id || it.name || 'item'
-                                                            }_${idx}`}
+                                                        key={`${
+                                                            it._id || it.name || 'item'
+                                                        }_${idx}`}
                                                         className='flex justify-between'
                                                     >
                                                         <div>
@@ -2677,7 +2791,7 @@ export default function BookingList() {
                                                         <div className='font-semibold'>
                                                             {formatVND(
                                                                 it.subtotal ||
-                                                                (it.qty || 0) * (it.price || 0)
+                                                                    (it.qty || 0) * (it.price || 0)
                                                             )}
                                                         </div>
                                                     </div>
@@ -2854,7 +2968,7 @@ export default function BookingList() {
                                         </b>
                                     </div>
                                     {detailData.booking.customerInfo?.phone ||
-                                        detailData.booking.customerId?.phone ? (
+                                    detailData.booking.customerId?.phone ? (
                                         <div>
                                             <span className='text-gray-500'>SĐT: </span>
                                             {detailData.booking.customerInfo?.phone ||
