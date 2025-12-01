@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,17 @@ const PaymentResultPage: React.FC = () => {
   const checkoutData: CheckoutData | null = JSON.parse(
     window.localStorage.getItem('checkout-data') || 'null'
   );
+
+  // ⭐ Xóa checkout-data sau khi thanh toán thành công để tránh dùng lại
+  useEffect(() => {
+    if (isSuccess) {
+      // Xóa checkout data sau 3 giây để user có thể xem thông tin
+      const timer = setTimeout(() => {
+        localStorage.removeItem('checkout-data');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess]);
 
   const handleRetryBooking = () => {
     // Nếu có courtId thì quay lại đúng trang sân

@@ -84,6 +84,18 @@ interface Booking {
 
     fieldAmount?: number;
     equipmentTotal?: number;
+    discountTotal?: number; // Tổng tiền giảm (voucher)
+
+    // thông tin voucher
+    voucherId?: string;
+    voucherCode?: string;
+    voucherDiscount?: number;
+    voucherSnapshot?: {
+        discountType?: 'percent' | 'amount';
+        discountValue?: number;
+        maxDiscountValue?: number;
+        minOrderValue?: number;
+    };
 
     // thông tin cọc / đã thanh toán trước
     depositAmount?: number;
@@ -2500,7 +2512,9 @@ export default function BookingList() {
 
                         const fieldAmount = booking.fieldAmount ?? booking.total ?? 0;
                         const equipmentTotal = booking.equipmentTotal ?? 0;
-                        const bookingTotal = booking.total ?? fieldAmount + equipmentTotal;
+                        const voucherDiscount = booking.voucherDiscount ?? booking.discountTotal ?? 0;
+                        const subtotalBeforeDiscount = fieldAmount + equipmentTotal;
+                        const bookingTotal = booking.total ?? subtotalBeforeDiscount - voucherDiscount;
                         const depositPaidInv = booking.depositAmount ?? 0;
                         const alreadyPaidTotal =
                             Number(inv.total || 0) + Number(depositPaidInv || 0);
@@ -2628,6 +2642,33 @@ export default function BookingList() {
                                                 </span>
                                             </div>
                                         </div>
+                                        {booking.voucherCode && voucherDiscount > 0 && (
+                                            <div className='space-y-1'>
+                                                <div className='flex justify-between items-center'>
+                                                    <span className='text-gray-500'>Mã giảm giá:</span>
+                                                    <Tag color='green' style={{ margin: 0 }}>
+                                                        {booking.voucherCode}
+                                                    </Tag>
+                                                </div>
+                                                {booking.voucherSnapshot && (
+                                                    <div className='flex justify-between'>
+                                                        <span className='text-gray-500'>Loại giảm:</span>
+                                                        <span>
+                                                            {booking.voucherSnapshot.discountType ===
+                                                            'percent'
+                                                                ? `Giảm ${booking.voucherSnapshot.discountValue}%`
+                                                                : `Giảm ${formatVND(booking.voucherSnapshot.discountValue || 0)}`}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div className='flex justify-between'>
+                                                    <span className='text-gray-500'>Số tiền giảm:</span>
+                                                    <span className='font-medium text-green-600'>
+                                                        - {formatVND(voucherDiscount)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </Card>
 
@@ -2708,6 +2749,17 @@ export default function BookingList() {
                                                 {formatVND(equipmentTotal)}
                                             </span>
                                         </div>
+
+                                        {voucherDiscount > 0 && booking.voucherCode && (
+                                            <div className='flex justify-between text-green-600'>
+                                                <span>
+                                                    Giảm giá voucher ({booking.voucherCode})
+                                                </span>
+                                                <span className='font-medium'>
+                                                    - {formatVND(voucherDiscount)}
+                                                </span>
+                                            </div>
+                                        )}
 
                                         <div className='border-t border-dashed mt-2 pt-2 flex justify-between'>
                                             <span>Tổng cộng</span>
