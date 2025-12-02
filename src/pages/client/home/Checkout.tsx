@@ -96,7 +96,7 @@ const Checkout: React.FC = () => {
         }
     }, [bookingData]);
 
-    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo'>('vnpay');
+    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo' | 'transfer'>('vnpay');
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
@@ -117,8 +117,8 @@ const Checkout: React.FC = () => {
         bookingData.slots && bookingData.slots.length
             ? bookingData.slots.map((s) => `${s.startTime} - ${s.endTime}`).join(', ')
             : bookingData.startTime && bookingData.endTime
-            ? `${bookingData.startTime} - ${bookingData.endTime}`
-            : '--';
+                ? `${bookingData.startTime} - ${bookingData.endTime}`
+                : '--';
 
     const firstSlot = bookingData.slots?.[0];
     const lastSlot =
@@ -130,6 +130,85 @@ const Checkout: React.FC = () => {
         bookingData.overallStart || firstSlot?.startTime || bookingData.startTime || '06:00';
     const bookingEndTime =
         bookingData.overallEnd || lastSlot?.endTime || bookingData.endTime || '07:00';
+    const [qrData, setQrData] = useState<{ image: string; qrUrl: string; amount: number } | null>(null);
+    const [showQrModal, setShowQrModal] = useState(false);
+    const token = localStorage.getItem('token');
+
+    const handlePrintInvoice = async () => {
+  if (!bookingData) return;
+
+  try {
+    const res = await fetch('http://localhost:3000/api/invoices', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        bookingId: bookingData.bookingId,
+        method: 'transfer',
+        discount: 0,
+        note: 'Thanh toán bằng QR',
+      }),
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      toast.error(data.message || 'Không tạo được hóa đơn!');
+      return;
+    }
+
+    const invoice = data.invoice;
+    const items = data.items;
+
+    // Lấy thông tin khách hàng từ invoice.customerId
+    const customer = invoice.customerId || {};
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write('<html><head><title>Hóa đơn</title></head><body>');
+    printWindow.document.write('<h2>Hóa đơn thanh toán</h2>');
+
+    // Thông tin khách hàng
+    printWindow.document.write(`<p>Khách hàng: ${customer.name || ''}</p>`);
+    printWindow.document.write(`<p>Số điện thoại: ${customer.phone || ''}</p>`);
+    printWindow.document.write(`<p>Email: ${customer.email || ''}</p>`);
+
+    // Thông tin hóa đơn
+    printWindow.document.write(`<p>Mã hóa đơn: ${invoice.code}</p>`);
+    printWindow.document.write(`<p>Phương thức thanh toán: ${invoice.method}</p>`);
+    printWindow.document.write(`<p>Tổng tiền: ${invoice.total.toLocaleString()}đ</p>`);
+
+    // Danh sách chi tiết
+    if (items && items.length > 0) {
+      printWindow.document.write('<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">');
+      printWindow.document.write('<tr><th>Tên</th><th>Số lượng</th><th>Đơn vị</th><th>Đơn giá</th><th>Thành tiền</th></tr>');
+      items.forEach((item: any) => {
+        printWindow.document.write(`
+          <tr>
+            <td>${item.name}</td>
+            <td>${item.qty}</td>
+            <td>${item.unit}</td>
+            <td>${item.price.toLocaleString()}đ</td>
+            <td>${item.subtotal.toLocaleString()}đ</td>
+          </tr>
+        `);
+      });
+      printWindow.document.write('</table>');
+    }
+
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  } catch (err) {
+    console.error(err);
+    toast.error('Lỗi khi tạo hoặc in hóa đơn!');
+  }
+};
+
+
 
     const handleSubmit = async () => {
         if (!bookingData) {
@@ -270,6 +349,48 @@ const Checkout: React.FC = () => {
                 toast.success('Giả lập thanh toán MoMo thành công!');
                 setIsPaying(false);
             }
+
+            if (paymentMethod === 'transfer') {
+                try {
+                    const resQR = await fetch('http://localhost:3000/api/bookings/payment/vietqr', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${user.token}`,
+                        },
+                        body: JSON.stringify({
+                            bookingId,
+                            amount: totalPrice,
+                            customer: { name: nameTrim, phone: phoneTrim, email: emailTrim },
+                        }),
+                    });
+
+                    const dataQR = await resQR.json();
+                    if (!dataQR.success) {
+                        toast.error(dataQR.message || 'Không tạo được mã QR!');
+                        setIsPaying(false);
+                        return;
+                    }
+
+                    // dataQR.data.qrImage: ảnh Base64
+                    // dataQR.data.qrUrl: URL API VietQR
+
+                    setQrData({
+                        image: dataQR.data.qrImageBase64,
+                        qrUrl: dataQR.data.qrUrl,
+                        amount: totalPrice,
+                    });
+
+                    setShowQrModal(true);
+                } catch (err) {
+                    console.error(err);
+                    toast.error('Lỗi khi tạo QR thanh toán!');
+                }
+
+                setIsPaying(false);
+                return;
+            }
+
         } catch (err) {
             console.error('Lỗi khi thanh toán:', err);
             toast.error('Có lỗi xảy ra khi thanh toán!');
@@ -348,9 +469,8 @@ const Checkout: React.FC = () => {
                                             setErrors((p) => ({ ...p, name: undefined }));
                                     }}
                                     placeholder='Nhập tên'
-                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${
-                                        errors.name ? 'border-red-500 focus:border-red-500' : ''
-                                    }`}
+                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${errors.name ? 'border-red-500 focus:border-red-500' : ''
+                                        }`}
                                 />
                                 {errors.name && (
                                     <p className='text-sm text-red-500 mt-1'>{errors.name}</p>
@@ -371,9 +491,8 @@ const Checkout: React.FC = () => {
                                             setErrors((p) => ({ ...p, phone: undefined }));
                                     }}
                                     placeholder='Nhập số điện thoại 10 số'
-                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${
-                                        errors.phone ? 'border-red-500 focus:border-red-500' : ''
-                                    }`}
+                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${errors.phone ? 'border-red-500 focus:border-red-500' : ''
+                                        }`}
                                 />
                                 {errors.phone && (
                                     <p className='text-sm text-red-500 mt-1'>{errors.phone}</p>
@@ -392,9 +511,8 @@ const Checkout: React.FC = () => {
                                             setErrors((p) => ({ ...p, email: undefined }));
                                     }}
                                     placeholder='Nhập email (vd: ten@gmail.com)'
-                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${
-                                        errors.email ? 'border-red-500 focus:border-red-500' : ''
-                                    }`}
+                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${errors.email ? 'border-red-500 focus:border-red-500' : ''
+                                        }`}
                                 />
                                 {errors.email && (
                                     <p className='text-sm text-red-500 mt-1'>{errors.email}</p>
@@ -412,21 +530,21 @@ const Checkout: React.FC = () => {
                             {[
                                 { value: 'vnpay', label: 'Thanh toán qua VNPay' },
                                 { value: 'momo', label: 'Thanh toán qua MoMo' },
+                                { value: 'transfer', label: 'Thanh toán bằng QR Code' },
                             ].map((method) => (
                                 <label
                                     key={method.value}
-                                    className={`flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:shadow transition ${
-                                        paymentMethod === method.value
-                                            ? 'border-green-600 bg-green-50'
-                                            : 'border-gray-300'
-                                    }`}
+                                    className={`flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:shadow transition ${paymentMethod === method.value
+                                        ? 'border-green-600 bg-green-50'
+                                        : 'border-gray-300'
+                                        }`}
                                 >
                                     <input
                                         type='radio'
                                         value={method.value}
                                         checked={paymentMethod === method.value}
                                         onChange={() =>
-                                            setPaymentMethod(method.value as 'vnpay' | 'momo')
+                                            setPaymentMethod(method.value as 'vnpay' | 'momo' | 'transfer')
                                         }
                                         className='accent-green-600'
                                     />
@@ -439,12 +557,54 @@ const Checkout: React.FC = () => {
                     <Button
                         onClick={handleSubmit}
                         disabled={isPaying}
-                        className='w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed'
+                        className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
-                        {isPaying ? 'Đang chuyển sang VNPay...' : 'Hoàn tất thanh toán'}
+                        {isPaying
+                            ? paymentMethod === 'vnpay'
+                                ? 'Đang chuyển sang VNPay...'
+                                : paymentMethod === 'momo'
+                                    ? 'Đang mở MoMo...'
+                                    : 'Đang tạo mã QR...'
+                            : 'Hoàn tất thanh toán'}
                     </Button>
+
                 </CardContent>
             </Card>
+            {showQrModal && qrData && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl p-6 w-[380px] text-center space-y-4">
+                        <h2 className="text-xl font-bold text-green-700">Thanh toán bằng QR Code</h2>
+
+                        <img
+                            src={qrData.image}
+                            alt="VietQR"
+                            className="w-64 h-64 mx-auto border rounded-xl shadow"
+                        />
+
+                        <p className="text-gray-700 font-semibold">
+                            Số tiền: <span className="text-green-700">{qrData.amount.toLocaleString()}đ</span>
+                        </p>
+
+                        <div className='flex gap-2'>
+                            <Button
+                                onClick={() => setShowQrModal(false)}
+                                className="w-1/2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-xl"
+                            >
+                                Đóng
+                            </Button>
+                            <Button
+                                onClick={handlePrintInvoice}
+                                className="w-1/2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl"
+                            >
+                                Đã thanh toán
+                            </Button>
+                        </div>
+
+
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };
