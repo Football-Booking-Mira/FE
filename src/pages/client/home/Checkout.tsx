@@ -135,57 +135,57 @@ const Checkout: React.FC = () => {
     const token = localStorage.getItem('token');
 
     const handlePrintInvoice = async () => {
-  if (!bookingData) return;
+        if (!bookingData) return;
 
-  try {
-    const res = await fetch('http://localhost:3000/api/invoices', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        bookingId: bookingData.bookingId,
-        method: 'transfer',
-        discount: 0,
-        note: 'Thanh toán bằng QR',
-      }),
-    });
+        try {
+            const res = await fetch('http://localhost:3000/api/invoices', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    bookingId: bookingData.bookingId,
+                    method: 'transfer',
+                    discount: 0,
+                    note: 'Thanh toán bằng QR',
+                }),
+            });
 
-    const data = await res.json();
-    if (!data.success) {
-      toast.error(data.message || 'Không tạo được hóa đơn!');
-      return;
-    }
+            const data = await res.json();
+            if (!data.success) {
+                toast.error(data.message || 'Không tạo được hóa đơn!');
+                return;
+            }
 
-    const invoice = data.invoice;
-    const items = data.items;
+            const invoice = data.invoice;
+            const items = data.items;
 
-    // Lấy thông tin khách hàng từ invoice.customerId
-    const customer = invoice.customerId || {};
+            // Lấy thông tin khách hàng từ invoice.customerId
+            const customer = invoice.customerId || {};
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) return;
 
-    printWindow.document.write('<html><head><title>Hóa đơn</title></head><body>');
-    printWindow.document.write('<h2>Hóa đơn thanh toán</h2>');
+            printWindow.document.write('<html><head><title>Hóa đơn</title></head><body>');
+            printWindow.document.write('<h2>Hóa đơn thanh toán</h2>');
 
-    // Thông tin khách hàng
-    printWindow.document.write(`<p>Khách hàng: ${customer.name || ''}</p>`);
-    printWindow.document.write(`<p>Số điện thoại: ${customer.phone || ''}</p>`);
-    printWindow.document.write(`<p>Email: ${customer.email || ''}</p>`);
+            // Thông tin khách hàng
+            printWindow.document.write(`<p>Khách hàng: ${customer.name || ''}</p>`);
+            printWindow.document.write(`<p>Số điện thoại: ${customer.phone || ''}</p>`);
+            printWindow.document.write(`<p>Email: ${customer.email || ''}</p>`);
 
-    // Thông tin hóa đơn
-    printWindow.document.write(`<p>Mã hóa đơn: ${invoice.code}</p>`);
-    printWindow.document.write(`<p>Phương thức thanh toán: ${invoice.method}</p>`);
-    printWindow.document.write(`<p>Tổng tiền: ${invoice.total.toLocaleString()}đ</p>`);
+            // Thông tin hóa đơn
+            printWindow.document.write(`<p>Mã hóa đơn: ${invoice.code}</p>`);
+            printWindow.document.write(`<p>Phương thức thanh toán: ${invoice.method}</p>`);
+            printWindow.document.write(`<p>Tổng tiền: ${invoice.total.toLocaleString()}đ</p>`);
 
-    // Danh sách chi tiết
-    if (items && items.length > 0) {
-      printWindow.document.write('<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">');
-      printWindow.document.write('<tr><th>Tên</th><th>Số lượng</th><th>Đơn vị</th><th>Đơn giá</th><th>Thành tiền</th></tr>');
-      items.forEach((item: any) => {
-        printWindow.document.write(`
+            // Danh sách chi tiết
+            if (items && items.length > 0) {
+                printWindow.document.write('<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse;">');
+                printWindow.document.write('<tr><th>Tên</th><th>Số lượng</th><th>Đơn vị</th><th>Đơn giá</th><th>Thành tiền</th></tr>');
+                items.forEach((item: any) => {
+                    printWindow.document.write(`
           <tr>
             <td>${item.name}</td>
             <td>${item.qty}</td>
@@ -194,19 +194,19 @@ const Checkout: React.FC = () => {
             <td>${item.subtotal.toLocaleString()}đ</td>
           </tr>
         `);
-      });
-      printWindow.document.write('</table>');
-    }
+                });
+                printWindow.document.write('</table>');
+            }
 
-    printWindow.document.write('</body></html>');
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  } catch (err) {
-    console.error(err);
-    toast.error('Lỗi khi tạo hoặc in hóa đơn!');
-  }
-};
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+        } catch (err) {
+            console.error(err);
+            toast.error('Lỗi khi tạo hoặc in hóa đơn!');
+        }
+    };
 
 
 
@@ -350,46 +350,46 @@ const Checkout: React.FC = () => {
                 setIsPaying(false);
             }
 
-            if (paymentMethod === 'transfer') {
-                try {
-                    const resQR = await fetch('http://localhost:3000/api/bookings/payment/vietqr', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${user.token}`,
-                        },
-                        body: JSON.stringify({
-                            bookingId,
-                            amount: totalPrice,
-                            customer: { name: nameTrim, phone: phoneTrim, email: emailTrim },
-                        }),
-                    });
+            // if (paymentMethod === 'transfer') {
+            //     try {
+            //         const resQR = await fetch('http://localhost:3000/api/bookings/payment/vietqr', {
+            //             method: 'POST',
+            //             headers: {
+            //                 'Content-Type': 'application/json',
+            //                 Authorization: `Bearer ${user.token}`,
+            //             },
+            //             body: JSON.stringify({
+            //                 bookingId,
+            //                 amount: totalPrice,
+            //                 customer: { name: nameTrim, phone: phoneTrim, email: emailTrim },
+            //             }),
+            //         });
 
-                    const dataQR = await resQR.json();
-                    if (!dataQR.success) {
-                        toast.error(dataQR.message || 'Không tạo được mã QR!');
-                        setIsPaying(false);
-                        return;
-                    }
+            //         const dataQR = await resQR.json();
+            //         if (!dataQR.success) {
+            //             toast.error(dataQR.message || 'Không tạo được mã QR!');
+            //             setIsPaying(false);
+            //             return;
+            //         }
 
-                    // dataQR.data.qrImage: ảnh Base64
-                    // dataQR.data.qrUrl: URL API VietQR
+            //         // dataQR.data.qrImage: ảnh Base64
+            //         // dataQR.data.qrUrl: URL API VietQR
 
-                    setQrData({
-                        image: dataQR.data.qrImageBase64,
-                        qrUrl: dataQR.data.qrUrl,
-                        amount: totalPrice,
-                    });
+            //         setQrData({
+            //             image: dataQR.data.qrImageBase64,
+            //             qrUrl: dataQR.data.qrUrl,
+            //             amount: totalPrice,
+            //         });
 
-                    setShowQrModal(true);
-                } catch (err) {
-                    console.error(err);
-                    toast.error('Lỗi khi tạo QR thanh toán!');
-                }
+            //         setShowQrModal(true);
+            //     } catch (err) {
+            //         console.error(err);
+            //         toast.error('Lỗi khi tạo QR thanh toán!');
+            //     }
 
-                setIsPaying(false);
-                return;
-            }
+            //     setIsPaying(false);
+            //     return;
+            // }
 
         } catch (err) {
             console.error('Lỗi khi thanh toán:', err);
@@ -530,7 +530,7 @@ const Checkout: React.FC = () => {
                             {[
                                 { value: 'vnpay', label: 'Thanh toán qua VNPay' },
                                 { value: 'momo', label: 'Thanh toán qua MoMo' },
-                                { value: 'transfer', label: 'Thanh toán bằng QR Code' },
+                                // { value: 'transfer', label: 'Thanh toán bằng QR Code' },
                             ].map((method) => (
                                 <label
                                     key={method.value}
@@ -544,7 +544,7 @@ const Checkout: React.FC = () => {
                                         value={method.value}
                                         checked={paymentMethod === method.value}
                                         onChange={() =>
-                                            setPaymentMethod(method.value as 'vnpay' | 'momo' | 'transfer')
+                                            setPaymentMethod(method.value as 'vnpay' | 'momo')
                                         }
                                         className='accent-green-600'
                                     />
@@ -564,7 +564,7 @@ const Checkout: React.FC = () => {
                                 ? 'Đang chuyển sang VNPay...'
                                 : paymentMethod === 'momo'
                                     ? 'Đang mở MoMo...'
-                                    : 'Đang tạo mã QR...'
+                                    : ''
                             : 'Hoàn tất thanh toán'}
                     </Button>
 
