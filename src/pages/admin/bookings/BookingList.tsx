@@ -806,6 +806,8 @@ export default function BookingList() {
         try {
             const res = await api.get(`/bookings/${bookingId}/admin-detail`);
             const data = res.data?.data || res.data;
+            console.log("data: ", data);
+
             setDetailData(data);
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Không thể tải chi tiết đơn đặt sân!';
@@ -992,6 +994,8 @@ export default function BookingList() {
                 return;
             } else if (action === 'checkout') {
                 const res = await api.patch(`/bookings/${id}/checkout`);
+                console.log("res check out: ", res.data);
+
                 toast.success('🏁 Check-out thành công!');
                 const update: Booking = res.data?.data || bookings.find((b) => b._id === id)!;
                 openPaymentModal(update);
@@ -1025,6 +1029,7 @@ export default function BookingList() {
             setInvoiceDetail(null);
 
             const res = await api.get(`/invoices/by-booking/${b._id}`);
+
             setInvoiceDetail(res.data);
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Không thể tải thông tin hóa đơn!';
@@ -1035,8 +1040,68 @@ export default function BookingList() {
         }
     };
 
+    const [showQrModal, setShowQrModal] = useState(false);
+    const [qrData, setQrData] = useState(null);
+
+    const token = localStorage.getItem('token');
+    const handleMethodChange = async (value) => {
+        if (value !== "transfer") {
+            setShowQrModal(false);
+            return;
+        }
+
+        try {
+            const res = await fetch("http://localhost:3000/api/bookings/payment/vietqr", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    bookingId: paymentBooking._id,
+                    amount: paymentBaseTotal,
+                    customer: {
+                        name:
+                            paymentBooking.customerInfo?.name ||
+                            paymentBooking.customerId?.name ||
+                            "Khách hàng",
+                        phone:
+                            paymentBooking.customerInfo?.phone ||
+                            paymentBooking.customerId?.phone ||
+                            "",
+                        email:
+                            paymentBooking.customerInfo?.email ||
+                            paymentBooking.customerId?.email ||
+                            "",
+                    },
+                }),
+            });
+
+            const result = await res.json();
+
+            const qr = result?.data?.qrImageBase64;
+            const amount = result?.data?.amount;
+
+            if (qr) {
+                setQrData({
+                    image: qr,
+                    amount: amount,
+                });
+                setShowQrModal(true);
+            } else {
+                console.error("Không lấy được mã QR từ API.");
+            }
+        } catch (err) {
+            console.error(err);
+            console.error("Lỗi khi tạo mã QR.");
+        }
+    };
+
+
+
     const handleConfirmPayment = async () => {
         if (!paymentBooking) return;
+
 
         try {
             const values = await paymentForm.validateFields();
@@ -1308,12 +1373,12 @@ export default function BookingList() {
                     s === 'confirmed'
                         ? 'blue'
                         : s === 'pending'
-                        ? 'orange'
-                        : s === 'in_use'
-                        ? 'purple'
-                        : s === 'completed'
-                        ? 'green'
-                        : 'gray';
+                            ? 'orange'
+                            : s === 'in_use'
+                                ? 'purple'
+                                : s === 'completed'
+                                    ? 'green'
+                                    : 'gray';
 
                 return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
             },
@@ -1595,9 +1660,9 @@ export default function BookingList() {
             render: (b: Booking) => {
                 const hasAdminDetail = Boolean(
                     b.refund?.adminReason ||
-                        b.refund?.billImage ||
-                        b.refundAdminReason ||
-                        b.refundBillImage
+                    b.refund?.billImage ||
+                    b.refundAdminReason ||
+                    b.refundBillImage
                 );
 
                 return (
@@ -2368,20 +2433,20 @@ export default function BookingList() {
                                     </div>
                                     {(paymentBooking.customerInfo?.phone ||
                                         paymentBooking.customerId?.phone) && (
-                                        <div className='text-xs text-gray-500'>
-                                            SĐT:{' '}
-                                            {paymentBooking.customerInfo?.phone ||
-                                                paymentBooking.customerId?.phone}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                SĐT:{' '}
+                                                {paymentBooking.customerInfo?.phone ||
+                                                    paymentBooking.customerId?.phone}
+                                            </div>
+                                        )}
                                     {(paymentBooking.customerInfo?.email ||
                                         paymentBooking.customerId?.email) && (
-                                        <div className='text-xs text-gray-500'>
-                                            Email:{' '}
-                                            {paymentBooking.customerInfo?.email ||
-                                                paymentBooking.customerId?.email}
-                                        </div>
-                                    )}
+                                            <div className='text-xs text-gray-500'>
+                                                Email:{' '}
+                                                {paymentBooking.customerInfo?.email ||
+                                                    paymentBooking.customerId?.email}
+                                            </div>
+                                        )}
                                 </div>
 
                                 <div className='w-px bg-gray-200 mx-2' />
@@ -2511,6 +2576,8 @@ export default function BookingList() {
                                             { value: 'vnpay', label: 'VNPAY' },
                                             { value: 'qr', label: 'Quẹt thẻ / QR' },
                                         ]}
+                                        onChange={handleMethodChange}
+
                                     />
                                 </Form.Item>
                             </Col>
@@ -2595,9 +2662,8 @@ export default function BookingList() {
                         // gộp item trùng nhau (name + mode + price + unit)
                         const map: Record<string, any> = {};
                         items.forEach((it: any) => {
-                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${
-                                it.unit || ''
-                            }`;
+                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${it.unit || ''
+                                }`;
                             if (map[key]) {
                                 map[key].qty += it.qty || 0;
                                 map[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
@@ -2759,9 +2825,8 @@ export default function BookingList() {
 
                                                 return (
                                                     <div
-                                                        key={`${
-                                                            it._id || it.name || 'item'
-                                                        }_${idx}`}
+                                                        key={`${it._id || it.name || 'item'
+                                                            }_${idx}`}
                                                         className='flex justify-between'
                                                     >
                                                         <div>
@@ -2791,7 +2856,7 @@ export default function BookingList() {
                                                         <div className='font-semibold'>
                                                             {formatVND(
                                                                 it.subtotal ||
-                                                                    (it.qty || 0) * (it.price || 0)
+                                                                (it.qty || 0) * (it.price || 0)
                                                             )}
                                                         </div>
                                                     </div>
@@ -2968,7 +3033,7 @@ export default function BookingList() {
                                         </b>
                                     </div>
                                     {detailData.booking.customerInfo?.phone ||
-                                    detailData.booking.customerId?.phone ? (
+                                        detailData.booking.customerId?.phone ? (
                                         <div>
                                             <span className='text-gray-500'>SĐT: </span>
                                             {detailData.booking.customerInfo?.phone ||
@@ -3056,6 +3121,37 @@ export default function BookingList() {
                     </div>
                 )}
             </Modal>
+
+            {showQrModal && qrData && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center"
+                    style={{ zIndex: 2000 }} // ⬅ đặt z-index cao hơn antd
+                >
+                    <div className="bg-white rounded-2xl p-6 w-[380px] text-center space-y-4">
+                        <h2 className="text-xl font-bold text-green-700">Thanh toán bằng QR Code</h2>
+
+                        <img
+                            src={qrData.image}
+                            alt="VietQR"
+                            className="w-64 h-64 mx-auto border rounded-xl shadow"
+                        />
+
+                        <p className="text-gray-700 font-semibold">
+                            Số tiền: <span className="text-green-700">{qrData.amount.toLocaleString()}đ</span>
+                        </p>
+
+                        <div className="">
+                            <Button onClick={() => setShowQrModal(false)}
+                                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-xl">
+                                Đóng
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+
         </div>
     );
 }
