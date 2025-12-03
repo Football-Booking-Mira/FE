@@ -305,61 +305,8 @@ const Checkout: React.FC = () => {
     try {
       setIsPaying(true);
 
-      // ⭐ VALIDATE LẠI VOUCHER TRƯỚC KHI TẠO BOOKING
-      // Đảm bảo: nếu voucher đã hết lượt thì DỪNG thanh toán, yêu cầu chọn voucher khác
-      if (voucherResult?.code) {
-        try {
-          // Gọi API validate trực tiếp để kiểm tra voucher còn lượt không
-          const validateResponse = await api.post("/vouchers/validate", {
-            code: voucherResult.code,
-            orderTotal: baseTotal,
-            courtId: bookingData.courtId,
-            bookingDate: bookingData.date || new Date().toISOString(),
-            startTime: bookingStartTime,
-          });
-
-          const validateData = validateResponse.data?.data;
-
-          // Kiểm tra remainingQuantity
-          if (!validateData || validateData.remainingQuantity <= 0) {
-            // Voucher đã được người khác dùng hết trong lúc bạn thao tác
-            clearVoucher();
-            setVoucherInput("");
-            setTotalAmount(baseTotal);
-            setIsPaying(false);
-            toast.error(
-              `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
-            );
-            // DỪNG HOÀN TOÀN QUY TRÌNH THANH TOÁN
-            return;
-          }
-        } catch (voucherErr: any) {
-          const errorMsg =
-            voucherErr?.response?.data?.message ||
-            voucherErr?.message ||
-            "Voucher đã hết lượt sử dụng!";
-
-          // Nếu voucher đã hết hoặc không còn áp dụng được -> dừng thanh toán, yêu cầu chọn voucher khác
-          if (
-            errorMsg.includes("hết lượt") ||
-            errorMsg.includes("hết") ||
-            voucherErr?.response?.status === 400 ||
-            voucherErr?.response?.status === 409
-          ) {
-            clearVoucher();
-            setVoucherInput("");
-            setTotalAmount(baseTotal);
-            setIsPaying(false);
-            toast.error(
-              `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
-            );
-            return;
-          }
-
-          // Nếu lỗi khác, vẫn cho tiếp tục thanh toán (không block), chỉ cảnh báo console
-          console.warn("Lỗi validate voucher:", errorMsg);
-        }
-      }
+      // ⚠️ Voucher sẽ được commit ở BE khi tạo payment URL
+      // Không cần validate lại ở đây, BE sẽ xử lý và trả về lỗi nếu voucher hết lượt
 
       let bookingId = bookingData.bookingId;
 
@@ -435,18 +382,81 @@ const Checkout: React.FC = () => {
           }
         );
 
+        // ⚠️ XỬ LÝ LỖI TỪ BE
+        // Kiểm tra status code trước khi parse JSON
+        if (!res.ok) {
+          let errorData;
+          try {
+            errorData = await res.json();
+          } catch {
+            // Nếu không parse được JSON, dùng message mặc định
+            errorData = { message: "Không tạo được liên kết thanh toán VNPay!" };
+          }
+
+          const errorMsg = errorData.message || "Không tạo được liên kết thanh toán VNPay!";
+          const isVoucherOutOfStock = 
+            errorData.code === 'VOUCHER_OUT_OF_STOCK' ||
+            res.status === 409 ||
+            errorMsg.includes("hết lượt sử dụng") ||
+            errorMsg.includes("hết lượt") ||
+            errorMsg.includes("hết lượt sử dụng");
+
+          if (isVoucherOutOfStock && voucherResult?.code) {
+            // Voucher đã hết lượt - xóa voucher và yêu cầu chọn voucher khác
+            clearVoucher();
+            setVoucherInput("");
+            setTotalAmount(baseTotal);
+            setIsPaying(false);
+            toast.error(
+              `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`,
+              { duration: 5000 }
+            );
+            return;
+          }
+
+          // Lỗi khác từ BE
+          setIsPaying(false);
+          toast.error(errorMsg, { duration: 5000 });
+          return;
+        }
+
+        // Parse JSON khi response OK
         const data = await res.json();
+        
+        // Kiểm tra lại data.success (phòng trường hợp BE trả về success: false nhưng status 200)
+        if (!data.success) {
+          const errorMsg = data.message || "Không tạo được liên kết thanh toán VNPay!";
+          const isVoucherOutOfStock = 
+            data.code === 'VOUCHER_OUT_OF_STOCK' ||
+            errorMsg.includes("hết lượt sử dụng") ||
+            errorMsg.includes("hết lượt");
+
+          if (isVoucherOutOfStock && voucherResult?.code) {
+            clearVoucher();
+            setVoucherInput("");
+            setTotalAmount(baseTotal);
+            setIsPaying(false);
+            toast.error(
+              `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`,
+              { duration: 5000 }
+            );
+            return;
+          }
+
+          setIsPaying(false);
+          toast.error(errorMsg, { duration: 5000 });
+          return;
+        }
+
         const paymentUrl =
           data.paymentUrl || data?.data?.paymentUrl || data?.data?.url;
 
-        if (data.success && paymentUrl) {
+        if (paymentUrl) {
           toast.success("Đang chuyển tới trang thanh toán VNPay...");
           window.location.href = paymentUrl;
         } else {
-          toast.error(
-            data.message || "Không tạo được liên kết thanh toán VNPay!"
-          );
           setIsPaying(false);
+          toast.error("Không tạo được liên kết thanh toán VNPay!", { duration: 5000 });
         }
         return;
       }
