@@ -225,19 +225,27 @@ const VoucherManagement: React.FC = () => {
     {
       title: "Thời gian",
       key: "timeRange",
-      width: 200,
+      width: 220,
       render: (_: any, record: Voucher) => (
         <Space direction="vertical" size={0}>
           <Text>
+            Tạo lúc:{" "}
+            <Text type="secondary">
+              {record.createdAt
+                ? dayjs(record.createdAt).format("DD/MM/YYYY HH:mm")
+                : "—"}
+            </Text>
+          </Text>
+          <Text>
             Bắt đầu:{" "}
             {record.startDate
-              ? dayjs(record.startDate).format("DD/MM/YYYY HH:mm")
+              ? dayjs(record.startDate).format("DD/MM/YYYY")
               : "—"}
           </Text>
           <Text>
             Kết thúc:{" "}
             {record.endDate
-              ? dayjs(record.endDate).format("DD/MM/YYYY HH:mm")
+              ? dayjs(record.endDate).format("DD/MM/YYYY")
               : "—"}
           </Text>
         </Space>

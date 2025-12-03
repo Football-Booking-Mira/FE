@@ -301,7 +301,7 @@ const Checkout: React.FC = () => {
       setIsPaying(true);
 
       // ⭐ VALIDATE LẠI VOUCHER TRƯỚC KHI TẠO BOOKING
-      // Để đảm bảo voucher chưa bị người khác dùng hết (race condition)
+      // Đảm bảo: nếu voucher đã hết lượt thì DỪNG thanh toán, yêu cầu chọn voucher khác
       if (voucherResult?.code) {
         try {
           // Gọi API validate trực tiếp để kiểm tra voucher còn lượt không
@@ -317,14 +317,16 @@ const Checkout: React.FC = () => {
 
           // Kiểm tra remainingQuantity
           if (!validateData || validateData.remainingQuantity <= 0) {
-            // Voucher đã được người khác dùng trước trong lúc bạn thao tác
+            // Voucher đã được người khác dùng hết trong lúc bạn thao tác
             clearVoucher();
             setVoucherInput("");
             setTotalAmount(baseTotal);
+            setIsPaying(false);
             toast.error(
-              `Voucher "${voucherResult.code}" đã được sử dụng hết trong lúc bạn thao tác. Hệ thống sẽ tiếp tục thanh toán mà không áp dụng voucher.`
+              `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
             );
-            // KHÔNG return, vẫn tiếp tục tạo booking và thanh toán không dùng voucher
+            // DỪNG HOÀN TOÀN QUY TRÌNH THANH TOÁN
+            return;
           }
         } catch (voucherErr: any) {
           const errorMsg =
@@ -332,7 +334,7 @@ const Checkout: React.FC = () => {
             voucherErr?.message ||
             "Voucher đã hết lượt sử dụng!";
 
-          // Nếu voucher đã hết hoặc không còn áp dụng được, clear voucher và cho phép thanh toán không dùng voucher
+          // Nếu voucher đã hết hoặc không còn áp dụng được -> dừng thanh toán, yêu cầu chọn voucher khác
           if (
             errorMsg.includes("hết lượt") ||
             errorMsg.includes("hết") ||
@@ -342,12 +344,14 @@ const Checkout: React.FC = () => {
             clearVoucher();
             setVoucherInput("");
             setTotalAmount(baseTotal);
+            setIsPaying(false);
             toast.error(
-              `Voucher "${voucherResult.code}" không còn áp dụng được (có thể đã được dùng hết). Hệ thống sẽ tiếp tục thanh toán mà không áp dụng voucher, bạn có thể chọn voucher khác ở lần đặt sau.`
+              `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
             );
-            // KHÔNG return, vẫn tiếp tục tạo booking và thanh toán không dùng voucher
+            return;
           }
-          // Nếu lỗi khác, vẫn báo nhưng không block thanh toán
+
+          // Nếu lỗi khác, vẫn cho tiếp tục thanh toán (không block), chỉ cảnh báo console
           console.warn("Lỗi validate voucher:", errorMsg);
         }
       }
