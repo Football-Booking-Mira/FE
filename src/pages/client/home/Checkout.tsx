@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card"; // Giả định path này hợp lệ
-import { Button } from "@/components/ui/button"; // Giả định path này hợp lệ
-import { Input } from "@/components/ui/input"; // Giả định path này hợp lệ
-import { Label } from "@/components/ui/label"; // Giả định path này hợp lệ
-import { toast } from "sonner"; // Giả định đã cài đặt sonner
-import api from "@/common/utils/api"; // Giả định path này hợp lệ
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import api from "@/common/utils/api";
 
-// Định nghĩa các Interface cần thiết
 interface SlotItem {
   date: string;
   startTime: string;
@@ -31,66 +30,37 @@ interface CheckoutData {
   startTime?: string;
   endTime?: string;
 
-  // khi đi từ MyBookings (Thanh toán lại)
+  //  khi đi từ MyBookings (Thanh toán lại)
   isRetryPayment?: boolean;
   total?: number; // tổng tiền booking, nếu có
 }
 
-// Hàm format ngày tháng (Locale: vi-VN)
 const formatDate = (value: string) => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleDateString("vi-VN");
 };
 
-// Hàm format tiền tệ (Locale: vi-VN, đơn vị VNĐ)
 const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat("vi-VN").format(value)} VNĐ`;
 
-// Regex kiểm tra email
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
 
-  // Đọc dữ liệu booking từ LocalStorage
   const [bookingData, setBookingData] = useState<CheckoutData | null>(() => {
     return JSON.parse(window.localStorage.getItem("checkout-data") || "null");
   });
 
-  // State tổng tiền thực sự sẽ thanh toán
+  // Tổng tiền thực sự sẽ thanh toán (booking mới = tổng đơn, thanh toán lại = còn thiếu)
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [retryInfo, setRetryInfo] = useState<{
     bookingId: string;
     amountToPay: number;
   } | null>(null);
 
-  // State form
-  const [paymentMethod, setPaymentMethod] = useState<
-    "vnpay" | "momo" | "transfer"
-  >("vnpay");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [isPaying, setIsPaying] = useState(false);
-  const [errors, setErrors] = useState<{
-    name?: string;
-    phone?: string;
-    email?: string;
-  }>({});
-
-  // State cho Modal QR (chưa dùng trong logic chính)
-  const [qrData, setQrData] = useState<{
-    image: string;
-    qrUrl: string;
-    amount: number;
-  } | null>(null);
-  const [showQrModal, setShowQrModal] = useState(false);
-
-  // Lấy token (cho việc tạo booking)
-  const token = localStorage.getItem("token");
-
-  // Xử lý khi không có bookingData
+  // nếu không có bookingData thì đá về home
   useEffect(() => {
     if (!bookingData) {
       toast.error(
@@ -100,7 +70,7 @@ const Checkout: React.FC = () => {
     }
   }, [bookingData, navigate]);
 
-  // Xử lý logic thanh toán lại (Retry Payment)
+  // ĐỌC checkout-data & gọi API thanh toán lại (nếu có)
   useEffect(() => {
     if (!bookingData) return;
 
@@ -131,17 +101,36 @@ const Checkout: React.FC = () => {
     }
   }, [bookingData]);
 
-  // Kiểm tra nếu không có bookingData thì không render
+  const [paymentMethod, setPaymentMethod] = useState<
+    "vnpay" | "momo" | "transfer"
+  >("vnpay");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
+
+  const [errors, setErrors] = useState<{
+    name?: string;
+    phone?: string;
+    email?: string;
+  }>({});
+
   if (!bookingData) return null;
 
-  // --- Tính toán hiển thị ---
+  //  TÍNH TOÁN TỪ DỮ LIỆU MỚI
   const totalPrice = bookingData.totalPrice ?? bookingData.total ?? 0;
   const totalHours =
     bookingData.totalDuration && bookingData.totalDuration > 0
       ? bookingData.totalDuration / 60
       : bookingData.slots?.reduce((sum, s) => sum + s.duration, 0) / 60 || 0;
 
-  // Lấy thời gian bắt đầu/kết thúc tổng thể
+  const slotsDisplay =
+    bookingData.slots && bookingData.slots.length
+      ? bookingData.slots.map((s) => `${s.startTime} - ${s.endTime}`).join(", ")
+      : bookingData.startTime && bookingData.endTime
+      ? `${bookingData.startTime} - ${bookingData.endTime}`
+      : "--";
+
   const firstSlot = bookingData.slots?.[0];
   const lastSlot =
     bookingData.slots && bookingData.slots.length > 0
@@ -158,15 +147,18 @@ const Checkout: React.FC = () => {
     lastSlot?.endTime ||
     bookingData.endTime ||
     "07:00";
-  // --- Hết Tính toán hiển thị ---
+  const [qrData, setQrData] = useState<{
+    image: string;
+    qrUrl: string;
+    amount: number;
+  } | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const token = localStorage.getItem("token");
 
-  // --- Logic In hóa đơn (Chuyển khoản/QR) ---
-  // (Đoạn này được giữ nguyên theo logic API local giả lập)
   const handlePrintInvoice = async () => {
     if (!bookingData) return;
 
     try {
-      // Giả lập POST tạo hóa đơn (đang gọi tới http://localhost:3000/api/invoices)
       const res = await fetch("http://localhost:3000/api/invoices", {
         method: "POST",
         headers: {
@@ -189,12 +181,13 @@ const Checkout: React.FC = () => {
 
       const invoice = data.invoice;
       const items = data.items;
-      const customer = invoice.customerId || {}; // Lấy thông tin khách hàng từ invoice.customerId
+
+      // Lấy thông tin khách hàng từ invoice.customerId
+      const customer = invoice.customerId || {};
 
       const printWindow = window.open("", "_blank");
       if (!printWindow) return;
 
-      // Tạo HTML để in
       printWindow.document.write(
         "<html><head><title>Hóa đơn</title></head><body>"
       );
@@ -247,17 +240,15 @@ const Checkout: React.FC = () => {
       toast.error("Lỗi khi tạo hoặc in hóa đơn!");
     }
   };
-  // --- Hết Logic In hóa đơn ---
 
-  // --- Logic Submit Thanh toán ---
   const handleSubmit = async () => {
     if (!bookingData) {
       toast.error("Không tìm thấy thông tin đặt sân!");
       return;
     }
 
-    // 1. Validate Form
     const newErrors: typeof errors = {};
+
     const nameTrim = name.trim();
     const phoneTrim = phone.trim();
     const emailTrim = email.trim();
@@ -283,7 +274,6 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    // 2. Kiểm tra phiên đăng nhập
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     if (!user?.token || !user?._id) {
       toast.error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại!");
@@ -296,7 +286,7 @@ const Checkout: React.FC = () => {
 
       let bookingId = bookingData.bookingId;
 
-      // 3. Tạo booking nếu chưa có (flow đặt sân mới)
+      //  Tạo booking nếu chưa có (flow đặt sân mới)
       if (!bookingId) {
         const resBooking = await fetch("http://localhost:3000/api/bookings", {
           method: "POST",
@@ -308,8 +298,8 @@ const Checkout: React.FC = () => {
             courtId: bookingData.courtId,
             customerId: user._id,
             date: bookingData.date,
-            startTime: bookingStartTime, // Sử dụng overallStart/firstSlot/startTime
-            endTime: bookingEndTime, // Sử dụng overallEnd/lastSlot/endTime
+            startTime: bookingStartTime,
+            endTime: bookingEndTime,
             paymentMethod, // vnpay / momo
             note: "",
             customerInfo: {
@@ -332,7 +322,6 @@ const Checkout: React.FC = () => {
 
         bookingId = dataBooking.data._id;
 
-        // Cập nhật bookingId vào state và LocalStorage
         const newCheckoutData: CheckoutData = {
           ...bookingData,
           bookingId,
@@ -341,7 +330,7 @@ const Checkout: React.FC = () => {
         localStorage.setItem("checkout-data", JSON.stringify(newCheckoutData));
       }
 
-      // 4. Thanh toán
+      //  Thanh toán VNPay đặt sân mới + thanh toán lại
       if (paymentMethod === "vnpay") {
         if (totalAmount <= 0) {
           toast.error("Số tiền thanh toán không hợp lệ!");
@@ -351,7 +340,7 @@ const Checkout: React.FC = () => {
 
         const payload: any = {
           bookingId,
-          amount: totalAmount, // ⭐ dùng số tiền thực sự cần trả (có thể là số tiền thanh toán lại)
+          amount: totalAmount, // ⭐ dùng số tiền thực sự cần trả
         };
 
         const isRetry = bookingData.isRetryPayment || !!retryInfo;
@@ -360,7 +349,7 @@ const Checkout: React.FC = () => {
         }
 
         const res = await fetch(
-          "http://localhost:3000/api/payment/vnpay/create", // Giả lập API VNPay
+          "http://localhost:3000/api/payment/vnpay/create",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -374,7 +363,7 @@ const Checkout: React.FC = () => {
 
         if (data.success && paymentUrl) {
           toast.success("Đang chuyển tới trang thanh toán VNPay...");
-          window.location.href = paymentUrl; // Redirect sang cổng VNPay
+          window.location.href = paymentUrl;
         } else {
           toast.error(
             data.message || "Không tạo được liên kết thanh toán VNPay!"
@@ -384,7 +373,7 @@ const Checkout: React.FC = () => {
         return;
       }
 
-      // Giả lập MoMo
+      //  Giả lập MoMo
       if (paymentMethod === "momo") {
         const payload = {
           ...bookingData,
@@ -394,18 +383,54 @@ const Checkout: React.FC = () => {
           amount: totalAmount || totalPrice,
         };
         console.log("Dữ liệu gửi thanh toán MoMo:", payload);
-        toast.success(
-          "Giả lập thanh toán MoMo thành công! (Không chuyển trang)"
-        );
+        toast.success("Giả lập thanh toán MoMo thành công!");
         setIsPaying(false);
-        return;
       }
 
-      // Giả lập Chuyển khoản (Đã comment logic gọi API QR)
       if (paymentMethod === "transfer") {
-        // Có thể thêm logic hiển thị QR Code ở đây nếu cần, hiện tại đang bị comment
-        toast.info("Vui lòng thanh toán chuyển khoản thủ công.");
-        // Ví dụ: set up polling để kiểm tra trạng thái thanh toán
+        try {
+          const resQR = await fetch(
+            "http://localhost:3000/api/bookings/payment/vietqr",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${user.token}`,
+              },
+              body: JSON.stringify({
+                bookingId,
+                amount: totalPrice,
+                customer: {
+                  name: nameTrim,
+                  phone: phoneTrim,
+                  email: emailTrim,
+                },
+              }),
+            }
+          );
+
+          const dataQR = await resQR.json();
+          if (!dataQR.success) {
+            toast.error(dataQR.message || "Không tạo được mã QR!");
+            setIsPaying(false);
+            return;
+          }
+
+          // dataQR.data.qrImage: ảnh Base64
+          // dataQR.data.qrUrl: URL API VietQR
+
+          setQrData({
+            image: dataQR.data.qrImageBase64,
+            qrUrl: dataQR.data.qrUrl,
+            amount: totalPrice,
+          });
+
+          setShowQrModal(true);
+        } catch (err) {
+          console.error(err);
+          toast.error("Lỗi khi tạo QR thanh toán!");
+        }
+
         setIsPaying(false);
         return;
       }
@@ -415,9 +440,7 @@ const Checkout: React.FC = () => {
       setIsPaying(false);
     }
   };
-  // --- Hết Logic Submit Thanh toán ---
 
-  // --- JSX (Giao diện) ---
   return (
     <div className="min-h-screen bg-white flex justify-center items-start py-12 px-4">
       <Card className="w-full max-w-2xl shadow-2xl rounded-3xl overflow-hidden">
@@ -462,7 +485,7 @@ const Checkout: React.FC = () => {
 
               <span>Tổng số giờ:</span>
               <span className="font-medium text-gray-800">
-                {totalHours.toFixed(1)} giờ
+                {totalHours} giờ
               </span>
 
               <span>Tổng tiền:</span>
@@ -473,7 +496,10 @@ const Checkout: React.FC = () => {
             </div>
           </div>
 
-          {/* Thông tin người đặt (Form) */}
+          {/* Thông tin người đặt */}
+          {/* (phần dưới giữ nguyên như cũ) */}
+          {/* ... Toàn bộ phần form name/phone/email, chọn phương thức, Button gọi handleSubmit ... */}
+
           <div className="space-y-4">
             <h2 className="font-semibold text-lg text-gray-700">
               Thông tin người đặt
@@ -553,8 +579,8 @@ const Checkout: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4">
               {[
                 { value: "vnpay", label: "Thanh toán qua VNPay" },
-                { value: "momo", label: "Thanh toán qua MoMo (Giả lập)" },
-                // { value: 'transfer', label: 'Thanh toán bằng QR Code' }, // Bị comment trong code gốc
+                { value: "momo", label: "Thanh toán qua MoMo" },
+                { value: "transfer", label: "Thanh toán bằng QR Code" },
               ].map((method) => (
                 <label
                   key={method.value}
@@ -569,7 +595,9 @@ const Checkout: React.FC = () => {
                     value={method.value}
                     checked={paymentMethod === method.value}
                     onChange={() =>
-                      setPaymentMethod(method.value as "vnpay" | "momo")
+                      setPaymentMethod(
+                        method.value as "vnpay" | "momo" | "transfer"
+                      )
                     }
                     className="accent-green-600"
                   />
@@ -589,13 +617,11 @@ const Checkout: React.FC = () => {
                 ? "Đang chuyển sang VNPay..."
                 : paymentMethod === "momo"
                 ? "Đang mở MoMo..."
-                : "Đang xử lý..."
+                : "Đang tạo mã QR..."
               : "Hoàn tất thanh toán"}
           </Button>
         </CardContent>
       </Card>
-
-      {/* Modal QR Code (Phần này bị comment trong logic submit chính, nhưng code JSX vẫn tồn tại) */}
       {showQrModal && qrData && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-[380px] text-center space-y-4">

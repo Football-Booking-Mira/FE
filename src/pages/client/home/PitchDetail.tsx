@@ -155,6 +155,13 @@ const PitchDetail: React.FC = () => {
     ? selectedSlots.map((s) => `${s.startTime} - ${s.endTime}`).join(", ")
     : "--";
 
+  const priceTypeLabel =
+    selectedSlots.length > 0
+      ? selectedSlots.some((s) => s.price === court.peakPrice)
+        ? "Giá cao điểm"
+        : "Giá cơ bản"
+      : "--";
+
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <ToastContainer newestOnTop />
@@ -204,38 +211,115 @@ const PitchDetail: React.FC = () => {
           />
         </div>
 
-        {/* CỘT PHẢI: SUMMARY */}
+        {/* CỘT PHẢI: TÓM TẮT */}
         <div className="bg-white shadow rounded-2xl p-8 border border-gray-200 h-fit">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">
             Tóm tắt đặt sân
           </h3>
 
-          <div className="space-y-3 text-gray-700 text-[15px]">
+          <div className="space-y-3 text-[15px] text-gray-700">
             <div className="flex justify-between border-b pb-1">
-              <span>Ngày:</span>
+              <span>Ngày đặt sân:</span>
               <span className="font-semibold">{dateDisplay}</span>
             </div>
 
             <div className="flex justify-between border-b pb-1">
-              <span>Khung giờ:</span>
-              <span className="font-semibold">{timeDisplay}</span>
+              <span>Tên sân:</span>
+              <span className="font-semibold text-gray-800">
+                {court.name || "--"}
+              </span>
             </div>
 
             <div className="flex justify-between border-b pb-1">
-              <span>Tổng thời lượng:</span>
-              <span>{totalDuration / 60} giờ</span>
+              <span>Loại sân:</span>
+              <span className="font-semibold">
+                {court.type === "indoor"
+                  ? "Trong nhà"
+                  : court.type === "outdoor"
+                  ? "Ngoài trời"
+                  : court.type === "vip"
+                  ? "VIP"
+                  : court.type}
+              </span>
             </div>
 
-            <div className="flex justify-between items-center font-bold text-xl text-green-700 border-t pt-3">
+            {court.formats && (
+              <div className="flex justify-between border-b pb-1">
+                <span>Định dạng:</span>
+                <span className="font-semibold text-right">
+                  {Array.isArray(court.formats)
+                    ? court.formats.join(", ")
+                    : court.formats}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-between border-b pb-1">
+              <span>Khung giờ:</span>
+              <span className="font-semibold text-right">{timeDisplay}</span>
+            </div>
+
+            {selectedSlots.length > 0 && (
+              <>
+                <div className="flex justify-between border-b pb-1">
+                  <span>Loại giá:</span>
+                  <span className="font-semibold">{priceTypeLabel}</span>
+                </div>
+                <div className="flex justify-between border-b pb-1">
+                  <span>Tổng số giờ:</span>
+                  <span>{totalDuration / 60} giờ</span>
+                </div>
+              </>
+            )}
+
+            <div className="flex justify-between border-b pb-1">
+              <span>Vị trí:</span>
+              <span className="font-semibold text-right">
+                {court.location || "Chưa có thông tin"}
+              </span>
+            </div>
+
+            <div className="flex justify-between border-b pb-1">
+              <span>Giờ mở cửa:</span>
+              <span className="font-semibold text-right">
+                {court.openHours || "06:00 - 22:00"}
+              </span>
+            </div>
+
+            <div className="border-b pb-2">
+              <span className="block font-medium mb-1">Tiện ích:</span>
+              {court.amenities && court.amenities.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {court.amenities.map((a, idx) => (
+                    <span
+                      key={idx}
+                      className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded-md border border-green-200"
+                    >
+                      {a}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-gray-500 text-sm italic">
+                  Chưa có tiện ích
+                </span>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center text-green-700 font-extrabold text-xl border-t pt-3">
               <span>Tổng tiền:</span>
-              <span>{totalPrice.toLocaleString("vi-VN")} VNĐ</span>
+              <span>
+                {totalPrice
+                  ? `${totalPrice.toLocaleString("vi-VN")} VNĐ`
+                  : "0 VNĐ"}
+              </span>
             </div>
           </div>
 
           <button
             onClick={handleBooking}
             disabled={!selectedSlots.length}
-            className={`w-full mt-6 py-3 rounded-lg font-bold transition ${
+            className={`w-full mt-6 font-bold py-3 rounded-lg transition ${
               selectedSlots.length
                 ? "bg-green-600 hover:bg-green-700 text-white"
                 : "bg-gray-300 text-gray-600 cursor-not-allowed"
@@ -243,6 +327,11 @@ const PitchDetail: React.FC = () => {
           >
             Đặt sân
           </button>
+
+          <p className="text-xs text-gray-400 mt-10 leading-relaxed italic border-t border-gray-100 pt-5">
+            * Có thể hủy sớm cách giờ đá trên 6 giờ
+            <br />* Thời tiết xấu sẽ được hỗ trợ sắp xếp lại
+          </p>
         </div>
       </div>
     </div>
