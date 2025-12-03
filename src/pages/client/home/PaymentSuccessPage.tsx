@@ -17,6 +17,8 @@ const PaymentResultPage: React.FC = () => {
   const navigate = useNavigate();
 
   const rspCode = searchParams.get('vnp_ResponseCode');
+  const voucherStatus = searchParams.get('voucherStatus');
+  const voucherMessage = searchParams.get('voucherMessage');
   const rawAmount = searchParams.get('vnp_Amount');
   const txnRef = searchParams.get('vnp_TxnRef');
 
@@ -69,11 +71,19 @@ const PaymentResultPage: React.FC = () => {
             {isSuccess ? 'Đặt Sân Thành Công' : 'Thanh Toán Không Thành Công'}
           </h1>
 
-          <p className='text-gray-600 mb-6'>
+          <p className='text-gray-600 mb-4'>
             {isSuccess
               ? 'Cảm ơn bạn đã đặt sân. Chúc bạn có trận đấu vui vẻ!'
               : 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Bạn vui lòng thử lại hoặc chọn phương thức khác.'}
           </p>
+
+          {/* Thông báo chi tiết về voucher nếu trong lúc thanh toán voucher bị hết lượt */}
+          {isSuccess && voucherStatus === 'expired' && (
+            <div className='mb-6 text-left text-sm bg-amber-50 border border-amber-300 text-amber-800 rounded-lg p-3'>
+              <p className='font-semibold mb-1'>Lưu ý về voucher:</p>
+              <p>{voucherMessage || 'Voucher đã hết lượt sử dụng trong lúc bạn thanh toán, hệ thống đã tính lại tổng tiền mà không áp dụng voucher.'}</p>
+            </div>
+          )}
 
           {/* Thông tin đơn hàng */}
           <div className='text-left text-sm text-gray-700 mb-6 space-y-1'>

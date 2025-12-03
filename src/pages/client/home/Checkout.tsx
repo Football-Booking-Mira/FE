@@ -4,9 +4,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import api from "@/common/utils/api";
-import { useVoucherValidation } from "@/common/hooks";
+import { usePublicVouchers, useVoucherValidation } from "@/common/hooks";
 import { useAuth } from "@/common/contexts";
 
 interface SlotItem {
@@ -50,7 +58,7 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userName } = useAuth();
 
   const [bookingData, setBookingData] = useState<CheckoutData | null>(() => {
     return JSON.parse(window.localStorage.getItem("checkout-data") || "null");
@@ -65,6 +73,7 @@ const Checkout: React.FC = () => {
 
   // Voucher state
   const [voucherInput, setVoucherInput] = useState("");
+  const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
 
   // nếu không có bookingData thì đá về home
   useEffect(() => {
@@ -98,6 +107,13 @@ const Checkout: React.FC = () => {
     bookingDate: bookingData?.date,
     startTime: bookingData?.overallStart || bookingData?.startTime,
   });
+
+  // Public vouchers cho popup chọn mã
+  const {
+    vouchers: publicVouchers,
+    loading: loadingPublicVouchers,
+    error: publicVouchersError,
+  } = usePublicVouchers(20);
 
   // Cập nhật totalAmount khi có voucher hoặc thay đổi baseTotal
   // Chỉ áp dụng voucher khi tạo booking mới, không phải retry payment
@@ -182,10 +198,30 @@ const Checkout: React.FC = () => {
     bookingData.endTime ||
     "07:00";
 
-  // Xử lý apply voucher
-  const handleApplyVoucher = async () => {
-    if (!voucherInput.trim()) {
-      toast.error("Vui lòng nhập mã voucher!");
+  // Prefill thông tin người đặt từ tài khoản hiện tại (localStorage.user)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (!name) setName(parsed.name || userName || "");
+        if (!phone) setPhone(parsed.phone || "");
+        if (!email) setEmail(parsed.email || "");
+      } else {
+        if (!name && userName) setName(userName);
+      }
+    } catch {
+      // ignore JSON parse errors
+    }
+    // chỉ chạy lần đầu khi mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Xử lý apply voucher (từ input hoặc từ danh sách chọn)
+  const handleApplyVoucher = async (codeFromList?: string) => {
+    const rawCode = (codeFromList ?? voucherInput).trim();
+    if (!rawCode) {
+      toast.error("Vui lòng chọn mã voucher!");
       return;
     }
 
@@ -194,7 +230,24 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    await validateVoucher(voucherInput);
+    const upperCode = rawCode.toUpperCase();
+    await validateVoucher(upperCode);
+    setVoucherInput(upperCode);
+  };
+
+  const handleSelectVoucherFromList = async (code: string, minOrderValue: number) => {
+    // Nếu voucher yêu cầu tổng đơn tối thiểu và đơn hiện tại không đủ, chặn luôn
+    if (minOrderValue > 0 && baseTotal < minOrderValue) {
+      toast.error(
+        `Đơn của bạn không đủ điều kiện sử dụng voucher này. Đơn phải từ ${new Intl.NumberFormat(
+          "vi-VN"
+        ).format(minOrderValue)}đ trở lên.`
+      );
+      return;
+    }
+
+    await handleApplyVoucher(code);
+    setVoucherDialogOpen(false);
   };
 
   // Xử lý xóa voucher
@@ -261,25 +314,25 @@ const Checkout: React.FC = () => {
           });
 
           const validateData = validateResponse.data?.data;
-          
+
           // Kiểm tra remainingQuantity
           if (!validateData || validateData.remainingQuantity <= 0) {
+            // Voucher đã được người khác dùng trước trong lúc bạn thao tác
             clearVoucher();
             setVoucherInput("");
             setTotalAmount(baseTotal);
             toast.error(
-              `Voucher "${voucherResult.code}" đã hết lượt sử dụng! Vui lòng chọn voucher khác hoặc tiếp tục thanh toán không dùng voucher.`
+              `Voucher "${voucherResult.code}" đã được sử dụng hết trong lúc bạn thao tác. Hệ thống sẽ tiếp tục thanh toán mà không áp dụng voucher.`
             );
-            setIsPaying(false);
-            return;
+            // KHÔNG return, vẫn tiếp tục tạo booking và thanh toán không dùng voucher
           }
         } catch (voucherErr: any) {
           const errorMsg =
             voucherErr?.response?.data?.message ||
             voucherErr?.message ||
             "Voucher đã hết lượt sử dụng!";
-          
-          // Nếu voucher đã hết, clear voucher và báo lỗi
+
+          // Nếu voucher đã hết hoặc không còn áp dụng được, clear voucher và cho phép thanh toán không dùng voucher
           if (
             errorMsg.includes("hết lượt") ||
             errorMsg.includes("hết") ||
@@ -290,10 +343,9 @@ const Checkout: React.FC = () => {
             setVoucherInput("");
             setTotalAmount(baseTotal);
             toast.error(
-              `Voucher "${voucherResult.code}" đã hết lượt sử dụng! Vui lòng chọn voucher khác hoặc tiếp tục thanh toán không dùng voucher.`
+              `Voucher "${voucherResult.code}" không còn áp dụng được (có thể đã được dùng hết). Hệ thống sẽ tiếp tục thanh toán mà không áp dụng voucher, bạn có thể chọn voucher khác ở lần đặt sau.`
             );
-            setIsPaying(false);
-            return;
+            // KHÔNG return, vẫn tiếp tục tạo booking và thanh toán không dùng voucher
           }
           // Nếu lỗi khác, vẫn báo nhưng không block thanh toán
           console.warn("Lỗi validate voucher:", errorMsg);
@@ -471,33 +523,109 @@ const Checkout: React.FC = () => {
                 Mã giảm giá (Voucher)
               </h2>
               {!voucherResult ? (
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <Input
-                      value={voucherInput}
-                      onChange={(e) =>
-                        setVoucherInput(e.target.value.toUpperCase())
-                      }
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          handleApplyVoucher();
-                        }
-                      }}
-                      placeholder="Nhập mã voucher"
-                      disabled={validatingVoucher || !isAuthenticated}
-                      className="flex-1 border-blue-300 focus:border-blue-500 focus:ring-blue-200"
-                    />
-                    <Button
-                      onClick={handleApplyVoucher}
-                      disabled={
-                        validatingVoucher ||
-                        !isAuthenticated ||
-                        !voucherInput.trim()
-                      }
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <p className="text-sm text-gray-600">
+                      Nhấn nút bên phải để xem danh sách các voucher đang hoạt
+                      động và còn hạn, sau đó chọn một mã phù hợp.
+                    </p>
+                    <Dialog
+                      open={voucherDialogOpen}
+                      onOpenChange={setVoucherDialogOpen}
                     >
-                      {validatingVoucher ? "Đang kiểm tra..." : "Áp dụng"}
-                    </Button>
+                      <DialogTrigger asChild>
+                        <Button
+                          disabled={validatingVoucher}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4"
+                        >
+                          Chọn mã voucher
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Chọn mã voucher</DialogTitle>
+                          <DialogDescription>
+                            Danh sách các voucher đang hoạt động và còn hạn sử
+                            dụng. Chọn một mã để áp dụng cho đơn của bạn.
+                          </DialogDescription>
+                        </DialogHeader>
+
+                        {loadingPublicVouchers ? (
+                          <p className="text-sm text-gray-500">
+                            Đang tải danh sách voucher...
+                          </p>
+                        ) : publicVouchersError ? (
+                          <p className="text-sm text-red-600">
+                            {publicVouchersError}
+                          </p>
+                        ) : publicVouchers.length === 0 ? (
+                          <p className="text-sm text-gray-500">
+                            Hiện tại chưa có voucher nào khả dụng.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 max-h-80 overflow-y-auto">
+                            {publicVouchers.map((v) => (
+                              <button
+                                key={v.code}
+                                type="button"
+                                onClick={() =>
+                                  handleSelectVoucherFromList(
+                                    v.code,
+                                    v.minOrderValue
+                                  )
+                                }
+                                className="w-full text-left border border-blue-200 rounded-lg p-3 hover:bg-blue-50 transition flex flex-col gap-1"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-semibold text-blue-700">
+                                    {v.code}
+                                  </span>
+                                  <span className="text-sm text-green-700 font-semibold">
+                                    {v.discountDisplay}
+                                  </span>
+                                </div>
+                                {v.description && (
+                                  <p className="text-xs text-gray-600">
+                                    {v.description}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap gap-3 text-xs text-gray-500 mt-1">
+                                  <span>
+                                    Còn lại:{" "}
+                                    <span className="font-semibold text-green-700">
+                                      {v.remainingQuantity}
+                                    </span>
+                                  </span>
+                                  {v.minOrderValue > 0 && (
+                                    <span>
+                                      Đơn tối thiểu:{" "}
+                                      <span className="font-semibold">
+                                        {new Intl.NumberFormat("vi-VN").format(
+                                          v.minOrderValue
+                                        )}{" "}
+                                        VNĐ
+                                      </span>
+                                    </span>
+                                  )}
+                                  <span>
+                                    Hạn dùng:{" "}
+                                    <span className="font-semibold">
+                                      {new Date(
+                                        v.startDate
+                                      ).toLocaleDateString("vi-VN")}{" "}
+                                      -{" "}
+                                      {new Date(
+                                        v.endDate
+                                      ).toLocaleDateString("vi-VN")}
+                                    </span>
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </DialogContent>
+                    </Dialog>
                   </div>
                   {!isAuthenticated && (
                     <p className="text-sm text-amber-600">
