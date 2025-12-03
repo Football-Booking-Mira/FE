@@ -3,6 +3,7 @@ import { Form, message } from "antd";
 import type { Dayjs } from "dayjs";
 import dayjs from "dayjs";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import api from "@/common/utils/api";
 import { DISCOUNT_TYPES, VOUCHER_STATUS } from "@/common/constants/enums";
 import type { DiscountType, VoucherStatus } from "@/common/constants/enums";
@@ -16,12 +17,14 @@ export interface VoucherFormValues {
   minOrderValue?: number;
   totalIssued: number;
   perUserLimit: number;
-  timeRange: [Dayjs, Dayjs];
+  startDate: Dayjs;
+  endDate: Dayjs;
   applicableCourtIds?: string[];
   status: boolean;
 }
 
 const useVoucherForm = () => {
+  const navigate = useNavigate();
   const [form] = Form.useForm<VoucherFormValues>();
   const [courts, setCourts] = useState<
     { _id: string; name: string; type: string }[]
@@ -63,12 +66,15 @@ const useVoucherForm = () => {
     current && current < dayjs().startOf("day");
 
   const handleSubmit = async (values: VoucherFormValues) => {
-    if (!values.timeRange?.length) {
-      toast.error("Vui lòng chọn thời gian áp dụng!");
+    if (!values.startDate || !values.endDate) {
+      toast.error("Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc!");
       return;
     }
 
-    const [start, end] = values.timeRange;
+    if (values.endDate.valueOf() <= values.startDate.valueOf()) {
+      toast.error("Ngày kết thúc phải sau ngày bắt đầu!");
+      return;
+    }
 
     const payload = {
       code: values.code.trim(),
@@ -82,8 +88,8 @@ const useVoucherForm = () => {
       minOrderValue: Number(values.minOrderValue ?? 0),
       totalIssued: Number(values.totalIssued),
       perUserLimit: Number(values.perUserLimit),
-      startDate: start.toISOString(),
-      endDate: end.toISOString(),
+      startDate: values.startDate.startOf("day").toISOString(),
+      endDate: values.endDate.endOf("day").toISOString(),
       applicableCourtIds:
         values.applicableCourtIds && values.applicableCourtIds.length > 0
           ? values.applicableCourtIds
@@ -128,6 +134,11 @@ const useVoucherForm = () => {
       });
 
       form.resetFields();
+      
+      // Navigate về trang voucher sau 1 giây để user có thể đọc thông báo
+      setTimeout(() => {
+        navigate("/admin/vouchers");
+      }, 1000);
     } catch (error: any) {
       const errorMessage =
         error?.response?.data?.message ||

@@ -5,7 +5,6 @@ import type { Dayjs } from 'dayjs';
 import { DISCOUNT_TYPES } from '@/common/constants/enums';
 import type { VoucherFormValues } from '../hooks/useVoucherForm';
 
-const { RangePicker } = DatePicker;
 const { TextArea } = Input;
 
 interface VoucherFormFieldsProps {
@@ -192,35 +191,64 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                 </Col>
             </Row>
 
-            <Form.Item
-                label='Thời gian bắt đầu - kết thúc'
-                name='timeRange'
-                rules={[
-                    { required: true, message: 'Vui lòng chọn thời gian áp dụng!' },
-                    {
-                        validator: (_, value) => {
-                            if (!value || value.length !== 2) {
-                                return Promise.reject(
-                                    new Error('Vui lòng chọn đầy đủ thời gian bắt đầu và kết thúc!')
-                                );
-                            }
-                            if (value[1].valueOf() <= value[0].valueOf()) {
-                                return Promise.reject(
-                                    new Error('Thời gian kết thúc phải sau thời gian bắt đầu!')
-                                );
-                            }
-                            return Promise.resolve();
-                        },
-                    },
-                ]}
-            >
-                <RangePicker
-                    showTime={{ format: 'HH:mm' }}
-                    format='DD/MM/YYYY HH:mm'
-                    style={{ width: '100%' }}
-                    disabledDate={disabledPastDate}
-                />
-            </Form.Item>
+            <Row gutter={16}>
+                <Col span={12}>
+                    <Form.Item
+                        label='Ngày bắt đầu'
+                        name='startDate'
+                        rules={[
+                            { required: true, message: 'Vui lòng chọn ngày bắt đầu!' },
+                        ]}
+                    >
+                        <DatePicker
+                            format='DD/MM/YYYY'
+                            style={{ width: '100%' }}
+                            disabledDate={disabledPastDate}
+                            placeholder='DD/MM/YYYY'
+                        />
+                    </Form.Item>
+                </Col>
+                <Col span={12}>
+                    <Form.Item
+                        label='Ngày kết thúc'
+                        name='endDate'
+                        dependencies={['startDate']}
+                        rules={[
+                            { required: true, message: 'Vui lòng chọn ngày kết thúc!' },
+                            {
+                                validator: (_, value) => {
+                                    if (!value) {
+                                        return Promise.resolve();
+                                    }
+                                    const startDate = form.getFieldValue('startDate');
+                                    if (startDate && value.valueOf() <= startDate.valueOf()) {
+                                        return Promise.reject(
+                                            new Error('Ngày kết thúc phải sau ngày bắt đầu!')
+                                        );
+                                    }
+                                    return Promise.resolve();
+                                },
+                            },
+                        ]}
+                    >
+                        <DatePicker
+                            format='DD/MM/YYYY'
+                            style={{ width: '100%' }}
+                            disabledDate={(current) => {
+                                if (disabledPastDate(current)) {
+                                    return true;
+                                }
+                                const startDate = form.getFieldValue('startDate');
+                                if (startDate && current && current.valueOf() < startDate.valueOf()) {
+                                    return true;
+                                }
+                                return false;
+                            }}
+                            placeholder='DD/MM/YYYY'
+                        />
+                    </Form.Item>
+                </Col>
+            </Row>
 
             <Form.Item label='Áp dụng cho sân (không bắt buộc)' name='applicableCourtIds'>
                 <Select

@@ -10,8 +10,7 @@ import BookingPolicyPage from "@/pages/client/home/BookingPolicyPage";
 import CourtUpdate from "../pages/admin/courts/CourtUpdate";
 import CourtDetail from "../pages/admin/dashboard/CourtDetail";
 import VoucherCreate from "../pages/admin/vouchers/VoucherCreate";
-import VoucherStats from "../pages/admin/vouchers/VoucherStats";
-import VoucherList from "../pages/admin/vouchers/VoucherList";
+import VoucherManagement from "../pages/admin/vouchers/VoucherManagement";
 import VoucherEdit from "../pages/admin/vouchers/VoucherEdit";
 
 import Users from "@/pages/admin/users/users.tsx";
@@ -33,8 +32,7 @@ export const AdminRoutes: RouteObject[] = [
       { path: "bookings/create", element: <BookingCreate /> },
       { path: "customers", element: <Users /> },
       { path: "equipments", element: <EquipmentList /> }, // Thiết bị
-      { path: "vouchers", element: <VoucherList /> },
-      { path: "vouchers/stats", element: <VoucherStats /> },
+      { path: "vouchers", element: <VoucherManagement /> },
       { path: "vouchers/create", element: <VoucherCreate /> },
       { path: "vouchers/edit/:id", element: <VoucherEdit /> },
       { path: "booking-policy", element: <BookingPolicyPage /> },
