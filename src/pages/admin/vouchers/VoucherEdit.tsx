@@ -101,8 +101,8 @@ const VoucherEdit: React.FC = () => {
       minOrderValue: Number(values.minOrderValue ?? 0),
       totalIssued: Number(values.totalIssued),
       perUserLimit: Number(values.perUserLimit),
-      startDate: values.startDate.startOf("day").toISOString(),
-      endDate: values.endDate.endOf("day").toISOString(),
+      startDate: values.startDate.toISOString(),
+      endDate: values.endDate.toISOString(),
       applicableCourtIds:
         values.applicableCourtIds && values.applicableCourtIds.length > 0
           ? values.applicableCourtIds

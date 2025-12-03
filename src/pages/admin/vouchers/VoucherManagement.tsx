@@ -122,40 +122,40 @@ const VoucherManagement: React.FC = () => {
   };
 
   // ==================== STATS TAB FUNCTIONS ====================
-  const fetchVouchersForStats = useCallback(async (keyword?: string) => {
-    try {
-      setListLoading(true);
-      const res = await api.get("/vouchers", {
-        params: keyword ? { q: keyword } : undefined,
-      });
-      const data = res.data?.data || res.data || [];
-      setVoucherList(data);
-      if (!selectedVoucherId && data.length) {
-        setSelectedVoucherId(data[0]._id);
-      }
-    } catch (error: any) {
-      toast.error(error?.message || "Không tải được danh sách voucher");
-    } finally {
-      setListLoading(false);
-    }
-  }, [selectedVoucherId]);
-
-  const fetchStats = useCallback(
-    async (voucherId: string) => {
-      if (!voucherId) return;
+  const fetchVouchersForStats = useCallback(
+    async (keyword?: string) => {
       try {
-        setStatsLoading(true);
-        const res = await api.get(`/vouchers/${voucherId}/stats`);
-        const data = res.data?.data || res.data;
-        setStats(data);
+        setListLoading(true);
+        const res = await api.get("/vouchers", {
+          params: keyword ? { q: keyword } : undefined,
+        });
+        const data = res.data?.data || res.data || [];
+        setVoucherList(data);
+        if (!selectedVoucherId && data.length) {
+          setSelectedVoucherId(data[0]._id);
+        }
       } catch (error: any) {
-        toast.error(error?.message || "Không tải được thống kê voucher");
+        toast.error(error?.message || "Không tải được danh sách voucher");
       } finally {
-        setStatsLoading(false);
+        setListLoading(false);
       }
     },
-    []
+    [selectedVoucherId]
   );
+
+  const fetchStats = useCallback(async (voucherId: string) => {
+    if (!voucherId) return;
+    try {
+      setStatsLoading(true);
+      const res = await api.get(`/vouchers/${voucherId}/stats`);
+      const data = res.data?.data || res.data;
+      setStats(data);
+    } catch (error: any) {
+      toast.error(error?.message || "Không tải được thống kê voucher");
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
 
   const handleStatsSearch = (value: string) => {
     fetchVouchersForStats(value);
@@ -211,10 +211,12 @@ const VoucherManagement: React.FC = () => {
       render: (_: any, record: Voucher) => (
         <Space direction="vertical" size={0}>
           <Text>
-            Đã dùng: <Text strong>{record.totalIssued - record.remainingQuantity}</Text>
+            Đã dùng:{" "}
+            <Text strong>{record.totalIssued - record.remainingQuantity}</Text>
           </Text>
           <Text>
-            Còn lại: <Text strong type="success">
+            Còn lại:{" "}
+            <Text strong type="success">
               {record.remainingQuantity}
             </Text>
           </Text>
@@ -226,30 +228,22 @@ const VoucherManagement: React.FC = () => {
       title: "Thời gian",
       key: "timeRange",
       width: 220,
-      render: (_: any, record: Voucher) => (
-        <Space direction="vertical" size={0}>
-          <Text>
-            Tạo lúc:{" "}
-            <Text type="secondary">
-              {record.createdAt
-                ? dayjs(record.createdAt).format("DD/MM/YYYY HH:mm")
-                : "—"}
+      render: (_: any, record: Voucher) => {
+        const startDate = record.startDate ? dayjs(record.startDate) : null;
+        const endDate = record.endDate ? dayjs(record.endDate) : null;
+        const createdAt = record.createdAt ? dayjs(record.createdAt) : null;
+
+        return (
+          <Space direction="vertical" size={0}>
+            <Text>
+              Bắt đầu: {startDate ? startDate.format("DD/MM/YYYY HH:mm") : "—"}
             </Text>
-          </Text>
-          <Text>
-            Bắt đầu:{" "}
-            {record.startDate
-              ? dayjs(record.startDate).format("DD/MM/YYYY")
-              : "—"}
-          </Text>
-          <Text>
-            Kết thúc:{" "}
-            {record.endDate
-              ? dayjs(record.endDate).format("DD/MM/YYYY")
-              : "—"}
-          </Text>
-        </Space>
-      ),
+            <Text>
+              Kết thúc: {endDate ? endDate.format("DD/MM/YYYY HH:mm") : "—"}
+            </Text>
+          </Space>
+        );
+      },
     },
     {
       title: "Trạng thái",
@@ -500,120 +494,121 @@ const VoucherManagement: React.FC = () => {
                 </span>
               ),
               children: (
-            <Space direction="vertical" size={24} style={{ width: "100%" }}>
-              <Card>
-                <Row gutter={16} align="middle">
-                  <Col xs={24} md={12}>
-                    <Input.Search
-                      placeholder="Tìm mã voucher"
-                      allowClear
-                      onSearch={handleStatsSearch}
-                      loading={listLoading}
-                    />
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Select
-                      showSearch
-                      style={{ width: "100%" }}
-                      placeholder="Chọn voucher"
-                      loading={listLoading}
-                      value={selectedVoucherId}
-                      onChange={setSelectedVoucherId}
-                      filterOption={false}
-                      notFoundContent={
-                        listLoading ? <Spin size="small" /> : <Empty />
-                      }
-                    >
-                      {voucherList.map((voucher) => (
-                        <Option key={voucher._id} value={voucher._id}>
-                          <Space>
-                            <Text strong>{voucher.code}</Text>
-                            <Tag
-                              color={
-                                voucher.status === VOUCHER_STATUS.ACTIVE
-                                  ? "green"
-                                  : "default"
-                              }
-                            >
-                              {voucher.status}
-                            </Tag>
+                <Space direction="vertical" size={24} style={{ width: "100%" }}>
+                  <Card>
+                    <Row gutter={16} align="middle">
+                      <Col xs={24} md={12}>
+                        <Input.Search
+                          placeholder="Tìm mã voucher"
+                          allowClear
+                          onSearch={handleStatsSearch}
+                          loading={listLoading}
+                        />
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <Select
+                          showSearch
+                          style={{ width: "100%" }}
+                          placeholder="Chọn voucher"
+                          loading={listLoading}
+                          value={selectedVoucherId}
+                          onChange={setSelectedVoucherId}
+                          filterOption={false}
+                          notFoundContent={
+                            listLoading ? <Spin size="small" /> : <Empty />
+                          }
+                        >
+                          {voucherList.map((voucher) => (
+                            <Option key={voucher._id} value={voucher._id}>
+                              <Space>
+                                <Text strong>{voucher.code}</Text>
+                                <Tag
+                                  color={
+                                    voucher.status === VOUCHER_STATUS.ACTIVE
+                                      ? "green"
+                                      : "default"
+                                  }
+                                >
+                                  {voucher.status}
+                                </Tag>
+                              </Space>
+                            </Option>
+                          ))}
+                        </Select>
+                      </Col>
+                    </Row>
+                  </Card>
+
+                  {statsLoading ? (
+                    <div style={{ textAlign: "center", padding: "50px" }}>
+                      <Spin size="large" />
+                    </div>
+                  ) : !stats ? (
+                    <Empty description="Chọn voucher để xem thống kê" />
+                  ) : (
+                    <>
+                      {selectedVoucher && (
+                        <Card>
+                          <Space direction="vertical" size={8}>
+                            <Text strong>{selectedVoucher.code}</Text>
+                            <Text>
+                              Loại giảm:{" "}
+                              {selectedVoucher.discountType ===
+                              DISCOUNT_TYPES.PERCENT
+                                ? `Giảm ${selectedVoucher.discountValue}%`
+                                : `Giảm ${formatCurrency(
+                                    selectedVoucher.discountValue
+                                  )}`}
+                            </Text>
+                            <Text>
+                              Thời gian:{` `}
+                              {selectedVoucher.startDate
+                                ? dayjs(selectedVoucher.startDate).format(
+                                    "DD/MM/YYYY HH:mm"
+                                  )
+                                : "—"}{" "}
+                              -{" "}
+                              {selectedVoucher.endDate
+                                ? dayjs(selectedVoucher.endDate).format(
+                                    "DD/MM/YYYY HH:mm"
+                                  )
+                                : "—"}
+                            </Text>
                           </Space>
-                        </Option>
-                      ))}
-                    </Select>
-                  </Col>
-                </Row>
-              </Card>
+                        </Card>
+                      )}
 
-              {statsLoading ? (
-                <div style={{ textAlign: "center", padding: "50px" }}>
-                  <Spin size="large" />
-                </div>
-              ) : !stats ? (
-                <Empty description="Chọn voucher để xem thống kê" />
-              ) : (
-                <>
-                  {selectedVoucher && (
-                    <Card>
-                      <Space direction="vertical" size={8}>
-                        <Text strong>{selectedVoucher.code}</Text>
-                        <Text>
-                          Loại giảm:{" "}
-                          {selectedVoucher.discountType === DISCOUNT_TYPES.PERCENT
-                            ? `Giảm ${selectedVoucher.discountValue}%`
-                            : `Giảm ${formatCurrency(
-                                selectedVoucher.discountValue
-                              )}`}
-                        </Text>
-                        <Text>
-                          Thời gian:{` `}
-                          {selectedVoucher.startDate
-                            ? dayjs(selectedVoucher.startDate).format(
-                                "DD/MM/YYYY"
-                              )
-                            : "—"}{" "}
-                          -{" "}
-                          {selectedVoucher.endDate
-                            ? dayjs(selectedVoucher.endDate).format(
-                                "DD/MM/YYYY"
-                              )
-                            : "—"}
-                        </Text>
-                      </Space>
-                    </Card>
+                      {statsCards}
+
+                      <Card title="Khách hàng sử dụng nhiều nhất">
+                        <Table
+                          rowKey={(row: VoucherStatsUser) => row._id}
+                          dataSource={stats.users}
+                          columns={userColumns}
+                          pagination={false}
+                          locale={{ emptyText: "Chưa có lượt sử dụng" }}
+                        />
+                      </Card>
+
+                      <Card
+                        title="Đơn hàng đã áp dụng voucher"
+                        extra={
+                          <Alert
+                            type="info"
+                            message="Đơn bị hủy trước khi sử dụng sẽ được hoàn lượt và đánh dấu 'voucher restored'. Nếu đơn đã sử dụng dịch vụ, voucher không được hoàn lại."
+                          />
+                        }
+                      >
+                        <Table
+                          rowKey={(row: VoucherStatsBooking) => row._id}
+                          dataSource={stats.bookings}
+                          columns={bookingColumns}
+                          scroll={{ x: 900 }}
+                        />
+                      </Card>
+                    </>
                   )}
-
-                  {statsCards}
-
-                  <Card title="Khách hàng sử dụng nhiều nhất">
-                    <Table
-                      rowKey={(row: VoucherStatsUser) => row._id}
-                      dataSource={stats.users}
-                      columns={userColumns}
-                      pagination={false}
-                      locale={{ emptyText: "Chưa có lượt sử dụng" }}
-                    />
-                  </Card>
-
-                  <Card
-                    title="Đơn hàng đã áp dụng voucher"
-                    extra={
-                      <Alert
-                        type="info"
-                        message="Đơn bị hủy trước khi sử dụng sẽ được hoàn lượt và đánh dấu 'voucher restored'. Nếu đơn đã sử dụng dịch vụ, voucher không được hoàn lại."
-                      />
-                    }
-                  >
-                    <Table
-                      rowKey={(row: VoucherStatsBooking) => row._id}
-                      dataSource={stats.bookings}
-                      columns={bookingColumns}
-                      scroll={{ x: 900 }}
-                    />
-                  </Card>
-                </>
-              )}
-            </Space>
+                </Space>
               ),
             },
           ]}
@@ -624,4 +619,3 @@ const VoucherManagement: React.FC = () => {
 };
 
 export default VoucherManagement;
-

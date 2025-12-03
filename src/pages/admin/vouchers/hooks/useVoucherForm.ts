@@ -88,8 +88,8 @@ const useVoucherForm = () => {
       minOrderValue: Number(values.minOrderValue ?? 0),
       totalIssued: Number(values.totalIssued),
       perUserLimit: Number(values.perUserLimit),
-      startDate: values.startDate.startOf("day").toISOString(),
-      endDate: values.endDate.endOf("day").toISOString(),
+      startDate: values.startDate.toISOString(),
+      endDate: values.endDate.toISOString(),
       applicableCourtIds:
         values.applicableCourtIds && values.applicableCourtIds.length > 0
           ? values.applicableCourtIds
@@ -157,6 +157,9 @@ const useVoucherForm = () => {
     discountType: DISCOUNT_TYPES.PERCENT,
     status: true,
     minOrderValue: 0,
+    // Tự động set ngày bắt đầu = thời gian hiện tại và ngày kết thúc = thời gian hiện tại + 1 ngày khi mở form
+    startDate: dayjs(),
+    endDate: dayjs().add(1, 'day'),
   };
 
   return {

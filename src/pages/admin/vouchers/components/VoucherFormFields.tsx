@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, Col, Form, Input, InputNumber, Row, Select, Space, Switch, DatePicker, Button } from 'antd';
 import type { FormInstance } from 'antd';
 import type { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { DISCOUNT_TYPES } from '@/common/constants/enums';
 import type { VoucherFormValues } from '../hooks/useVoucherForm';
 
@@ -197,14 +198,23 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                         label='Ngày bắt đầu'
                         name='startDate'
                         rules={[
-                            { required: true, message: 'Vui lòng chọn ngày bắt đầu!' },
+                            { required: true, message: 'Vui lòng chọn ngày và giờ bắt đầu!' },
                         ]}
                     >
                         <DatePicker
-                            format='DD/MM/YYYY'
+                            showTime
+                            format='DD/MM/YYYY HH:mm'
                             style={{ width: '100%' }}
                             disabledDate={disabledPastDate}
-                            placeholder='DD/MM/YYYY'
+                            placeholder='DD/MM/YYYY HH:mm'
+                            onChange={(date) => {
+                                if (date) {
+                                    const selectedDate = dayjs(date);
+                                    // Tự động điền ngày kết thúc = ngày bắt đầu + 1 ngày, giữ nguyên giờ:phút
+                                    const endDate = selectedDate.add(1, 'day');
+                                    form.setFieldsValue({ endDate });
+                                }
+                            }}
                         />
                     </Form.Item>
                 </Col>
@@ -214,7 +224,7 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                         name='endDate'
                         dependencies={['startDate']}
                         rules={[
-                            { required: true, message: 'Vui lòng chọn ngày kết thúc!' },
+                            { required: true, message: 'Vui lòng chọn ngày và giờ kết thúc!' },
                             {
                                 validator: (_, value) => {
                                     if (!value) {
@@ -223,7 +233,7 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                                     const startDate = form.getFieldValue('startDate');
                                     if (startDate && value.valueOf() <= startDate.valueOf()) {
                                         return Promise.reject(
-                                            new Error('Ngày kết thúc phải sau ngày bắt đầu!')
+                                            new Error('Thời gian kết thúc phải sau thời gian bắt đầu!')
                                         );
                                     }
                                     return Promise.resolve();
@@ -232,7 +242,8 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                         ]}
                     >
                         <DatePicker
-                            format='DD/MM/YYYY'
+                            showTime
+                            format='DD/MM/YYYY HH:mm'
                             style={{ width: '100%' }}
                             disabledDate={(current) => {
                                 if (disabledPastDate(current)) {
@@ -244,7 +255,39 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                                 }
                                 return false;
                             }}
-                            placeholder='DD/MM/YYYY'
+                            disabledTime={(current) => {
+                                const startDate = form.getFieldValue('startDate');
+                                if (!startDate || !current) {
+                                    return {};
+                                }
+                                
+                                // Nếu chọn cùng ngày với ngày bắt đầu, disable các giờ:phút trước thời gian bắt đầu
+                                if (current.isSame(startDate, 'day')) {
+                                    const startHour = startDate.hour();
+                                    const startMinute = startDate.minute();
+                                    return {
+                                        disabledHours: () => {
+                                            const hours = [];
+                                            for (let i = 0; i < startHour; i++) {
+                                                hours.push(i);
+                                            }
+                                            return hours;
+                                        },
+                                        disabledMinutes: (selectedHour: number) => {
+                                            if (selectedHour === startHour) {
+                                                const minutes = [];
+                                                for (let i = 0; i <= startMinute; i++) {
+                                                    minutes.push(i);
+                                                }
+                                                return minutes;
+                                            }
+                                            return [];
+                                        },
+                                    };
+                                }
+                                return {};
+                            }}
+                            placeholder='DD/MM/YYYY HH:mm'
                         />
                     </Form.Item>
                 </Col>

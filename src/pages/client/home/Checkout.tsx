@@ -239,9 +239,14 @@ const Checkout: React.FC = () => {
     // Nếu voucher yêu cầu tổng đơn tối thiểu và đơn hiện tại không đủ, chặn luôn
     if (minOrderValue > 0 && baseTotal < minOrderValue) {
       toast.error(
-        `Đơn của bạn không đủ điều kiện sử dụng voucher này. Đơn phải từ ${new Intl.NumberFormat(
+        `❌ Không thể áp dụng voucher "${code}". Đơn của bạn (${new Intl.NumberFormat(
           "vi-VN"
-        ).format(minOrderValue)}đ trở lên.`
+        ).format(baseTotal)}đ) chưa đủ điều kiện. Đơn tối thiểu: ${new Intl.NumberFormat(
+          "vi-VN"
+        ).format(minOrderValue)}đ`,
+        {
+          duration: 4000,
+        }
       );
       return;
     }
@@ -568,64 +573,102 @@ const Checkout: React.FC = () => {
                           </p>
                         ) : (
                           <div className="space-y-2 max-h-80 overflow-y-auto">
-                            {publicVouchers.map((v) => (
-                              <button
-                                key={v.code}
-                                type="button"
-                                onClick={() =>
-                                  handleSelectVoucherFromList(
-                                    v.code,
-                                    v.minOrderValue
-                                  )
-                                }
-                                className="w-full text-left border border-blue-200 rounded-lg p-3 hover:bg-blue-50 transition flex flex-col gap-1"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold text-blue-700">
-                                    {v.code}
-                                  </span>
-                                  <span className="text-sm text-green-700 font-semibold">
-                                    {v.discountDisplay}
-                                  </span>
-                                </div>
-                                {v.description && (
-                                  <p className="text-xs text-gray-600">
-                                    {v.description}
-                                  </p>
-                                )}
-                                <div className="flex flex-wrap gap-3 text-xs text-gray-500 mt-1">
-                                  <span>
-                                    Còn lại:{" "}
-                                    <span className="font-semibold text-green-700">
-                                      {v.remainingQuantity}
+                            {publicVouchers.map((v) => {
+                              const isDisabled =
+                                v.minOrderValue > 0 && baseTotal < v.minOrderValue;
+                              return (
+                                <button
+                                  key={v.code}
+                                  type="button"
+                                  onClick={() =>
+                                    handleSelectVoucherFromList(
+                                      v.code,
+                                      v.minOrderValue
+                                    )
+                                  }
+                                  disabled={isDisabled}
+                                  className={`w-full text-left border rounded-lg p-3 transition flex flex-col gap-1 ${
+                                    isDisabled
+                                      ? "border-gray-300 bg-gray-100 opacity-60 cursor-not-allowed"
+                                      : "border-blue-200 hover:bg-blue-50 hover:border-blue-300 cursor-pointer"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span
+                                      className={`font-semibold ${
+                                        isDisabled
+                                          ? "text-gray-500"
+                                          : "text-blue-700"
+                                      }`}
+                                    >
+                                      {v.code}
                                     </span>
-                                  </span>
-                                  {v.minOrderValue > 0 && (
+                                    <span
+                                      className={`text-sm font-semibold ${
+                                        isDisabled
+                                          ? "text-gray-500"
+                                          : "text-green-700"
+                                      }`}
+                                    >
+                                      {v.discountDisplay}
+                                    </span>
+                                  </div>
+                                  {v.description && (
+                                    <p
+                                      className={`text-xs ${
+                                        isDisabled
+                                          ? "text-gray-400"
+                                          : "text-gray-600"
+                                      }`}
+                                    >
+                                      {v.description}
+                                    </p>
+                                  )}
+                                  <div className="flex flex-wrap gap-3 text-xs text-gray-500 mt-1">
                                     <span>
-                                      Đơn tối thiểu:{" "}
-                                      <span className="font-semibold">
-                                        {new Intl.NumberFormat("vi-VN").format(
-                                          v.minOrderValue
-                                        )}{" "}
-                                        VNĐ
+                                      Còn lại:{" "}
+                                      <span className="font-semibold text-green-700">
+                                        {v.remainingQuantity}
                                       </span>
                                     </span>
-                                  )}
-                                  <span>
-                                    Hạn dùng:{" "}
-                                    <span className="font-semibold">
-                                      {new Date(
-                                        v.startDate
-                                      ).toLocaleDateString("vi-VN")}{" "}
-                                      -{" "}
-                                      {new Date(
-                                        v.endDate
-                                      ).toLocaleDateString("vi-VN")}
+                                    {v.minOrderValue > 0 && (
+                                      <span>
+                                        Đơn tối thiểu:{" "}
+                                        <span
+                                          className={`font-semibold ${
+                                            isDisabled
+                                              ? "text-red-600"
+                                              : ""
+                                          }`}
+                                        >
+                                          {new Intl.NumberFormat("vi-VN").format(
+                                            v.minOrderValue
+                                          )}{" "}
+                                          VNĐ
+                                        </span>
+                                        {isDisabled && (
+                                          <span className="ml-1 text-red-600 font-semibold">
+                                            (Không đủ điều kiện)
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
+                                    <span>
+                                      Hạn dùng:{" "}
+                                      <span className="font-semibold">
+                                        {new Date(
+                                          v.startDate
+                                        ).toLocaleDateString("vi-VN")}{" "}
+                                        -{" "}
+                                        {new Date(
+                                          v.endDate
+                                        ).toLocaleDateString("vi-VN")}
+                                      </span>
                                     </span>
-                                  </span>
-                                </div>
-                              </button>
-                            ))}
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </DialogContent>
