@@ -33,7 +33,7 @@ export const useVoucherValidation = ({
     const [voucherCode, setVoucherCode] = useState('');
     const [error, setError] = useState<string | null>(null);
 
-    const validateVoucher = async (code: string) => {
+    const validateVoucher = async (code: string, expectedDiscountValue?: number) => {
         if (!code || !code.trim()) {
             setError('Vui lòng nhập mã voucher!');
             return null;
@@ -59,6 +59,7 @@ export const useVoucherValidation = ({
                 courtId,
                 bookingDate: bookingDate || new Date().toISOString(),
                 startTime: startTime || undefined,
+                expectedDiscountValue,
             });
 
             const data = response.data?.data;
@@ -90,8 +91,8 @@ export const useVoucherValidation = ({
         setError(null);
     };
 
-    const applyVoucher = async (code: string) => {
-        return await validateVoucher(code);
+    const applyVoucher = async (code: string, expectedDiscountValue?: number) => {
+        return await validateVoucher(code, expectedDiscountValue);
     };
 
     return {

@@ -218,7 +218,10 @@ const Checkout: React.FC = () => {
   }, []);
 
   // Xử lý apply voucher (từ input hoặc từ danh sách chọn)
-  const handleApplyVoucher = async (codeFromList?: string) => {
+  const handleApplyVoucher = async (
+    codeFromList?: string,
+    expectedDiscountValue?: number
+  ) => {
     const rawCode = (codeFromList ?? voucherInput).trim();
     if (!rawCode) {
       toast.error("Vui lòng chọn mã voucher!");
@@ -231,11 +234,15 @@ const Checkout: React.FC = () => {
     }
 
     const upperCode = rawCode.toUpperCase();
-    await validateVoucher(upperCode);
+    await validateVoucher(upperCode, expectedDiscountValue);
     setVoucherInput(upperCode);
   };
 
-  const handleSelectVoucherFromList = async (code: string, minOrderValue: number) => {
+  const handleSelectVoucherFromList = async (
+    code: string,
+    minOrderValue: number,
+    discountValue: number
+  ) => {
     // Nếu voucher yêu cầu tổng đơn tối thiểu và đơn hiện tại không đủ, chặn luôn
     if (minOrderValue > 0 && baseTotal < minOrderValue) {
       toast.error(
@@ -251,7 +258,7 @@ const Checkout: React.FC = () => {
       return;
     }
 
-    await handleApplyVoucher(code);
+    await handleApplyVoucher(code, discountValue);
     setVoucherDialogOpen(false);
   };
 
@@ -593,7 +600,8 @@ const Checkout: React.FC = () => {
                                   onClick={() =>
                                     handleSelectVoucherFromList(
                                       v.code,
-                                      v.minOrderValue
+                                      v.minOrderValue,
+                                      v.discountValue
                                     )
                                   }
                                   disabled={isDisabled}
