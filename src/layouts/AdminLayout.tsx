@@ -3,9 +3,7 @@ import { Layout, Menu, theme, Avatar, Dropdown } from 'antd';
 import {
     DashboardOutlined,
     AppstoreOutlined,
-    ShoppingOutlined,
     UserOutlined,
-    FileTextOutlined,
     LogoutOutlined,
     MenuFoldOutlined,
     MenuUnfoldOutlined,
@@ -16,6 +14,7 @@ import {
     TeamOutlined,
     ToolOutlined,
     FileDoneOutlined,
+    GiftOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -43,6 +42,7 @@ const AdminLayout: React.FC = () => {
         if (path.startsWith('/admin/equipments')) return 'equipments';
         if (path.startsWith('/admin/reports')) return 'reports';
         if (path.startsWith('/admin/invoices')) return 'invoices';
+        if (path.startsWith('/admin/vouchers')) return 'vouchers';
         return 'dashboard';
     };
 
@@ -52,7 +52,9 @@ const AdminLayout: React.FC = () => {
     React.useEffect(() => {
         if (pathname.startsWith('/admin/bookings')) {
             setOpenKeys(['bookings']);
+            return;
         }
+        setOpenKeys([]);
     }, [pathname]);
 
     const userMenu = {
@@ -137,6 +139,11 @@ const AdminLayout: React.FC = () => {
                             key: 'equipments',
                             icon: <ToolOutlined />,
                             label: <Link to='/admin/equipments'>Thiết bị</Link>,
+                        },
+                        {
+                            key: 'vouchers',
+                            icon: <GiftOutlined />,
+                            label: <Link to='/admin/vouchers'>Voucher</Link>,
                         },
                         {
                             key: 'reports',

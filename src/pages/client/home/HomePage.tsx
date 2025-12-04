@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaSearch } from "react-icons/fa";
+import VoucherSection from "@/components/VoucherSection";
 
 interface Court {
   _id: string;
@@ -227,6 +228,9 @@ const HomePage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Voucher Section */}
+      <VoucherSection />
 
       {/* Courts List */}
       <section className="bg-gray-50 py-16">

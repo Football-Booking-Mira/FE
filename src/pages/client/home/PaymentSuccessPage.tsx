@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,17 @@ const PaymentResultPage: React.FC = () => {
     window.localStorage.getItem('checkout-data') || 'null'
   );
 
+  // ⭐ Xóa checkout-data sau khi thanh toán thành công để tránh dùng lại
+  useEffect(() => {
+    if (isSuccess) {
+      // Xóa checkout data sau 3 giây để user có thể xem thông tin
+      const timer = setTimeout(() => {
+        localStorage.removeItem('checkout-data');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess]);
+
   const handleRetryBooking = () => {
     // Nếu có courtId thì quay lại đúng trang sân
     if (checkoutData?.courtId) {
@@ -58,7 +69,7 @@ const PaymentResultPage: React.FC = () => {
             {isSuccess ? 'Đặt Sân Thành Công' : 'Thanh Toán Không Thành Công'}
           </h1>
 
-          <p className='text-gray-600 mb-6'>
+          <p className='text-gray-600 mb-4'>
             {isSuccess
               ? 'Cảm ơn bạn đã đặt sân. Chúc bạn có trận đấu vui vẻ!'
               : 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Bạn vui lòng thử lại hoặc chọn phương thức khác.'}

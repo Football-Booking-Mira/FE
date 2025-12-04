@@ -6,10 +6,14 @@ import BookingCreate from "@/pages/admin/bookings/BookingCreate";
 import EquipmentList from "@/pages/admin/equipments/EquipmentList.tsx";
 import BookingList from "@/pages/admin/bookings/BookingList.tsx";
 import RoleRoute from "@/common/middlewares/RoleRoute";
-import CourtUpdate from "@/pages/admin/courts/CourtUpdate";
-import CourtDetail from "@/pages/admin/dashboard/CourtDetail";
-import Users from "@/pages/admin/users/users.tsx";
 import BookingPolicyPage from "@/pages/client/home/BookingPolicyPage";
+import CourtUpdate from "../pages/admin/courts/CourtUpdate";
+import CourtDetail from "../pages/admin/dashboard/CourtDetail";
+import VoucherCreate from "../pages/admin/vouchers/VoucherCreate";
+import VoucherManagement from "../pages/admin/vouchers/VoucherManagement";
+import VoucherEdit from "../pages/admin/vouchers/VoucherEdit";
+
+import Users from "@/pages/admin/users/users.tsx";
 import BookingReportPage from "@/pages/admin/reports/BookingReportPage";
 
 export const AdminRoutes: RouteObject[] = [
@@ -29,6 +33,10 @@ export const AdminRoutes: RouteObject[] = [
       { path: "bookings/create", element: <BookingCreate /> },
       { path: "customers", element: <Users /> },
       { path: "equipments", element: <EquipmentList /> }, // Thiết bị
+
+      { path: "vouchers", element: <VoucherManagement /> },
+      { path: "vouchers/create", element: <VoucherCreate /> },
+      { path: "vouchers/edit/:id", element: <VoucherEdit /> },
       { path: "booking-policy", element: <BookingPolicyPage /> },
       { path: "reports", element: <BookingReportPage /> },
     ],
