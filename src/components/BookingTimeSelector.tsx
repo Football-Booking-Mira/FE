@@ -9,14 +9,13 @@ export interface SelectedSlot {
     duration: number; // phút
 }
 
-
 interface Props {
     courtId: string;
     basePrice: number;
     peakPrice: number;
     // giờ trả ra MẢNG ca đã chọn
     onSlotSelected: (slots: SelectedSlot[]) => void;
-    single?: boolean
+    single?: boolean;
 }
 
 interface BookedSlot {
@@ -95,7 +94,7 @@ const BookingTimeSelector: React.FC<Props> = ({
     basePrice,
     peakPrice,
     onSlotSelected,
-    single
+    single,
 }) => {
     const [selectedDateStr, setSelectedDateStr] = useState<string>(getLocalDateStr());
     const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([]);
@@ -204,7 +203,6 @@ const BookingTimeSelector: React.FC<Props> = ({
         });
     };
 
-
     // tính tiền mỗi khi đổi selectedSlots
     useEffect(() => {
         if (selectedSlots.length === 0) {
@@ -250,17 +248,17 @@ const BookingTimeSelector: React.FC<Props> = ({
         setBreakMinutes(breaks * BREAK_DURATION);
 
         onSlotSelected(chosenSlots);
-    }, [selectedSlots, selectedDateStr, basePrice, peakPrice, onSlotSelected]);
+    }, [selectedSlots, selectedDateStr, basePrice, peakPrice]);
 
     // chuỗi hiển thị các khung giờ đã chọn
     const selectedDisplay =
         selectedSlots.length === 0
             ? '--:--'
             : TIME_SLOTS.filter((slot) => selectedSlots.includes(slot.start))
-                .map(
-                    (slot) => `${formatDisplayTime(slot.start)} - ${formatDisplayTime(slot.end)}`
-                )
-                .join(', ');
+                  .map(
+                      (slot) => `${formatDisplayTime(slot.start)} - ${formatDisplayTime(slot.end)}`
+                  )
+                  .join(', ');
 
     return (
         <div className='w-full max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 p-4 font-sans'>
@@ -341,8 +339,9 @@ const BookingTimeSelector: React.FC<Props> = ({
 
                             {!past && !booked && (
                                 <span
-                                    className={`text-[11px] font-bold ${selected ? 'text-green-100' : 'text-green-700'
-                                        }`}
+                                    className={`text-[11px] font-bold ${
+                                        selected ? 'text-green-100' : 'text-green-700'
+                                    }`}
                                 >
                                     {price.toLocaleString('vi-VN')} VNĐ
                                 </span>
