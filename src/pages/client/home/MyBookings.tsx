@@ -456,7 +456,7 @@ const MyBookings: React.FC = () => {
                                     booking.refundBillImage ||
                                     booking.refund?.billImage ||
                                     booking.refund?.bill?.image;
-                                console.log('booking client list >>>', booking);
+                                //  console.log('booking client list >>>', booking);
 
                                 const refundAdminReason =
                                     booking.refundAdminReason ||
