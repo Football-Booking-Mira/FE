@@ -50,7 +50,7 @@ const UserEquipmentList: React.FC = () => {
   const fetchEquipments = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/equipments");
+      const res = await api.get("/equipments/public");
       const list: Equipment[] = res.data?.data ?? res.data ?? [];
       setEquipments(list);
     } finally {

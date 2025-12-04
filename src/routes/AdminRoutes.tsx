@@ -14,6 +14,7 @@ import VoucherManagement from "../pages/admin/vouchers/VoucherManagement";
 import VoucherEdit from "../pages/admin/vouchers/VoucherEdit";
 
 import Users from "@/pages/admin/users/users.tsx";
+import BookingReportPage from "@/pages/admin/reports/BookingReportPage";
 
 export const AdminRoutes: RouteObject[] = [
   {
@@ -32,10 +33,12 @@ export const AdminRoutes: RouteObject[] = [
       { path: "bookings/create", element: <BookingCreate /> },
       { path: "customers", element: <Users /> },
       { path: "equipments", element: <EquipmentList /> }, // Thiết bị
+
       { path: "vouchers", element: <VoucherManagement /> },
       { path: "vouchers/create", element: <VoucherCreate /> },
       { path: "vouchers/edit/:id", element: <VoucherEdit /> },
       { path: "booking-policy", element: <BookingPolicyPage /> },
+      { path: "reports", element: <BookingReportPage /> },
     ],
   },
 ];

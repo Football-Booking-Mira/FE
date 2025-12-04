@@ -55,7 +55,6 @@ const formatCurrency = (value: number) =>
   `${new Intl.NumberFormat("vi-VN").format(value)} VNĐ`;
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated, userName } = useAuth();

@@ -702,8 +702,6 @@ export default function BookingList() {
         }
     };
 
-
-
     const fetchStats = async () => {
         try {
             const res = await api.get('/bookings/admin/dashboard');
@@ -820,6 +818,8 @@ export default function BookingList() {
         try {
             const res = await api.get(`/bookings/${bookingId}/admin-detail`);
             const data = res.data?.data || res.data;
+            console.log("data: ", data);
+
             setDetailData(data);
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Không thể tải chi tiết đơn đặt sân!';
@@ -895,7 +895,7 @@ export default function BookingList() {
         try {
             await api.patch(`/bookings/${editingBooking._id}/time`, {
                 courtId,
-                date: date.toISOString(),
+                date: dayjs(date).format('YYYY-MM-DD'),
                 startTime,
                 endTime,
             });
@@ -940,8 +940,7 @@ export default function BookingList() {
                         </b>
                     </p>
                     <p>
-                        Tiền cọc:{' '}
-                        <b>{formatVND(record.depositAmount || 0)}</b>
+                        Tiền cọc: <b>{formatVND(record.depositAmount || 0)}</b>
                     </p>
 
                     <Checkbox
@@ -983,7 +982,6 @@ export default function BookingList() {
         });
     };
 
-
     const handleAction = async (
         id: string,
         action: 'confirm' | 'cancel' | 'checkin' | 'checkout' | 'paid'
@@ -1008,6 +1006,8 @@ export default function BookingList() {
                 return;
             } else if (action === 'checkout') {
                 const res = await api.patch(`/bookings/${id}/checkout`);
+                console.log("res check out: ", res.data);
+
                 toast.success('🏁 Check-out thành công!');
                 const update: Booking = res.data?.data || bookings.find((b) => b._id === id)!;
                 openPaymentModal(update);
@@ -1041,6 +1041,7 @@ export default function BookingList() {
             setInvoiceDetail(null);
 
             const res = await api.get(`/invoices/by-booking/${b._id}`);
+
             setInvoiceDetail(res.data);
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Không thể tải thông tin hóa đơn!';
@@ -1051,8 +1052,68 @@ export default function BookingList() {
         }
     };
 
+    const [showQrModal, setShowQrModal] = useState(false);
+    const [qrData, setQrData] = useState(null);
+
+    const token = localStorage.getItem('token');
+    const handleMethodChange = async (value) => {
+        if (value !== "transfer") {
+            setShowQrModal(false);
+            return;
+        }
+
+        try {
+            const res = await fetch("http://localhost:3000/api/bookings/payment/vietqr", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    bookingId: paymentBooking._id,
+                    amount: paymentBaseTotal,
+                    customer: {
+                        name:
+                            paymentBooking.customerInfo?.name ||
+                            paymentBooking.customerId?.name ||
+                            "Khách hàng",
+                        phone:
+                            paymentBooking.customerInfo?.phone ||
+                            paymentBooking.customerId?.phone ||
+                            "",
+                        email:
+                            paymentBooking.customerInfo?.email ||
+                            paymentBooking.customerId?.email ||
+                            "",
+                    },
+                }),
+            });
+
+            const result = await res.json();
+
+            const qr = result?.data?.qrImageBase64;
+            const amount = result?.data?.amount;
+
+            if (qr) {
+                setQrData({
+                    image: qr,
+                    amount: amount,
+                });
+                setShowQrModal(true);
+            } else {
+                console.error("Không lấy được mã QR từ API.");
+            }
+        } catch (err) {
+            console.error(err);
+            console.error("Lỗi khi tạo mã QR.");
+        }
+    };
+
+
+
     const handleConfirmPayment = async () => {
         if (!paymentBooking) return;
+
 
         try {
             const values = await paymentForm.validateFields();
@@ -1309,13 +1370,8 @@ export default function BookingList() {
                     const percent =
                         fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
 
-                    return (
-                        <Tag color={color}>
-                            Đã đặt cọc {percent}% tiền sân
-                        </Tag>
-                    );
+                    return <Tag color={color}>Đã đặt cọc {percent}% tiền sân</Tag>;
                 }
-
 
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
             },
@@ -1412,7 +1468,6 @@ export default function BookingList() {
                                 >
                                     <CloseCircleOutlined /> Hủy
                                 </Button>
-
                             </>
                         )}
 
@@ -1449,7 +1504,7 @@ export default function BookingList() {
                                     danger
                                     onClick={() => {
                                         if (b.paymentMethod === 'cash') {
-                                            handleAdminCancelCash(b);      // đơn tiền mặt / cọc tại sân
+                                            handleAdminCancelCash(b); // đơn tiền mặt / cọc tại sân
                                         } else {
                                             handleAction(b._id, 'cancel'); // online (VNPAY/Momo...) dùng API hủy cũ
                                         }
@@ -1457,7 +1512,6 @@ export default function BookingList() {
                                 >
                                     Hủy
                                 </Button>
-
                             </>
                         )}
 
@@ -1572,11 +1626,7 @@ export default function BookingList() {
                     const percent =
                         fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
 
-                    return (
-                        <Tag color={color}>
-                            Đã đặt cọc {percent}% tiền sân
-                        </Tag>
-                    );
+                    return <Tag color={color}>Đã đặt cọc {percent}% tiền sân</Tag>;
                 }
 
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
@@ -1919,6 +1969,8 @@ export default function BookingList() {
                 onOk={handleSaveEdit}
                 okText='Lưu thay đổi'
                 cancelText='Hủy'
+                width={900}
+                centered
                 title={
                     editingBooking
                         ? `Chỉnh sửa đặt sân - ${editingBooking.code}`
@@ -1926,11 +1978,141 @@ export default function BookingList() {
                 }
             >
                 {editingBooking && (
-                    <div className='space-y-3'>
-                        <div className='text-sm text-gray-600'>
-                            Đã chọn {selectedSlotsCount} ca, nghỉ {selectedBreakMinutes} phút.
+                    <div className='space-y-4'>
+                        {/* chọn sân + ngày */}
+                        <Row gutter={12}>
+                            <Col span={12}>
+                                <div className='text-xs font-semibold text-gray-600 mb-1'>
+                                    Chọn sân
+                                </div>
+                                <Select
+                                    style={{ width: '100%' }}
+                                    placeholder='Chọn sân'
+                                    value={editValues.courtId}
+                                    options={courts.map((c) => ({
+                                        value: c._id,
+                                        label: c.name,
+                                    }))}
+                                    onChange={(value) =>
+                                        setEditValues((prev) => ({
+                                            ...prev,
+                                            courtId: value,
+                                            // đổi sân thì reset khoảng giờ
+                                            startTime: '',
+                                            endTime: '',
+                                            priceInfo: undefined,
+                                        }))
+                                    }
+                                />
+                            </Col>
+                            <Col span={12}>
+                                <div className='text-xs font-semibold text-gray-600 mb-1'>
+                                    Chọn ngày đá
+                                </div>
+                                <DatePicker
+                                    style={{ width: '100%' }}
+                                    format='DD/MM/YYYY'
+                                    value={editValues.date}
+                                    onChange={(value) =>
+                                        setEditValues((prev) => ({
+                                            ...prev,
+                                            date: value,
+                                            // đổi ngày cũng reset giờ
+                                            startTime: '',
+                                            endTime: '',
+                                            priceInfo: undefined,
+                                        }))
+                                    }
+                                />
+                            </Col>
+                        </Row>
+
+                        {/* info số ca + phút nghỉ */}
+                        <div className='text-sm text-gray-700'>
+                            Đã chọn <b>{selectedSlotsCount}</b> ca, nghỉ{' '}
+                            <b>{selectedBreakMinutes}</b> phút.
                         </div>
-                        {/* ông nếu muốn hiển thị grid ca giờ thì render TIME_SLOTS ở đây */}
+
+                        {/* GRID chọn ca giờ giống BookingTimeSelector */}
+                        <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2'>
+                            {TIME_SLOTS.map((slot, idx) => {
+                                const past = isSlotPast(slot.start);
+                                const booked = isSlotBooked(slot.start, slot.end);
+                                const selected = isSlotSelected(slot.start, slot.end);
+
+                                let btnClass =
+                                    'border rounded-lg p-2 flex flex-col items-center justify-center min-h-[70px] text-sm transition-all ';
+
+                                if (past) {
+                                    btnClass +=
+                                        'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-60';
+                                } else if (booked) {
+                                    btnClass +=
+                                        'bg-red-500 border-red-600 text-white cursor-not-allowed';
+                                } else if (selected) {
+                                    btnClass +=
+                                        'bg-green-600 border-green-600 text-white shadow-md scale-[1.02]';
+                                } else {
+                                    btnClass +=
+                                        'bg-white border-gray-200 hover:border-green-500 hover:bg-green-50 cursor-pointer';
+                                }
+
+                                return (
+                                    <button
+                                        key={idx}
+                                        type='button'
+                                        disabled={past || booked}
+                                        className={btnClass}
+                                        onClick={() => handleSlotClickEdit(slot.start, slot.end)}
+                                    >
+                                        <span className='font-semibold'>
+                                            {slot.start} - {slot.end}
+                                        </span>
+                                        {booked && (
+                                            <span className='mt-1 text-[11px] font-bold uppercase'>
+                                                ĐÃ ĐẶT
+                                            </span>
+                                        )}
+                                        {past && !booked && (
+                                            <span className='mt-1 text-[11px] text-gray-400'>
+                                                QUÁ HẠN
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* hiển thị tiền sân sau khi BE tính */}
+                        {editValues.priceInfo && (
+                            <Card size='small' className='mt-2'>
+                                <div className='text-sm font-semibold mb-1'>
+                                    Tiền sân sau khi chỉnh sửa
+                                </div>
+                                <div className='text-sm space-y-1'>
+                                    <div className='flex justify-between'>
+                                        <span>Tiền sân</span>
+                                        <span>{formatVND(editValues.priceInfo.fieldAmount)}</span>
+                                    </div>
+                                    <div className='flex justify-between'>
+                                        <span>Tiền thiết bị</span>
+                                        <span>
+                                            {formatVND(editValues.priceInfo.equipmentTotal)}
+                                        </span>
+                                    </div>
+                                    <div className='flex justify-between'>
+                                        <span>Giảm giá</span>
+                                        <span>
+                                            -{formatVND(editValues.priceInfo.discountTotal)}
+                                        </span>
+                                    </div>
+                                    <div className='border-t mt-1 pt-1 flex justify-between font-semibold'>
+                                        <span>Tổng sau chỉnh sửa</span>
+                                        <span>{formatVND(editValues.priceInfo.total)}</span>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
                     </div>
                 )}
             </Modal>
@@ -1943,11 +2125,7 @@ export default function BookingList() {
                     <Button key='cancel' onClick={() => setCheckinModalOpen(false)}>
                         Hủy
                     </Button>,
-                    <Button
-                        key='ok'
-                        type='primary'
-                        onClick={handleConfirmCheckin}
-                    >
+                    <Button key='ok' type='primary' onClick={handleConfirmCheckin}>
                         {checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
                     </Button>,
                 ]}
@@ -1959,7 +2137,6 @@ export default function BookingList() {
                         : 'Check-in và chọn thiết bị'
                 }
             >
-
                 {checkinBooking && (
                     <div className='space-y-4'>
                         <Card size='small' style={{ borderRadius: 8 }}>
@@ -2411,6 +2588,8 @@ export default function BookingList() {
                                             { value: 'vnpay', label: 'VNPAY' },
                                             { value: 'qr', label: 'Quẹt thẻ / QR' },
                                         ]}
+                                        onChange={handleMethodChange}
+
                                     />
                                 </Form.Item>
                             </Col>
@@ -2994,6 +3173,37 @@ export default function BookingList() {
                     </div>
                 )}
             </Modal>
+
+            {showQrModal && qrData && (
+                <div
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center"
+                    style={{ zIndex: 2000 }} // ⬅ đặt z-index cao hơn antd
+                >
+                    <div className="bg-white rounded-2xl p-6 w-[380px] text-center space-y-4">
+                        <h2 className="text-xl font-bold text-green-700">Thanh toán bằng QR Code</h2>
+
+                        <img
+                            src={qrData.image}
+                            alt="VietQR"
+                            className="w-64 h-64 mx-auto border rounded-xl shadow"
+                        />
+
+                        <p className="text-gray-700 font-semibold">
+                            Số tiền: <span className="text-green-700">{qrData.amount.toLocaleString()}đ</span>
+                        </p>
+
+                        <div className="">
+                            <Button onClick={() => setShowQrModal(false)}
+                                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-xl">
+                                Đóng
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+
         </div>
     );
 }
