@@ -169,9 +169,6 @@ const Checkout: React.FC = () => {
 
     if (!bookingData) return null;
 
-    // true nếu user đang đặt nhiều ca (>= 2 slot)
-    const isMultiSlots = bookingData.slots && bookingData.slots.length > 1;
-
     //  TÍNH TOÁN TỪ DỮ LIỆU MỚI
     const totalPrice = bookingData.totalPrice ?? bookingData.total ?? 0;
     const totalHours =
@@ -531,8 +528,8 @@ const Checkout: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Phần Voucher - Chỉ hiển thị khi tạo booking mới, KHÔNG áp dụng cho đặt nhiều ca */}
-                    {!bookingData.isRetryPayment && !isMultiSlots && (
+                    {/* Phần Voucher - Chỉ hiển thị khi tạo booking mới */}
+                    {!bookingData.isRetryPayment && (
                         <div className='bg-blue-50 rounded-xl p-6 shadow-inner border border-blue-200'>
                             <h2 className='font-semibold text-lg text-gray-700 mb-4'>
                                 Mã giảm giá (Voucher)
@@ -738,15 +735,6 @@ const Checkout: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* Nếu là đơn nhiều ca, chỉ hiển thị note nhỏ (không cho dùng voucher) */}
-                    {!bookingData.isRetryPayment && isMultiSlots && (
-                        <div className='bg-yellow-50 rounded-xl p-4 border border-yellow-200 text-sm text-yellow-700'>
-                            Voucher hiện chỉ áp dụng khi đặt <b>1 ca</b>.
-                            <br />
-                            Nếu muốn dùng voucher, vui lòng đặt từng ca riêng lẻ.
                         </div>
                     )}
 
