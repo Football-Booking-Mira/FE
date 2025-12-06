@@ -83,6 +83,23 @@ const TABS = [
     { key: 'cancelled', label: 'Đã hủy' },
     { key: 'refunded', label: 'Hoàn tiền' },
 ];
+const formatBookingTime = (booking: any) => {
+    //  Nếu có slots (đơn nhiều ca)
+    if (Array.isArray(booking.slots) && booking.slots.length > 0) {
+        const sorted = [...booking.slots].sort((a, b) =>
+            String(a.startTime).localeCompare(String(b.startTime))
+        );
+
+        return sorted.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ');
+    }
+
+    //  Đơn cũ chỉ có 1 khung giờ
+    if (booking.startTime && booking.endTime) {
+        return `${booking.startTime} - ${booking.endTime}`;
+    }
+
+    return '--';
+};
 
 const MyBookings: React.FC = () => {
     const navigate = useNavigate();
@@ -504,7 +521,7 @@ const MyBookings: React.FC = () => {
                                                     {format(new Date(booking.date), 'dd/MM/yyyy', {
                                                         locale: vi,
                                                     })}{' '}
-                                                    • {booking.startTime} - {booking.endTime}
+                                                    • {formatBookingTime(booking)}
                                                 </p>
 
                                                 <div className='flex flex-col gap-2 mt-3 text-sm'>
