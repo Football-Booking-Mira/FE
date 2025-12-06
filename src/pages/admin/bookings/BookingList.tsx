@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import api from '@/common/utils/api';
 import { printInvoiceMira } from '@/common/utils/printInvoice';
+import BookingEditModal from './BookingEditModal';
 import {
     Button,
     Tag,
@@ -48,6 +49,10 @@ const { TextArea } = Input;
 // helper format tiền
 const formatVND = (v: number = 0) =>
     v.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+interface BookingSlot {
+    startTime: string;
+    endTime: string;
+}
 
 interface Booking {
     _id: string;
@@ -69,6 +74,7 @@ interface Booking {
     startTime: string;
     endTime: string;
     total: number;
+    slots?: BookingSlot[];
     createdBy: 'admin' | 'user';
     status: string;
     paymentStatus: 'unpaid' | 'partial' | 'paid' | 'refunded';
@@ -124,57 +130,6 @@ interface CourtOption {
     _id: string;
     name: string;
 }
-
-//  CẤU HÌNH KHUNG GIỜ
-const START_HOUR = 6;
-const SLOT_DURATION = 60;
-const BREAK_DURATION = 15;
-const END_HOUR = 22;
-
-const minToTime = (min: number) => {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-};
-
-const timeToMin = (time: string) => {
-    const [h, m] = time.split(':').map(Number);
-    return h * 60 + m;
-};
-
-const generateTimeSlots = () => {
-    const slots: { start: string; end: string }[] = [];
-    let current = START_HOUR * 60;
-    const endDay = END_HOUR * 60;
-
-    while (current + SLOT_DURATION <= endDay) {
-        const start = minToTime(current);
-        const end = minToTime(current + SLOT_DURATION);
-        slots.push({ start, end });
-        current += SLOT_DURATION + BREAK_DURATION;
-    }
-    return slots;
-};
-
-const TIME_SLOTS = generateTimeSlots();
-
-const countSlotsInRange = (start: string, end: string) => {
-    if (!start || !end) return 0;
-    const startMin = timeToMin(start);
-    const endMin = timeToMin(end);
-
-    return TIME_SLOTS.filter((slot) => {
-        const s = timeToMin(slot.start);
-        const e = timeToMin(slot.end);
-        return s >= startMin && e <= endMin;
-    }).length;
-};
-
-const getBreakMinutes = (start: string, end: string) => {
-    const slotCount = countSlotsInRange(start, end);
-    if (slotCount <= 1) return 0;
-    return (slotCount - 1) * BREAK_DURATION;
-};
 
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Chờ xác nhận',
@@ -249,6 +204,10 @@ interface EquipmentItem {
     stock: number;
     unit?: string;
 }
+interface QrData {
+    image: string;
+    amount: number;
+}
 
 // số tiền còn phải thu (total - cọc đã trả)
 const getOutstandingAmount = (b: Booking | null) => {
@@ -293,27 +252,6 @@ export default function BookingList() {
     // modal sửa giờ/sân
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
-    const [editValues, setEditValues] = useState<{
-        courtId?: string;
-        date: any;
-        startTime: string;
-        endTime: string;
-        priceInfo?: {
-            fieldAmount: number;
-            equipmentTotal: number;
-            discountTotal: number;
-            total: number;
-            totalHours: number;
-            normalHours: number;
-            peakHours: number;
-        };
-    }>({
-        courtId: undefined,
-        date: null,
-        startTime: '',
-        endTime: '',
-        priceInfo: undefined,
-    });
 
     // modal checkin / thêm thiết bị
     const [checkinModalOpen, setCheckinModalOpen] = useState(false);
@@ -391,150 +329,6 @@ export default function BookingList() {
 
         return Object.values(map);
     }, [detailData]);
-
-    const getEditDateStr = () => {
-        if (!editValues.date) return null;
-        return dayjs(editValues.date).format('YYYY-MM-DD');
-    };
-
-    const isSlotPast = (slotStart: string) => {
-        const dateStr = getEditDateStr();
-        if (!dateStr) return false;
-
-        const todayStr = dayjs().format('YYYY-MM-DD');
-        if (dateStr > todayStr) return false;
-        if (dateStr < todayStr) return true;
-
-        const [h, m] = slotStart.split(':').map(Number);
-        const now = new Date();
-        const slotTime = new Date();
-        slotTime.setHours(h, m, 0, 0);
-        return slotTime < now;
-    };
-
-    const getBookedSlotsForCurrentEdit = () => {
-        if (!editValues.courtId || !editValues.date) return [];
-        const dateStr = getEditDateStr();
-        if (!dateStr) return [];
-
-        return bookings
-            .filter((b) => {
-                if (!b.courtId || b.courtId._id !== editValues.courtId) return false;
-                if (editingBooking && b._id === editingBooking._id) return false;
-                if (b.status === 'cancelled') return false;
-                const bDateStr = dayjs(b.date).format('YYYY-MM-DD');
-                return bDateStr === dateStr;
-            })
-            .map((b) => ({
-                startTime: b.startTime,
-                endTime: b.endTime,
-            }));
-    };
-
-    const isSlotBooked = (s: string, e: string) => {
-        const sMin = timeToMin(s);
-        const eMin = timeToMin(e);
-        const booked = getBookedSlotsForCurrentEdit();
-        return booked.some((b) => {
-            const bS = timeToMin(b.startTime);
-            const bE = timeToMin(b.endTime);
-            return sMin < bE && eMin > bS;
-        });
-    };
-
-    const checkConflictRange = (start: string, end: string) => {
-        const startMin = timeToMin(start);
-        const endMin = timeToMin(end);
-        const slotsInRange = TIME_SLOTS.filter((slot) => {
-            const slotS = timeToMin(slot.start);
-            const slotE = timeToMin(slot.end);
-            return slotS >= startMin && slotE <= endMin;
-        });
-        return slotsInRange.some((slot) => isSlotBooked(slot.start, slot.end));
-    };
-
-    const isSlotSelected = (s: string, e: string) => {
-        if (!editValues.startTime || !editValues.endTime) return false;
-
-        const sMin = timeToMin(s);
-        const eMin = timeToMin(e);
-        const rStart = timeToMin(editValues.startTime);
-        const rEnd = timeToMin(editValues.endTime);
-
-        return sMin >= rStart && eMin <= rEnd;
-    };
-
-    const handleSlotClickEdit = (s: string, e: string) => {
-        if (!editValues.courtId || !editValues.date) {
-            toast.error('Vui lòng chọn sân và ngày trước khi chọn giờ!');
-            return;
-        }
-
-        if (isSlotPast(s) || isSlotBooked(s, e)) return;
-
-        setEditValues((prev) => {
-            let next = { ...prev };
-
-            if (!next.startTime) {
-                if (checkConflictRange(s, e)) {
-                    toast.error('Khoảng chọn bị vướng lịch đã đặt!');
-                    return prev;
-                }
-                next.startTime = s;
-                next.endTime = e;
-            } else {
-                const sMin = timeToMin(s);
-                const rStart = timeToMin(next.startTime);
-                const isSingle =
-                    TIME_SLOTS.find((t) => t.start === next.startTime)?.end === next.endTime;
-
-                if (s === next.startTime && e === next.endTime) {
-                    next.startTime = '';
-                    next.endTime = '';
-                } else if (isSingle) {
-                    if (sMin > rStart) {
-                        if (checkConflictRange(next.startTime, e)) {
-                            toast.error('Khoảng chọn bị vướng lịch đã đặt!');
-                            return prev;
-                        }
-                        next.endTime = e;
-                    } else if (sMin < rStart) {
-                        if (checkConflictRange(s, next.endTime)) {
-                            toast.error('Khoảng chọn bị vướng lịch đã đặt!');
-                            return prev;
-                        }
-                        next.startTime = s;
-                    } else {
-                        if (checkConflictRange(s, e)) {
-                            toast.error('Khoảng chọn bị vướng lịch đã đặt!');
-                            return prev;
-                        }
-                        next.startTime = s;
-                        next.endTime = e;
-                    }
-                } else {
-                    if (checkConflictRange(s, e)) {
-                        toast.error('Khoảng chọn bị vướng lịch đã đặt!');
-                        return prev;
-                    }
-                    next.startTime = s;
-                    next.endTime = e;
-                }
-            }
-
-            if (next.courtId && next.startTime && next.endTime) {
-                calculateEditPrice({
-                    courtId: next.courtId,
-                    startTime: next.startTime,
-                    endTime: next.endTime,
-                });
-            } else {
-                next.priceInfo = undefined;
-            }
-
-            return next;
-        });
-    };
 
     // load danh sách thiết bị + số lượng đã thuê trước đó
     const loadCheckinEquipments = async (bookingId?: string) => {
@@ -818,7 +612,7 @@ export default function BookingList() {
         try {
             const res = await api.get(`/bookings/${bookingId}/admin-detail`);
             const data = res.data?.data || res.data;
-            console.log("data: ", data);
+            console.log('data: ', data);
 
             setDetailData(data);
         } catch (err: any) {
@@ -830,93 +624,11 @@ export default function BookingList() {
         }
     };
 
-    const calculateEditPrice = async (values: {
-        courtId?: string;
-        startTime: string;
-        endTime: string;
-    }) => {
-        if (!values.courtId || !values.startTime || !values.endTime) return;
-
-        try {
-            const res = await api.get('/bookings/calculate', {
-                params: {
-                    courtId: values.courtId,
-                    startTime: values.startTime,
-                    endTime: values.endTime,
-                },
-            });
-            const data = res.data?.data;
-            if (!data) return;
-
-            setEditValues((prev) => ({
-                ...prev,
-                priceInfo: {
-                    fieldAmount: data.fieldAmount,
-                    equipmentTotal: data.equipmentTotal,
-                    discountTotal: data.discountTotal,
-                    total: data.total,
-                    totalHours: data.totalHours,
-                    normalHours: data.normalHours,
-                    peakHours: data.peakHours,
-                },
-            }));
-        } catch (err: any) {
-            const msg =
-                err?.response?.data?.message || 'Không tính được tiền sân, vui lòng kiểm tra giờ!';
-            toast.error(msg);
-            setEditValues((prev) => ({ ...prev, priceInfo: undefined }));
-        }
-    };
-
     const openEditModal = (b: Booking) => {
-        const initial = {
-            courtId: b.courtId?._id,
-            date: dayjs(b.date),
-            startTime: b.startTime,
-            endTime: b.endTime,
-            priceInfo: undefined as any,
-        };
         setEditingBooking(b);
-        setEditValues(initial);
-        calculateEditPrice(initial);
         setEditModalOpen(true);
     };
 
-    const handleSaveEdit = async () => {
-        if (!editingBooking) return;
-
-        const { courtId, date, startTime, endTime } = editValues;
-
-        if (!courtId || !date || !startTime || !endTime) {
-            toast.error('Vui lòng chọn sân, ngày và khung giờ hợp lệ!');
-            return;
-        }
-
-        try {
-            await api.patch(`/bookings/${editingBooking._id}/time`, {
-                courtId,
-                date: dayjs(date).format('YYYY-MM-DD'),
-                startTime,
-                endTime,
-            });
-
-            toast.success('✅ Đã cập nhật giờ / sân!');
-            setEditModalOpen(false);
-            setEditingBooking(null);
-            setEditValues({
-                courtId: undefined,
-                date: null,
-                startTime: '',
-                endTime: '',
-                priceInfo: undefined,
-            });
-            fetchBookings();
-            fetchStats();
-        } catch (err: any) {
-            const msg = err?.response?.data?.message || 'Lỗi cập nhật giờ / sân!';
-            toast.error(msg);
-        }
-    };
     const handleAdminCancelCash = (record: Booking) => {
         // reset mỗi lần mở modal
         setCancelRefundDeposit(false);
@@ -1006,7 +718,7 @@ export default function BookingList() {
                 return;
             } else if (action === 'checkout') {
                 const res = await api.patch(`/bookings/${id}/checkout`);
-                console.log("res check out: ", res.data);
+                console.log('res check out: ', res.data);
 
                 toast.success('🏁 Check-out thành công!');
                 const update: Booking = res.data?.data || bookings.find((b) => b._id === id)!;
@@ -1053,20 +765,28 @@ export default function BookingList() {
     };
 
     const [showQrModal, setShowQrModal] = useState(false);
-    const [qrData, setQrData] = useState(null);
+    const [qrData, setQrData] = useState<QrData | null>(null);
 
     const token = localStorage.getItem('token');
-    const handleMethodChange = async (value) => {
-        if (value !== "transfer") {
+
+    const handleMethodChange = async (value: string) => {
+        // nếu không phải chuyển khoản thì tắt QR
+        if (value !== 'transfer') {
             setShowQrModal(false);
             return;
         }
 
+        // đảm bảo có booking
+        if (!paymentBooking) {
+            toast.error('Không có thông tin đơn thanh toán!');
+            return;
+        }
+
         try {
-            const res = await fetch("http://localhost:3000/api/bookings/payment/vietqr", {
-                method: "POST",
+            const res = await fetch('http://localhost:3000/api/bookings/payment/vietqr', {
+                method: 'POST',
                 headers: {
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
@@ -1076,44 +796,38 @@ export default function BookingList() {
                         name:
                             paymentBooking.customerInfo?.name ||
                             paymentBooking.customerId?.name ||
-                            "Khách hàng",
+                            'Khách hàng',
                         phone:
                             paymentBooking.customerInfo?.phone ||
                             paymentBooking.customerId?.phone ||
-                            "",
+                            '',
                         email:
                             paymentBooking.customerInfo?.email ||
                             paymentBooking.customerId?.email ||
-                            "",
+                            '',
                     },
                 }),
             });
 
             const result = await res.json();
 
-            const qr = result?.data?.qrImageBase64;
-            const amount = result?.data?.amount;
+            const qr = result?.data?.qrImageBase64 as string | undefined;
+            const amount = result?.data?.amount as number | undefined;
 
-            if (qr) {
-                setQrData({
-                    image: qr,
-                    amount: amount,
-                });
+            if (qr && typeof amount === 'number') {
+                setQrData({ image: qr, amount });
                 setShowQrModal(true);
             } else {
-                console.error("Không lấy được mã QR từ API.");
+                console.error('Không lấy được mã QR từ API.');
             }
         } catch (err) {
             console.error(err);
-            console.error("Lỗi khi tạo mã QR.");
+            console.error('Lỗi khi tạo mã QR.');
         }
     };
 
-
-
     const handleConfirmPayment = async () => {
         if (!paymentBooking) return;
-
 
         try {
             const values = await paymentForm.validateFields();
@@ -1345,8 +1059,25 @@ export default function BookingList() {
         {
             title: 'Giờ',
             key: 'time',
-            render: (b: Booking) => `${b.startTime} - ${b.endTime}`,
+            render: (b: Booking & { slots?: { startTime: string; endTime: string }[] }) => {
+                // Nếu API trả về danh sách các ca (slots) thì hiển thị từng ca
+                if (Array.isArray(b.slots) && b.slots.length > 0) {
+                    return (
+                        <div>
+                            {b.slots.map((s, idx) => (
+                                <div key={idx}>
+                                    {s.startTime} - {s.endTime}
+                                </div>
+                            ))}
+                        </div>
+                    );
+                }
+
+                // Fallback: booking cũ chỉ có startTime / endTime
+                return `${b.startTime} - ${b.endTime}`;
+            },
         },
+
         {
             title: 'Tổng tiền',
             dataIndex: 'total',
@@ -1385,12 +1116,12 @@ export default function BookingList() {
                     s === 'confirmed'
                         ? 'blue'
                         : s === 'pending'
-                            ? 'orange'
-                            : s === 'in_use'
-                                ? 'purple'
-                                : s === 'completed'
-                                    ? 'green'
-                                    : 'gray';
+                          ? 'orange'
+                          : s === 'in_use'
+                            ? 'purple'
+                            : s === 'completed'
+                              ? 'green'
+                              : 'gray';
 
                 return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
             },
@@ -1714,15 +1445,6 @@ export default function BookingList() {
         },
     ];
 
-    const selectedSlotsCount =
-        editValues.startTime && editValues.endTime
-            ? countSlotsInRange(editValues.startTime, editValues.endTime)
-            : 0;
-    const selectedBreakMinutes =
-        editValues.startTime && editValues.endTime
-            ? getBreakMinutes(editValues.startTime, editValues.endTime)
-            : 0;
-
     // tổng gốc của booking
     const originalTotal = paymentBooking?.total || 0;
 
@@ -1961,161 +1683,18 @@ export default function BookingList() {
                     ]}
                 />
             </Card>
-
             {/* Modal SỬA giờ / sân */}
-            <Modal
+            <BookingEditModal
                 open={editModalOpen}
-                onCancel={() => setEditModalOpen(false)}
-                onOk={handleSaveEdit}
-                okText='Lưu thay đổi'
-                cancelText='Hủy'
-                width={900}
-                centered
-                title={
-                    editingBooking
-                        ? `Chỉnh sửa đặt sân - ${editingBooking.code}`
-                        : 'Chỉnh sửa đặt sân'
-                }
-            >
-                {editingBooking && (
-                    <div className='space-y-4'>
-                        {/* chọn sân + ngày */}
-                        <Row gutter={12}>
-                            <Col span={12}>
-                                <div className='text-xs font-semibold text-gray-600 mb-1'>
-                                    Chọn sân
-                                </div>
-                                <Select
-                                    style={{ width: '100%' }}
-                                    placeholder='Chọn sân'
-                                    value={editValues.courtId}
-                                    options={courts.map((c) => ({
-                                        value: c._id,
-                                        label: c.name,
-                                    }))}
-                                    onChange={(value) =>
-                                        setEditValues((prev) => ({
-                                            ...prev,
-                                            courtId: value,
-                                            // đổi sân thì reset khoảng giờ
-                                            startTime: '',
-                                            endTime: '',
-                                            priceInfo: undefined,
-                                        }))
-                                    }
-                                />
-                            </Col>
-                            <Col span={12}>
-                                <div className='text-xs font-semibold text-gray-600 mb-1'>
-                                    Chọn ngày đá
-                                </div>
-                                <DatePicker
-                                    style={{ width: '100%' }}
-                                    format='DD/MM/YYYY'
-                                    value={editValues.date}
-                                    onChange={(value) =>
-                                        setEditValues((prev) => ({
-                                            ...prev,
-                                            date: value,
-                                            // đổi ngày cũng reset giờ
-                                            startTime: '',
-                                            endTime: '',
-                                            priceInfo: undefined,
-                                        }))
-                                    }
-                                />
-                            </Col>
-                        </Row>
-
-                        {/* info số ca + phút nghỉ */}
-                        <div className='text-sm text-gray-700'>
-                            Đã chọn <b>{selectedSlotsCount}</b> ca, nghỉ{' '}
-                            <b>{selectedBreakMinutes}</b> phút.
-                        </div>
-
-                        {/* GRID chọn ca giờ giống BookingTimeSelector */}
-                        <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2'>
-                            {TIME_SLOTS.map((slot, idx) => {
-                                const past = isSlotPast(slot.start);
-                                const booked = isSlotBooked(slot.start, slot.end);
-                                const selected = isSlotSelected(slot.start, slot.end);
-
-                                let btnClass =
-                                    'border rounded-lg p-2 flex flex-col items-center justify-center min-h-[70px] text-sm transition-all ';
-
-                                if (past) {
-                                    btnClass +=
-                                        'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-60';
-                                } else if (booked) {
-                                    btnClass +=
-                                        'bg-red-500 border-red-600 text-white cursor-not-allowed';
-                                } else if (selected) {
-                                    btnClass +=
-                                        'bg-green-600 border-green-600 text-white shadow-md scale-[1.02]';
-                                } else {
-                                    btnClass +=
-                                        'bg-white border-gray-200 hover:border-green-500 hover:bg-green-50 cursor-pointer';
-                                }
-
-                                return (
-                                    <button
-                                        key={idx}
-                                        type='button'
-                                        disabled={past || booked}
-                                        className={btnClass}
-                                        onClick={() => handleSlotClickEdit(slot.start, slot.end)}
-                                    >
-                                        <span className='font-semibold'>
-                                            {slot.start} - {slot.end}
-                                        </span>
-                                        {booked && (
-                                            <span className='mt-1 text-[11px] font-bold uppercase'>
-                                                ĐÃ ĐẶT
-                                            </span>
-                                        )}
-                                        {past && !booked && (
-                                            <span className='mt-1 text-[11px] text-gray-400'>
-                                                QUÁ HẠN
-                                            </span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {/* hiển thị tiền sân sau khi BE tính */}
-                        {editValues.priceInfo && (
-                            <Card size='small' className='mt-2'>
-                                <div className='text-sm font-semibold mb-1'>
-                                    Tiền sân sau khi chỉnh sửa
-                                </div>
-                                <div className='text-sm space-y-1'>
-                                    <div className='flex justify-between'>
-                                        <span>Tiền sân</span>
-                                        <span>{formatVND(editValues.priceInfo.fieldAmount)}</span>
-                                    </div>
-                                    <div className='flex justify-between'>
-                                        <span>Tiền thiết bị</span>
-                                        <span>
-                                            {formatVND(editValues.priceInfo.equipmentTotal)}
-                                        </span>
-                                    </div>
-                                    <div className='flex justify-between'>
-                                        <span>Giảm giá</span>
-                                        <span>
-                                            -{formatVND(editValues.priceInfo.discountTotal)}
-                                        </span>
-                                    </div>
-                                    <div className='border-t mt-1 pt-1 flex justify-between font-semibold'>
-                                        <span>Tổng sau chỉnh sửa</span>
-                                        <span>{formatVND(editValues.priceInfo.total)}</span>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-                    </div>
-                )}
-            </Modal>
+                booking={editingBooking}
+                bookings={bookings}
+                courts={courts}
+                onClose={() => setEditModalOpen(false)}
+                onUpdated={() => {
+                    fetchBookings();
+                    fetchStats();
+                }}
+            />
 
             {/* Modal chọn thiết bị khi Check-in / Thêm thiết bị */}
             <Modal
@@ -2445,20 +2024,20 @@ export default function BookingList() {
                                     </div>
                                     {(paymentBooking.customerInfo?.phone ||
                                         paymentBooking.customerId?.phone) && (
-                                            <div className='text-xs text-gray-500'>
-                                                SĐT:{' '}
-                                                {paymentBooking.customerInfo?.phone ||
-                                                    paymentBooking.customerId?.phone}
-                                            </div>
-                                        )}
+                                        <div className='text-xs text-gray-500'>
+                                            SĐT:{' '}
+                                            {paymentBooking.customerInfo?.phone ||
+                                                paymentBooking.customerId?.phone}
+                                        </div>
+                                    )}
                                     {(paymentBooking.customerInfo?.email ||
                                         paymentBooking.customerId?.email) && (
-                                            <div className='text-xs text-gray-500'>
-                                                Email:{' '}
-                                                {paymentBooking.customerInfo?.email ||
-                                                    paymentBooking.customerId?.email}
-                                            </div>
-                                        )}
+                                        <div className='text-xs text-gray-500'>
+                                            Email:{' '}
+                                            {paymentBooking.customerInfo?.email ||
+                                                paymentBooking.customerId?.email}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className='w-px bg-gray-200 mx-2' />
@@ -2589,7 +2168,6 @@ export default function BookingList() {
                                             { value: 'qr', label: 'Quẹt thẻ / QR' },
                                         ]}
                                         onChange={handleMethodChange}
-
                                     />
                                 </Form.Item>
                             </Col>
@@ -2674,8 +2252,9 @@ export default function BookingList() {
                         // gộp item trùng nhau (name + mode + price + unit)
                         const map: Record<string, any> = {};
                         items.forEach((it: any) => {
-                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${it.unit || ''
-                                }`;
+                            const key = `${it.name || ''}_${it.mode || ''}_${it.price || 0}_${
+                                it.unit || ''
+                            }`;
                             if (map[key]) {
                                 map[key].qty += it.qty || 0;
                                 map[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
@@ -2691,9 +2270,11 @@ export default function BookingList() {
 
                         const fieldAmount = booking.fieldAmount ?? booking.total ?? 0;
                         const equipmentTotal = booking.equipmentTotal ?? 0;
-                        const voucherDiscount = booking.voucherDiscount ?? booking.discountTotal ?? 0;
+                        const voucherDiscount =
+                            booking.voucherDiscount ?? booking.discountTotal ?? 0;
                         const subtotalBeforeDiscount = fieldAmount + equipmentTotal;
-                        const bookingTotal = booking.total ?? subtotalBeforeDiscount - voucherDiscount;
+                        const bookingTotal =
+                            booking.total ?? subtotalBeforeDiscount - voucherDiscount;
                         const depositPaidInv = booking.depositAmount ?? 0;
                         const alreadyPaidTotal =
                             Number(inv.total || 0) + Number(depositPaidInv || 0);
@@ -2824,24 +2405,30 @@ export default function BookingList() {
                                         {booking.voucherCode && voucherDiscount > 0 && (
                                             <div className='space-y-1'>
                                                 <div className='flex justify-between items-center'>
-                                                    <span className='text-gray-500'>Mã giảm giá:</span>
+                                                    <span className='text-gray-500'>
+                                                        Mã giảm giá:
+                                                    </span>
                                                     <Tag color='green' style={{ margin: 0 }}>
                                                         {booking.voucherCode}
                                                     </Tag>
                                                 </div>
                                                 {booking.voucherSnapshot && (
                                                     <div className='flex justify-between'>
-                                                        <span className='text-gray-500'>Loại giảm:</span>
+                                                        <span className='text-gray-500'>
+                                                            Loại giảm:
+                                                        </span>
                                                         <span>
-                                                            {booking.voucherSnapshot.discountType ===
-                                                            'percent'
+                                                            {booking.voucherSnapshot
+                                                                .discountType === 'percent'
                                                                 ? `Giảm ${booking.voucherSnapshot.discountValue}%`
                                                                 : `Giảm ${formatVND(booking.voucherSnapshot.discountValue || 0)}`}
                                                         </span>
                                                     </div>
                                                 )}
                                                 <div className='flex justify-between'>
-                                                    <span className='text-gray-500'>Số tiền giảm:</span>
+                                                    <span className='text-gray-500'>
+                                                        Số tiền giảm:
+                                                    </span>
                                                     <span className='font-medium text-green-600'>
                                                         - {formatVND(voucherDiscount)}
                                                     </span>
@@ -2866,8 +2453,9 @@ export default function BookingList() {
 
                                                 return (
                                                     <div
-                                                        key={`${it._id || it.name || 'item'
-                                                            }_${idx}`}
+                                                        key={`${
+                                                            it._id || it.name || 'item'
+                                                        }_${idx}`}
                                                         className='flex justify-between'
                                                     >
                                                         <div>
@@ -2897,7 +2485,7 @@ export default function BookingList() {
                                                         <div className='font-semibold'>
                                                             {formatVND(
                                                                 it.subtotal ||
-                                                                (it.qty || 0) * (it.price || 0)
+                                                                    (it.qty || 0) * (it.price || 0)
                                                             )}
                                                         </div>
                                                     </div>
@@ -3085,7 +2673,7 @@ export default function BookingList() {
                                         </b>
                                     </div>
                                     {detailData.booking.customerInfo?.phone ||
-                                        detailData.booking.customerId?.phone ? (
+                                    detailData.booking.customerId?.phone ? (
                                         <div>
                                             <span className='text-gray-500'>SĐT: </span>
                                             {detailData.booking.customerInfo?.phone ||
@@ -3176,34 +2764,38 @@ export default function BookingList() {
 
             {showQrModal && qrData && (
                 <div
-                    className="fixed inset-0 bg-black/50 flex items-center justify-center"
+                    className='fixed inset-0 bg-black/50 flex items-center justify-center'
                     style={{ zIndex: 2000 }} // ⬅ đặt z-index cao hơn antd
                 >
-                    <div className="bg-white rounded-2xl p-6 w-[380px] text-center space-y-4">
-                        <h2 className="text-xl font-bold text-green-700">Thanh toán bằng QR Code</h2>
+                    <div className='bg-white rounded-2xl p-6 w-[380px] text-center space-y-4'>
+                        <h2 className='text-xl font-bold text-green-700'>
+                            Thanh toán bằng QR Code
+                        </h2>
 
                         <img
                             src={qrData.image}
-                            alt="VietQR"
-                            className="w-64 h-64 mx-auto border rounded-xl shadow"
+                            alt='VietQR'
+                            className='w-64 h-64 mx-auto border rounded-xl shadow'
                         />
 
-                        <p className="text-gray-700 font-semibold">
-                            Số tiền: <span className="text-green-700">{qrData.amount.toLocaleString()}đ</span>
+                        <p className='text-gray-700 font-semibold'>
+                            Số tiền:{' '}
+                            <span className='text-green-700'>
+                                {qrData.amount.toLocaleString()}đ
+                            </span>
                         </p>
 
-                        <div className="">
-                            <Button onClick={() => setShowQrModal(false)}
-                                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-xl">
+                        <div className=''>
+                            <Button
+                                onClick={() => setShowQrModal(false)}
+                                className='w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-xl'
+                            >
                                 Đóng
                             </Button>
                         </div>
                     </div>
                 </div>
             )}
-
-
-
         </div>
     );
 }
