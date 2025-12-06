@@ -23,6 +23,7 @@ interface BookedSlot {
     startTime: string;
     endTime: string;
     status: string;
+    slots?: { startTime: string; endTime: string }[];
 }
 
 //  CẤU HÌNH
@@ -111,6 +112,11 @@ const BookingTimeSelector: React.FC<Props> = ({
             );
             const data = await res.json();
             if (data.success) setBookedSlots(data.data || []);
+            // ngay sau khi setBookedSlots
+            // if (data.success) {
+            //     console.log('BOOKED SLOTS API >>>', data.data);
+            //     setBookedSlots(data.data || []);
+            // }
         } catch (e) {
             console.error(e);
         }
@@ -160,17 +166,34 @@ const BookingTimeSelector: React.FC<Props> = ({
     const isBooked = (s: string, e: string) => {
         const sMin = timeToMin(s);
         const eMin = timeToMin(e);
+
         return bookedSlots.some((b) => {
             const bDate =
                 typeof b.date === 'string'
                     ? b.date.slice(0, 10)
                     : new Date(b.date).toISOString().slice(0, 10);
+
             if (bDate !== selectedDateStr) return false;
+
+            // bỏ qua đơn đã hủy nếu có
+            if (b.status === 'cancelled') return false;
+
+            // nếu có mảng slots -> dùng TỪNG CA
+            if (Array.isArray(b.slots) && b.slots.length > 0) {
+                return b.slots.some((slot) => {
+                    const bS = timeToMin(slot.startTime);
+                    const bE = timeToMin(slot.endTime);
+                    return sMin < bE && eMin > bS; // chỉ ca giao nhau mới bị coi là đã đặt
+                });
+            }
+
+            // fallback cho booking cũ chỉ có startTime / endTime
             const bS = timeToMin(b.startTime);
             const bE = timeToMin(b.endTime);
             return sMin < bE && eMin > bS;
         });
     };
+    console.log('bookedSlots FE >>>', bookedSlots);
 
     const isPast = (s: string) => {
         const todayStr = getLocalDateStr();
