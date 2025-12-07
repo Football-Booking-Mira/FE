@@ -24,7 +24,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
     const rawItems = invoiceDetail.items || [];
     const mergedMap: Record<string, any> = {};
     rawItems.forEach((it: any) => {
-        const key = `${it.name || ''}_${it.unit || ''}_${it.price || 0}_${it.mode || ''}}`;
+        const key = `${it.name || ''}_${it.unit || ''}_${it.price || 0}_${it.mode || ''}`;
         if (mergedMap[key]) {
             mergedMap[key].qty += it.qty || 0;
             mergedMap[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
@@ -55,8 +55,14 @@ export const printInvoiceMira = (invoiceDetail: any) => {
     const createdAtStr = createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm') : '';
 
     const bookingDateStr = booking.date ? dayjs(booking.date).format('DD/MM/YYYY') : '';
+    // khung giờ hiển thị: ưu tiên danh sách slots, fallback sang startTime/endTime
+    const bookingTimeStr =
+        Array.isArray(booking.slots) && booking.slots.length > 0
+            ? booking.slots.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ')
+            : `${booking.startTime || ''} - ${booking.endTime || ''}`;
 
     const itemsRowsHtml =
+        /* html */
         items.length > 0
             ? items
                   .map(
@@ -251,9 +257,10 @@ export const printInvoiceMira = (invoiceDetail: any) => {
           <span class="value">${bookingDateStr || '—'}</span>
         </div>
         <div class="row">
-          <span class="label">Khung giờ:</span>
-          <span class="value">${booking.startTime || ''} - ${booking.endTime || ''}</span>
-        </div>
+  <span class="label">Khung giờ:</span>
+  <span class="value">${bookingTimeStr}</span>
+</div>
+
       </div>
     </div>
 
