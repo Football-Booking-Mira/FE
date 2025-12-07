@@ -516,16 +516,13 @@ export default function BookingList() {
                 const deposit = Number(b.depositAmount || 0);
                 const total = Number(b.total || 0);
 
+                // paymentStatus gốc từ BE
                 let paymentStatus: Booking['paymentStatus'] = (b.paymentStatus as any) || 'unpaid';
 
-                if (paymentStatus === 'unpaid' || paymentStatus === 'partial') {
-                    if (hasDepositPaid) {
-                        if (total > 0 && deposit >= total) {
-                            paymentStatus = 'paid';
-                        } else {
-                            paymentStatus = 'partial';
-                        }
-                    }
+                // Nếu đã thanh toán online / đặt cọc (depositStatus = paid)
+                // thì luôn coi là "partial". "paid" CHỈ khi BE set sau khi tạo hóa đơn.
+                if (hasDepositPaid && (paymentStatus === 'unpaid' || paymentStatus === 'partial')) {
+                    paymentStatus = 'partial';
                 }
 
                 return {
@@ -572,10 +569,6 @@ export default function BookingList() {
         socketInstance.on('booking_global_updated', () => {
             fetchBookings();
             fetchStats();
-            toast.info('⚡ Hệ thống đặt sân vừa có cập nhật mới!', {
-                duration: 1500,
-                style: { backgroundColor: '#22c55e', color: '#fff' },
-            });
         });
 
         return () => {
@@ -721,8 +714,9 @@ export default function BookingList() {
                 console.log('res check out: ', res.data);
 
                 toast.success('🏁 Check-out thành công!');
-                const update: Booking = res.data?.data || bookings.find((b) => b._id === id)!;
-                openPaymentModal(update);
+                //  KHÔNG tạo hóa đơn, không mở modal thanh toán ở đây nữa
+                // const update: Booking = res.data?.data || bookings.find((b) => b._id === id)!;
+                // openPaymentModal(update);
             }
 
             fetchBookings();
@@ -748,16 +742,19 @@ export default function BookingList() {
 
     const openInvoiceModal = async (b: Booking) => {
         try {
+            // mở modal trước, cho user thấy spinner
             setInvoiceModalOpen(true);
             setInvoiceLoading(true);
             setInvoiceDetail(null);
 
             const res = await api.get(`/invoices/by-booking/${b._id}`);
 
+            // chỉ set data để XEM / IN
             setInvoiceDetail(res.data);
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Không thể tải thông tin hóa đơn!';
             toast.error(msg);
+            // lỗi thì đóng modal lại
             setInvoiceModalOpen(false);
         } finally {
             setInvoiceLoading(false);
@@ -1096,12 +1093,17 @@ export default function BookingList() {
                 if (s === 'paid' || s === 'refunded') color = 'green';
                 else if (s === 'partial') color = 'orange';
 
-                //  Đơn đã đặt cọc (PARTIAL + depositStatus = paid)
+                // Đơn có tiền online / cọc đã thanh toán
                 if (s === 'partial' && hasDepositPaid) {
                     const percent =
                         fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
 
-                    return <Tag color={color}>Đã đặt cọc {percent}% tiền sân</Tag>;
+                    const label =
+                        percent >= 100
+                            ? 'Đã thanh toán tiền sân' // cọc đủ 100% tiền sân
+                            : `Đã đặt cọc ${percent}% tiền sân`; // cọc một phần
+
+                    return <Tag color={color}>{label}</Tag>;
                 }
 
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
@@ -1131,6 +1133,8 @@ export default function BookingList() {
             key: 'actions',
             render: (b: Booking) => {
                 const isFutureBooking = dayjs(b.date).isAfter(dayjs(), 'day');
+                // đơn chưa thanh toán hết (dùng cho cả confirmed + completed)
+                const canPayNow = b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial';
 
                 if (b.status === 'cancelled') {
                     return (
@@ -1139,15 +1143,47 @@ export default function BookingList() {
                         </Tag>
                     );
                 }
-
                 if (b.status === 'completed') {
-                    const canPay = b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial';
+                    const outstanding = getOutstandingAmount(b); // total - depositAmount
+                    const hasOutstanding = outstanding > 0;
 
-                    if (canPay) {
+                    // Chỉ được coi là thanh toán xong khi:
+                    //  - paymentStatus = 'paid' | 'refunded'
+                    //  - VÀ không còn tiền phải thu
+                    const isFullyPaid =
+                        (b.paymentStatus === 'paid' || b.paymentStatus === 'refunded') &&
+                        !hasOutstanding;
+
+                    if (isFullyPaid) {
+                        // chỉ xem / in hóa đơn
+                        return (
+                            <Space>
+                                <Tooltip title='Đơn này đã thanh toán xong'>
+                                    <span>
+                                        <Button size='small' icon={<DollarOutlined />} disabled>
+                                            Thanh toán
+                                        </Button>
+                                    </span>
+                                </Tooltip>
+
+                                <Button
+                                    size='small'
+                                    icon={<FileTextOutlined />}
+                                    onClick={() => openInvoiceModal(b)}
+                                >
+                                    Xem hóa đơn
+                                </Button>
+                            </Space>
+                        );
+                    }
+
+                    // Chưa thanh toán hết, còn tiền phải thu (thường là tiền thiết bị)
+                    if (hasOutstanding) {
                         return (
                             <Button
                                 size='small'
                                 icon={<DollarOutlined />}
+                                type='primary'
                                 onClick={() => openPaymentModal(b)}
                             >
                                 Thanh toán
@@ -1155,14 +1191,25 @@ export default function BookingList() {
                         );
                     }
 
+                    // fallback: không còn tiền phải thu nhưng status chưa 'paid'
                     return (
-                        <Button
-                            size='small'
-                            icon={<FileTextOutlined />}
-                            onClick={() => openInvoiceModal(b)}
-                        >
-                            Xem hóa đơn
-                        </Button>
+                        <Space>
+                            <Tooltip title='Đơn này đã thanh toán xong'>
+                                <span>
+                                    <Button size='small' icon={<DollarOutlined />} disabled>
+                                        Thanh toán
+                                    </Button>
+                                </span>
+                            </Tooltip>
+
+                            <Button
+                                size='small'
+                                icon={<FileTextOutlined />}
+                                onClick={() => openInvoiceModal(b)}
+                            >
+                                Xem hóa đơn
+                            </Button>
+                        </Space>
                     );
                 }
 
@@ -1204,6 +1251,7 @@ export default function BookingList() {
 
                         {b.status === 'confirmed' && (
                             <>
+                                {/* 1 nút Check-in duy nhất */}
                                 <Tooltip
                                     title={
                                         isFutureBooking
@@ -1223,6 +1271,17 @@ export default function BookingList() {
                                     </span>
                                 </Tooltip>
 
+                                {/* Nút Thanh toán – luôn hiển thị nhưng disabled, đúng flow:
+            chỉ thanh toán sau khi checkout xong */}
+                                <Tooltip title='Chỉ thanh toán sau khi check-out xong'>
+                                    <span>
+                                        <Button size='small' icon={<DollarOutlined />} disabled>
+                                            Thanh toán
+                                        </Button>
+                                    </span>
+                                </Tooltip>
+
+                                {/* Sửa */}
                                 <Button
                                     size='small'
                                     icon={<EditOutlined />}
@@ -1230,6 +1289,8 @@ export default function BookingList() {
                                 >
                                     Sửa
                                 </Button>
+
+                                {/* Hủy */}
                                 <Button
                                     size='small'
                                     danger
@@ -1237,7 +1298,7 @@ export default function BookingList() {
                                         if (b.paymentMethod === 'cash') {
                                             handleAdminCancelCash(b); // đơn tiền mặt / cọc tại sân
                                         } else {
-                                            handleAction(b._id, 'cancel'); // online (VNPAY/Momo...) dùng API hủy cũ
+                                            handleAction(b._id, 'cancel'); // online (VNPAY/Momo...)
                                         }
                                     }}
                                 >
@@ -1255,6 +1316,7 @@ export default function BookingList() {
                                 >
                                     Xem chi tiết
                                 </Button>
+
                                 <Button
                                     size='small'
                                     icon={<PlusOutlined />}
@@ -1262,6 +1324,16 @@ export default function BookingList() {
                                 >
                                     Thêm thiết bị
                                 </Button>
+
+                                {/* Thanh toán – chỉ hiển thị, chưa cho bấm cho đến khi Check-out */}
+                                <Tooltip title='Chỉ thanh toán sau khi check-out xong'>
+                                    <span>
+                                        <Button size='small' icon={<DollarOutlined />} disabled>
+                                            Thanh toán
+                                        </Button>
+                                    </span>
+                                </Tooltip>
+
                                 <Button
                                     size='small'
                                     icon={<StopOutlined />}
@@ -1737,7 +1809,12 @@ export default function BookingList() {
                                     <span className='text-gray-500'>Thời gian: </span>
                                     <b>
                                         {dayjs(checkinBooking.date).format('DD/MM/YYYY')} |{' '}
-                                        {checkinBooking.startTime} - {checkinBooking.endTime}
+                                        {Array.isArray(checkinBooking.slots) &&
+                                        checkinBooking.slots.length > 0
+                                            ? checkinBooking.slots
+                                                  .map((s) => `${s.startTime} - ${s.endTime}`)
+                                                  .join(', ')
+                                            : `${checkinBooking.startTime} - ${checkinBooking.endTime}`}
                                     </b>
                                 </div>
                             </div>
@@ -2398,7 +2475,15 @@ export default function BookingList() {
                                             <div className='flex justify-between'>
                                                 <span className='text-gray-500'>Giờ:</span>
                                                 <span>
-                                                    {booking.startTime} - {booking.endTime}
+                                                    {Array.isArray(booking.slots) &&
+                                                    booking.slots.length > 0
+                                                        ? booking.slots
+                                                              .map(
+                                                                  (s: any) =>
+                                                                      `${s.startTime} - ${s.endTime}`
+                                                              )
+                                                              .join(', ')
+                                                        : `${booking.startTime} - ${booking.endTime}`}
                                                 </span>
                                             </div>
                                         </div>
