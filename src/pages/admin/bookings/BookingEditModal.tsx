@@ -23,6 +23,11 @@ interface Booking {
     endTime: string;
     status: string;
     slots?: BookingSlot[];
+    // thêm các field liên quan tới tiền & voucher
+    voucherDiscount?: number;
+    discountTotal?: number;
+    fieldAmount?: number;
+    equipmentTotal?: number;
 }
 
 interface CourtOption {
@@ -140,12 +145,9 @@ export const BookingEditModal: React.FC<EditModalProps> = ({
 
     // Mỗi cặp ca nghỉ 15 phút
     const BREAK_MINUTES = 15;
-
     const selectedBreakMinutes =
         selectedSlotsCount > 1 ? (selectedSlotsCount - 1) * BREAK_MINUTES : 0;
-
     //  call BE tính tiền theo slots ---
-
     const calculateEditPrice = async (values: { courtId?: string; slots: BookingSlot[] }) => {
         if (!values.courtId || !values.slots || values.slots.length === 0) return;
 
@@ -340,10 +342,16 @@ export const BookingEditModal: React.FC<EditModalProps> = ({
                             const booked = isSlotBooked(slot.start, slot.end);
                             const selected = isSlotSelected(slot.start, slot.end);
 
+                            const selectedPast = past && selected;
+
                             let btnClass =
                                 'border rounded-lg p-2 flex flex-col items-center justify-center min-h-[70px] text-sm transition-all ';
 
-                            if (past) {
+                            if (selectedPast) {
+                                // ca thuộc booking hiện tại, nhưng đã quá giờ -> vẫn highlight nhưng mờ + không cho click
+                                btnClass +=
+                                    'bg-green-500 border-green-500 text-white opacity-60 cursor-not-allowed';
+                            } else if (past) {
                                 btnClass +=
                                     'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-60';
                             } else if (booked) {
@@ -361,7 +369,7 @@ export const BookingEditModal: React.FC<EditModalProps> = ({
                                 <button
                                     key={idx}
                                     type='button'
-                                    disabled={past || booked}
+                                    disabled={past || booked} // vẫn không cho thao tác với ca quá hạn / đã bị người khác đặt
                                     className={btnClass}
                                     onClick={() => handleSlotClick(slot.start, slot.end)}
                                 >
@@ -383,7 +391,6 @@ export const BookingEditModal: React.FC<EditModalProps> = ({
                         })}
                     </div>
 
-                    {/* hiển thị tiền sân */}
                     {editValues.priceInfo && (
                         <Card size='small' className='mt-2'>
                             <div className='text-sm font-semibold mb-1'>
