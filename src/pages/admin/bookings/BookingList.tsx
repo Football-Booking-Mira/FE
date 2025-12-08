@@ -150,9 +150,6 @@ const PAYMENT_LABELS: Record<string, string> = {
 const PAYMENT_METHOD_TEXT: Record<string, string> = {
     cash: 'Tiền mặt',
     transfer: 'Chuyển khoản',
-    momo: 'Momo',
-    vnpay: 'VNPAY',
-    qr: 'Quẹt thẻ / QR',
 };
 
 const REFUND_LABELS: Record<string, string> = {
@@ -181,17 +178,26 @@ const REFUND_OPTIONS: { value: Exclude<RefundFilter, 'all'>; label: string }[] =
 ];
 
 const getRefundActionOptions = (current: Booking['refundStatus'] | undefined) => {
+    // trạng thái hiện tại của booking
     const cur: Exclude<RefundFilter, 'all'> = (current as any) || 'pending';
 
-    return REFUND_OPTIONS.map((opt) => {
-        let disabled = false;
+    // Flow chuyển trạng thái:
+    //  - pending  -> chỉ được ở pending hoặc chuyển sang processing
+    //  - processing -> được ở processing, hoặc chuyển sang refunded / rejected
+    //  - refunded / rejected -> khóa cứng, không đổi nữa
+    const FLOW: Record<Exclude<RefundFilter, 'all'>, Exclude<RefundFilter, 'all'>[]> = {
+        pending: ['pending', 'processing'], // ❗ không có 'refunded' ở đây
+        processing: ['processing', 'refunded', 'rejected'],
+        refunded: ['refunded'],
+        rejected: ['rejected'],
+    };
 
-        if (cur === 'processing' && opt.value === 'pending') disabled = true;
-        if (cur === 'refunded' && opt.value !== 'refunded') disabled = true;
-        if (cur === 'rejected' && opt.value !== 'rejected') disabled = true;
+    const allowed = FLOW[cur] || ['pending'];
 
-        return { ...opt, disabled };
-    });
+    return REFUND_OPTIONS.map((opt) => ({
+        ...opt,
+        disabled: !allowed.includes(opt.value),
+    }));
 };
 
 //  THIẾT BỊ KHI CHECK-IN
@@ -2240,9 +2246,6 @@ export default function BookingList() {
                                         options={[
                                             { value: 'cash', label: 'Tiền mặt' },
                                             { value: 'transfer', label: 'Chuyển khoản' },
-                                            { value: 'momo', label: 'Momo' },
-                                            { value: 'vnpay', label: 'VNPAY' },
-                                            { value: 'qr', label: 'Quẹt thẻ / QR' },
                                         ]}
                                         onChange={handleMethodChange}
                                     />
