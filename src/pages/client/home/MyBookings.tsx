@@ -547,18 +547,54 @@ const MyBookings: React.FC = () => {
                                                         <span className='text-gray-500'>
                                                             Thanh toán:
                                                         </span>
-                                                        <Tag
-                                                            color={
-                                                                PAYMENT_COLORS[
-                                                                    booking.paymentStatus
-                                                                ] || 'default'
+                                                        {(() => {
+                                                            const s =
+                                                                booking.paymentStatus as string;
+                                                            const deposit = Number(
+                                                                booking.depositAmount || 0
+                                                            );
+                                                            const fieldAmount = Number(
+                                                                booking.fieldAmount || 0
+                                                            );
+                                                            const hasDepositPaid =
+                                                                booking.depositStatus === 'paid' &&
+                                                                deposit > 0;
+
+                                                            let color: string =
+                                                                PAYMENT_COLORS[s] || 'default';
+                                                            let label: string =
+                                                                PAYMENT_LABELS[s] || 'Không rõ';
+
+                                                            // Nếu có tiền online / tiền cọc đã thanh toán
+                                                            if (hasDepositPaid && s !== 'paid') {
+                                                                // Đã thanh toán đủ tiền sân (cọc = 100% tiền sân)
+                                                                if (
+                                                                    fieldAmount > 0 &&
+                                                                    deposit >= fieldAmount
+                                                                ) {
+                                                                    color = 'green';
+                                                                    label =
+                                                                        'Đã thanh toán tiền sân';
+                                                                } else if (fieldAmount > 0) {
+                                                                    // Cọc < 100% tiền sân
+                                                                    const percent = Math.round(
+                                                                        (deposit / fieldAmount) *
+                                                                            100
+                                                                    );
+                                                                    color = 'orange';
+                                                                    label = `Đã đặt cọc ${percent}% tiền sân`;
+                                                                }
                                                             }
-                                                            className='rounded-full px-3 py-1 text-xs md:text-sm'
-                                                        >
-                                                            {PAYMENT_LABELS[
-                                                                booking.paymentStatus
-                                                            ] || 'Không rõ'}
-                                                        </Tag>
+
+                                                            return (
+                                                                <Tag
+                                                                    color={color}
+                                                                    className='rounded-full px-3 py-1 text-xs md:text-sm'
+                                                                >
+                                                                    {label}
+                                                                </Tag>
+                                                            );
+                                                        })()}
                                                     </div>
 
                                                     {/* LÝ DO HỦY (NẾU CÓ) */}
