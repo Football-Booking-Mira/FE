@@ -36,13 +36,14 @@ interface CheckoutData {
     overallEnd: string;
     bookingId?: string;
 
-    // backward compatible
+    bookingIds?: string[]; // nhiều booking
+    isMultiBooking?: boolean; // true/false
+
     startTime?: string;
     endTime?: string;
 
-    //  khi đi từ MyBookings (Thanh toán lại)
     isRetryPayment?: boolean;
-    total?: number; // tổng tiền booking, nếu có
+    total?: number;
 }
 
 const formatDate = (value: string) => {
@@ -130,7 +131,7 @@ const Checkout: React.FC = () => {
     useEffect(() => {
         if (!bookingData) return;
 
-        // TH1: từ MyBookings, đang Thanh toán lại
+        //  từ MyBookings, đang Thanh toán lại
         if (bookingData.isRetryPayment && bookingData.bookingId) {
             api.get(`/bookings/${bookingData.bookingId}/retry-payment-info`)
                 .then((res) => {
@@ -149,7 +150,7 @@ const Checkout: React.FC = () => {
                     setTotalAmount(fallback);
                 });
         } else {
-            // TH2: flow đặt sân mới
+            //  flow đặt sân mới
             const amount = bookingData.totalPrice ?? bookingData.total ?? 0;
             setTotalAmount(amount);
         }
@@ -297,13 +298,24 @@ const Checkout: React.FC = () => {
 
         try {
             setIsPaying(true);
+            // Dùng biến local để luôn là bản mới nhất
+            let currentCheckout: CheckoutData = { ...bookingData };
+            let bookingId = currentCheckout.bookingId;
+            let bookingIds = currentCheckout.bookingIds || [];
 
-            // ⚠️ Voucher sẽ được commit ở BE khi tạo payment URL
-            // Không cần validate lại ở đây, BE sẽ xử lý và trả về lỗi nếu voucher hết lượt
+            //  Phân biệt flow THÀNH TOÁN LẠI vs ĐẶT SÂN MỚI
+            const isRetryCheckout = currentCheckout.isRetryPayment || !!retryInfo;
 
-            let bookingId = bookingData.bookingId;
+            // Nếu là flow ĐẶT SÂN MỚI: luôn tạo booking mới, không dùng bookingId/bookingIds cũ
+            if (!isRetryCheckout) {
+                bookingId = undefined;
+                bookingIds = [];
+                currentCheckout.bookingId = undefined;
+                currentCheckout.bookingIds = [];
+                currentCheckout.isMultiBooking = false;
+            }
 
-            //  Tạo booking nếu chưa có (flow đặt sân mới)
+            //  Nếu chưa có booking -> tạo mới
             if (!bookingId) {
                 const resBooking = await fetch('http://localhost:3000/api/bookings', {
                     method: 'POST',
@@ -338,17 +350,41 @@ const Checkout: React.FC = () => {
                     return;
                 }
 
-                bookingId = dataBooking.data._id;
+                const created = dataBooking.data;
 
-                const newCheckoutData: CheckoutData = {
-                    ...bookingData,
-                    bookingId,
-                };
-                setBookingData(newCheckoutData);
-                localStorage.setItem('checkout-data', JSON.stringify(newCheckoutData));
+                if (Array.isArray(created)) {
+                    bookingIds = created.map((b: any) => b._id);
+                    bookingId = bookingIds[0];
+
+                    const totalFromServer = created.reduce(
+                        (sum: number, b: any) => sum + Number(b.total || b.fieldAmount || 0),
+                        0
+                    );
+                    setTotalAmount(totalFromServer);
+
+                    currentCheckout = {
+                        ...currentCheckout,
+                        bookingId,
+                        bookingIds,
+                        isMultiBooking: bookingIds.length > 1,
+                    };
+                } else {
+                    const b = created;
+                    bookingId = b._id;
+
+                    currentCheckout = {
+                        ...currentCheckout,
+                        bookingId,
+                        isMultiBooking: false,
+                    };
+                }
+
+                // cập nhật state + localStorage 1 lần
+                setBookingData(currentCheckout);
+                localStorage.setItem('checkout-data', JSON.stringify(currentCheckout));
             }
 
-            //  Thanh toán VNPay đặt sân mới + thanh toán lại
+            //  Gọi VNPay
             if (paymentMethod === 'vnpay') {
                 if (totalAmount <= 0) {
                     toast.error('Số tiền thanh toán không hợp lệ!');
@@ -357,13 +393,17 @@ const Checkout: React.FC = () => {
                 }
 
                 const payload: any = {
-                    bookingId,
-                    amount: totalAmount, // ⭐ dùng số tiền thực sự cần trả
+                    amount: totalAmount,
                 };
 
-                const isRetry = bookingData.isRetryPayment || !!retryInfo;
-                if (isRetry) {
-                    payload.isRetryPayment = true;
+                const isRetry = currentCheckout.isRetryPayment || !!retryInfo;
+                if (isRetry) payload.isRetryPayment = true;
+
+                // Nếu là nhiều booking dùng mảng ids, ngược lại dùng 1 bookingId
+                if (currentCheckout.isMultiBooking && bookingIds.length > 0) {
+                    payload.bookingIds = bookingIds;
+                } else if (bookingId) {
+                    payload.bookingId = bookingId;
                 }
 
                 const res = await fetch('http://localhost:3000/api/payment/vnpay/create', {
@@ -372,7 +412,7 @@ const Checkout: React.FC = () => {
                     body: JSON.stringify(payload),
                 });
 
-                // ⚠️ XỬ LÝ LỖI TỪ BE
+                //  XỬ LÝ LỖI TỪ BE
                 // Kiểm tra status code trước khi parse JSON
                 if (!res.ok) {
                     let errorData;
