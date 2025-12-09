@@ -20,20 +20,6 @@ const STATUS_LABELS: Record<string, string> = {
     completed: 'Hoàn thành',
     cancelled: 'Đã hủy',
 };
-const handleViewInvoice = async (bookingId: string) => {
-    try {
-        const res = await api.get(`/invoices/by-booking/${bookingId}`);
-        const detail = res.data;
-        if (!detail?.invoice) {
-            toast.error('Không tìm thấy hóa đơn cho đơn này!');
-            return;
-        }
-        printInvoiceMira(detail);
-    } catch (err: any) {
-        const msg = err?.response?.data?.message || 'Không thể tải hóa đơn, vui lòng thử lại!';
-        toast.error(msg);
-    }
-};
 
 const STATUS_COLORS: Record<string, string> = {
     pending: 'gold',
@@ -83,43 +69,47 @@ const TABS = [
     { key: 'cancelled', label: 'Đã hủy' },
     { key: 'refunded', label: 'Hoàn tiền' },
 ];
-const formatBookingTime = (booking: any) => {
-    //  Nếu có slots (đơn nhiều ca)
-    if (Array.isArray(booking.slots) && booking.slots.length > 0) {
-        const sorted = [...booking.slots].sort((a, b) =>
-            String(a.startTime).localeCompare(String(b.startTime))
-        );
 
-        return sorted.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ');
+const handleViewInvoice = async (bookingId: string) => {
+    try {
+        const res = await api.get(`/invoices/by-booking/${bookingId}`);
+        const detail = res.data;
+        if (!detail?.invoice) {
+            toast.error('Không tìm thấy hóa đơn cho đơn này!');
+            return;
+        }
+        printInvoiceMira(detail);
+    } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Không thể tải hóa đơn, vui lòng thử lại!';
+        toast.error(msg);
     }
-
-    //  Đơn cũ chỉ có 1 khung giờ
-    if (booking.startTime && booking.endTime) {
-        return `${booking.startTime} - ${booking.endTime}`;
-    }
-
-    return '--';
 };
+
+// ======================= COMPONENT =======================
 
 const MyBookings: React.FC = () => {
     const navigate = useNavigate();
+    // danh sách booking “thô” từ backend (mỗi ca / mỗi block là 1 booking)
     const [bookings, setBookings] = useState<any[]>([]);
-    const [filtered, setFiltered] = useState<any[]>([]);
+    // danh sách group (gộp nhiều booking chung orderId)
+    const [bookingGroups, setBookingGroups] = useState<any[]>([]);
+    // danh sách group sau khi filter theo tab
+    const [filteredGroups, setFilteredGroups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<string>('all');
     const [tabCounts, setTabCounts] = useState<Record<string, number>>({});
-    const socketRef = useRef<Socket | null>(null);
 
+    const socketRef = useRef<Socket | null>(null);
     const lastSocketUpdateRef = useRef<number>(0);
 
-    //  STATE POPUP HỦY ĐƠN
+    // STATE POPUP HỦY ĐƠN (có thể hủy nhiều ca 1 lần)
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
-    const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+    const [selectedBookingIds, setSelectedBookingIds] = useState<string[]>([]);
 
-    //  STATE POPUP HOÀN TIỀN
+    // STATE POPUP HOÀN TIỀN (có thể gửi cho nhiều ca 1 lần)
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
-    const [refundBookingId, setRefundBookingId] = useState<string | null>(null);
+    const [refundBookingIds, setRefundBookingIds] = useState<string[]>([]);
     const [refundForm, setRefundForm] = useState({
         accountNumber: '',
         accountName: '',
@@ -129,27 +119,34 @@ const MyBookings: React.FC = () => {
 
     const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
 
-    //  THANH TOÁN LẠI ĐƠN CHƯA THANH TOÁN
+    // ================== THANH TOÁN LẠI ==================
     const handlePayAgain = async (booking: any) => {
         try {
             setPayingBookingId(booking._id);
 
-            //  Lấy thông tin số tiền còn phải thanh toán
             const retryRes = await api.get(`/bookings/${booking._id}/retry-payment-info`);
             const info = retryRes.data?.data;
 
             if (!info || !info.amountToPay || info.amountToPay <= 0) {
-                toast.error('Không có số tiền cần thanh toán cho đơn này!');
+                toast.error(
+                    'Không có số tiền cần thanh toán thêm cho đơn/nhóm đơn này. Vui lòng kiểm tra lại!'
+                );
                 setPayingBookingId(null);
                 return;
             }
 
-            //  Gọi tạo link thanh toán VNPay với số tiền còn lại
-            const body = {
-                bookingId: info.bookingId,
-                isRetryPayment: true,
-                amount: info.amountToPay, // BE dùng amount nếu isRetryPayment = true
-            };
+            const body =
+                info.type === 'order'
+                    ? {
+                          orderId: info.orderId,
+                          isRetryPayment: true,
+                          amount: info.amountToPay,
+                      }
+                    : {
+                          bookingId: info.bookingId,
+                          isRetryPayment: true,
+                          amount: info.amountToPay,
+                      };
 
             const payRes = await api.post('/payment/vnpay/create', body);
             const paymentUrl =
@@ -172,34 +169,42 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    //  FILTER THEO TAB
-    const applyFilter = (tabKey: string, source: any[] = bookings) => {
-        let result = source;
-
-        switch (tabKey) {
-            case 'waiting_payment':
-                result = source.filter(
-                    (b) => b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial'
-                );
-                break;
-            case 'pending':
-            case 'confirmed':
-            case 'in_use':
-            case 'completed':
-            case 'cancelled':
-                result = source.filter((b) => b.status === tabKey);
-                break;
-            case 'refunded':
-                result = source.filter((b) => (b.refundStatus || 'none') === 'refunded');
-                break;
-            case 'all':
-            default:
-                result = source;
+    // ================== FILTER THEO TAB ==================
+    const applyFilter = (tabKey: string, groupsSource: any[] = bookingGroups) => {
+        if (tabKey === 'all') {
+            setFilteredGroups(groupsSource);
+            return;
         }
 
-        setFiltered(result);
+        const matchBooking = (b: any) => {
+            switch (tabKey) {
+                case 'waiting_payment':
+                    return b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial';
+                case 'pending':
+                case 'confirmed':
+                case 'in_use':
+                case 'completed':
+                case 'cancelled':
+                    return b.status === tabKey;
+                case 'refunded':
+                    return (b.refundStatus || 'none') === 'refunded';
+                default:
+                    return true;
+            }
+        };
+
+        const result = groupsSource
+            .map((g) => {
+                // group xuất hiện nếu có ÍT NHẤT 1 booking con match filter
+                const hasMatch = g.bookings.some(matchBooking);
+                return hasMatch ? g : null;
+            })
+            .filter(Boolean) as any[];
+
+        setFilteredGroups(result);
     };
 
+    // ================== LOAD BOOKING ==================
     const fetchBookings = async () => {
         try {
             const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -210,11 +215,13 @@ const MyBookings: React.FC = () => {
             const data = res.data;
 
             if (data?.success) {
+                // 1. Chuẩn hoá paymentStatus theo tiền cọc
                 const mapped = data.data.map((b: any) => {
                     const hasDepositPaid = (b.depositAmount || 0) > 0 && b.depositStatus === 'paid';
                     const deposit = Number(b.depositAmount || 0);
                     const total = Number(b.total || 0);
                     let paymentStatus: string = b.paymentStatus || 'unpaid';
+
                     if (
                         (paymentStatus === 'unpaid' || paymentStatus === 'partial') &&
                         hasDepositPaid
@@ -225,12 +232,14 @@ const MyBookings: React.FC = () => {
                             paymentStatus = 'partial';
                         }
                     }
+
                     return {
                         ...b,
                         paymentStatus,
                     };
                 });
 
+                // 2. Sort theo thời gian tạo
                 const sorted = [...mapped].sort((a: any, b: any) => {
                     const at = new Date(a.createdAt || a.date).getTime();
                     const bt = new Date(b.createdAt || b.date).getTime();
@@ -239,6 +248,37 @@ const MyBookings: React.FC = () => {
 
                 setBookings(sorted);
 
+                // 3. Group các booking cùng orderId (online nhiều ca)
+                const groupMap = new Map<string, any>();
+
+                for (const b of sorted) {
+                    const key = b.orderId ? String(b.orderId) : String(b._id);
+                    if (!groupMap.has(key)) {
+                        groupMap.set(key, {
+                            _id: key,
+                            courtId: b.courtId,
+                            customerId: b.customerId,
+                            date: b.date,
+                            bookings: [] as any[],
+                        });
+                    }
+                    groupMap.get(key).bookings.push(b);
+                }
+
+                const groups = Array.from(groupMap.values()).map((g: any) => {
+                    g.bookings.sort((a: any, b: any) =>
+                        String(a.startTime || '').localeCompare(String(b.startTime || ''))
+                    );
+                    g.total = g.bookings.reduce(
+                        (sum: number, b: any) => sum + Number(b.total || 0),
+                        0
+                    );
+                    return g;
+                });
+
+                setBookingGroups(groups);
+
+                // 4. Đếm số lượng từng tab theo TỪNG BOOKING (để badge đúng)
                 const counts: Record<string, number> = {
                     all: sorted.length,
                     waiting_payment: sorted.filter(
@@ -254,7 +294,8 @@ const MyBookings: React.FC = () => {
                 };
                 setTabCounts(counts);
 
-                applyFilter(activeTab, sorted);
+                // 5. Áp filter cho tab hiện tại
+                applyFilter(activeTab, groups);
             } else {
                 toast.error(data?.message || 'Không lấy được danh sách đặt sân');
             }
@@ -265,7 +306,7 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    //  SOCKET
+    // ================== SOCKET ==================
     useEffect(() => {
         fetchBookings();
 
@@ -304,7 +345,7 @@ const MyBookings: React.FC = () => {
         };
     }, []);
 
-    // join room theo court để nhận event realtime theo sân
+    // join room theo court để realtime
     useEffect(() => {
         if (bookings.length && socketRef.current) {
             bookings.forEach((b) => {
@@ -320,9 +361,9 @@ const MyBookings: React.FC = () => {
         applyFilter(key);
     };
 
-    //  POPUP HỦY ĐƠN
-    const openCancelModal = (bookingId: string) => {
-        setSelectedBookingId(bookingId);
+    // ----------- HỦY ĐƠN (NHIỀU CA) -----------
+    const openCancelModal = (bookingIds: string[]) => {
+        setSelectedBookingIds(bookingIds);
         setCancelReason('');
         setIsCancelModalOpen(true);
     };
@@ -330,11 +371,11 @@ const MyBookings: React.FC = () => {
     const closeCancelModal = () => {
         setIsCancelModalOpen(false);
         setCancelReason('');
-        setSelectedBookingId(null);
+        setSelectedBookingIds([]);
     };
 
     const handleConfirmCancel = async () => {
-        if (!selectedBookingId) return;
+        if (!selectedBookingIds.length) return;
 
         if (!cancelReason.trim()) {
             toast.error('Vui lòng nhập lý do hủy đơn!');
@@ -342,11 +383,15 @@ const MyBookings: React.FC = () => {
         }
 
         try {
-            await api.patch(`/bookings/${selectedBookingId}/cancel`, {
-                reason: cancelReason.trim(),
-            });
+            await Promise.all(
+                selectedBookingIds.map((id) =>
+                    api.patch(`/bookings/${id}/cancel`, {
+                        reason: cancelReason.trim(),
+                    })
+                )
+            );
 
-            toast.success('Hủy đặt sân thành công!', {
+            toast.success('Hủy các ca trong đơn thành công!', {
                 autoClose: 1500,
                 style: { backgroundColor: '#dc2626', color: '#fff' },
             });
@@ -354,25 +399,34 @@ const MyBookings: React.FC = () => {
             closeCancelModal();
             fetchBookings();
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || err.message || 'Không thể hủy đặt sân!');
+            toast.error(
+                err?.response?.data?.message ||
+                    err.message ||
+                    'Không thể hủy toàn bộ các ca, vui lòng kiểm tra lại!'
+            );
         }
     };
 
-    // POPUP HOÀN TIỀN
-    const openRefundModal = (booking: any) => {
-        setRefundBookingId(booking._id);
+    // ----------- HOÀN TIỀN (NHIỀU CA) -----------
+    // bookings: mảng booking trong group cần hoàn tiền
+    const openRefundModal = (bookings: any[]) => {
+        const first = bookings[0] || {};
+
+        setRefundBookingIds(bookings.map((b) => b._id));
+
         setRefundForm({
-            accountNumber: booking.refundAccountNumber || '',
-            accountName: booking.refundAccountName || '',
-            bankName: booking.refundBankName || '',
-            note: booking.refundNote || '',
+            accountNumber: first.refundAccountNumber || '',
+            accountName: first.refundAccountName || '',
+            bankName: first.refundBankName || '',
+            note: first.refundNote || '',
         });
+
         setIsRefundModalOpen(true);
     };
 
     const closeRefundModal = () => {
         setIsRefundModalOpen(false);
-        setRefundBookingId(null);
+        setRefundBookingIds([]);
         setRefundForm({
             accountNumber: '',
             accountName: '',
@@ -382,7 +436,7 @@ const MyBookings: React.FC = () => {
     };
 
     const handleSubmitRefund = async () => {
-        if (!refundBookingId) return;
+        if (!refundBookingIds.length) return;
 
         if (
             !refundForm.accountNumber.trim() ||
@@ -394,14 +448,18 @@ const MyBookings: React.FC = () => {
         }
 
         try {
-            await api.post(`/bookings/${refundBookingId}/refund-request`, {
-                accountNumber: refundForm.accountNumber.trim(),
-                accountName: refundForm.accountName.trim(),
-                bankName: refundForm.bankName.trim(),
-                note: refundForm.note.trim(),
-            });
+            await Promise.all(
+                refundBookingIds.map((id) =>
+                    api.post(`/bookings/${id}/refund-request`, {
+                        accountNumber: refundForm.accountNumber.trim(),
+                        accountName: refundForm.accountName.trim(),
+                        bankName: refundForm.bankName.trim(),
+                        note: refundForm.note.trim(),
+                    })
+                )
+            );
 
-            toast.success('Đã gửi yêu cầu hoàn tiền, vui lòng chờ admin xử lý!', {
+            toast.success('Đã gửi yêu cầu hoàn tiền cho toàn bộ các ca trong đơn!', {
                 autoClose: 2000,
                 style: { backgroundColor: '#15803d', color: '#fff' },
             });
@@ -410,11 +468,14 @@ const MyBookings: React.FC = () => {
             fetchBookings();
         } catch (err: any) {
             toast.error(
-                err?.response?.data?.message || err.message || 'Không thể gửi yêu cầu hoàn tiền!'
+                err?.response?.data?.message ||
+                    err.message ||
+                    'Không thể gửi yêu cầu hoàn tiền cho toàn bộ ca, vui lòng thử lại!'
             );
         }
     };
 
+    // ================== LOADING ==================
     if (loading) {
         return (
             <div className='flex justify-center items-center h-screen'>
@@ -423,6 +484,7 @@ const MyBookings: React.FC = () => {
         );
     }
 
+    // ================== RENDER ==================
     return (
         <div className='min-h-screen bg-gray-50 py-12'>
             <ToastContainer position='top-right' autoClose={2500} theme='colored' />
@@ -456,53 +518,55 @@ const MyBookings: React.FC = () => {
 
                 {/* LIST */}
                 <div className='bg-white rounded-b-2xl border border-t-0 px-4 md:px-6 pb-6'>
-                    {filtered.length === 0 ? (
+                    {filteredGroups.length === 0 ? (
                         <div className='py-16 flex justify-center'>
                             <Empty description='Không có đơn đặt sân nào' />
                         </div>
                     ) : (
                         <div className='divide-y divide-gray-100'>
-                            {filtered.map((booking) => {
+                            {filteredGroups.map((group) => {
+                                const first = group.bookings[0];
                                 const imageUrl =
-                                    booking.courtId?.images?.[0] || booking.courtId?.image || '';
+                                    first.courtId?.images?.[0] || first.courtId?.image || '';
 
-                                const refundStatus =
-                                    booking.refundStatus ||
-                                    (booking.paymentStatus === 'refunded' ? 'refunded' : 'none');
-                                const refundBillImage =
-                                    booking.refundBillImage ||
-                                    booking.refund?.billImage ||
-                                    booking.refund?.bill?.image;
-                                //  console.log('booking client list >>>', booking);
+                                const groupTotal = Number(group.total || 0);
 
-                                const refundAdminReason =
-                                    booking.refundAdminReason ||
-                                    booking.refund?.adminReason ||
-                                    booking.refund?.reason ||
-                                    '';
+                                const pendingInGroup = group.bookings.filter(
+                                    (b: any) => b.status === 'pending'
+                                );
 
-                                const canRequestRefund =
-                                    booking.status === 'cancelled' &&
-                                    (booking.paymentStatus === 'paid' ||
-                                        booking.paymentStatus === 'partial') &&
-                                    refundStatus === 'none';
-                                const canPayAgain =
-                                    booking.status === 'pending' &&
-                                    booking.paymentMethod === 'vnpay' &&
-                                    (booking.paymentStatus === 'unpaid' ||
-                                        booking.paymentStatus === 'partial');
+                                const refundableBookings = group.bookings.filter((b: any) => {
+                                    const refundStatus =
+                                        b.refundStatus ||
+                                        (b.paymentStatus === 'refunded' ? 'refunded' : 'none');
+
+                                    return (
+                                        b.status === 'cancelled' &&
+                                        (b.paymentStatus === 'paid' ||
+                                            b.paymentStatus === 'partial') &&
+                                        refundStatus === 'none'
+                                    );
+                                });
+
+                                const canRequestRefundGroup =
+                                    refundableBookings.length > 0 &&
+                                    refundableBookings.length === group.bookings.length;
+
+                                const canCancelGroup =
+                                    pendingInGroup.length > 0 &&
+                                    pendingInGroup.length === group.bookings.length;
 
                                 return (
                                     <div
-                                        key={booking._id}
-                                        className='py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4'
+                                        key={group._id}
+                                        className='py-6 flex flex-col md:flex-row md:items-start md:justify-between gap-4'
                                     >
                                         {/* LEFT */}
                                         <div className='flex-1 flex gap-4'>
                                             {imageUrl && (
                                                 <img
                                                     src={imageUrl}
-                                                    alt={booking.courtId?.name || 'Sân bóng'}
+                                                    alt={first.courtId?.name || 'Sân bóng'}
                                                     className='w-24 h-24 md:w-28 md:h-28 rounded-xl object-cover border border-gray-200'
                                                 />
                                             )}
@@ -511,231 +575,422 @@ const MyBookings: React.FC = () => {
                                                 <div className='text-sm text-gray-500 mb-1'>
                                                     Mã đơn:{' '}
                                                     <span className='font-semibold'>
-                                                        {booking.code}
+                                                        {first.code}
                                                     </span>
+                                                    {group.bookings.length > 1 && (
+                                                        <span className='ml-1 text-xs text-gray-400'>
+                                                            • {group.bookings.length} ca
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <h2 className='text-lg font-semibold text-gray-900'>
-                                                    {booking.courtId?.name || 'Sân bóng'}
+                                                    {first.courtId?.name || 'Sân bóng'}
                                                 </h2>
                                                 <p className='text-sm text-gray-600 mt-1'>
-                                                    {format(new Date(booking.date), 'dd/MM/yyyy', {
+                                                    {format(new Date(first.date), 'dd/MM/yyyy', {
                                                         locale: vi,
-                                                    })}{' '}
-                                                    • {formatBookingTime(booking)}
+                                                    })}
                                                 </p>
 
-                                                <div className='flex flex-col gap-2 mt-3 text-sm'>
-                                                    {/* TRẠNG THÁI ĐƠN */}
-                                                    <div className='flex flex-wrap items-center gap-2'>
-                                                        <span className='text-gray-500'>
-                                                            Trạng thái đơn:
-                                                        </span>
-                                                        <Tag
-                                                            color={
-                                                                STATUS_COLORS[booking.status] ||
-                                                                'default'
-                                                            }
-                                                            className='rounded-full px-3 py-1 text-xs md:text-sm'
-                                                        >
-                                                            {STATUS_LABELS[booking.status] ||
-                                                                booking.status}
-                                                        </Tag>
-                                                    </div>
+                                                {/* DANH SÁCH TỪNG CA TRONG ĐƠN */}
+                                                <div className='mt-3 space-y-3'>
+                                                    {group.bookings.map(
+                                                        (booking: any, idx: number) => {
+                                                            const refundStatus =
+                                                                booking.refundStatus ||
+                                                                (booking.paymentStatus ===
+                                                                'refunded'
+                                                                    ? 'refunded'
+                                                                    : 'none');
 
-                                                    {/* TRẠNG THÁI THANH TOÁN */}
-                                                    <div className='flex flex-wrap items-center gap-2'>
-                                                        <span className='text-gray-500'>
-                                                            Thanh toán:
-                                                        </span>
-                                                        {(() => {
-                                                            const s =
-                                                                booking.paymentStatus as string;
-                                                            const deposit = Number(
-                                                                booking.depositAmount || 0
+                                                            const refundBillImage =
+                                                                booking.refundBillImage ||
+                                                                booking.refund?.billImage ||
+                                                                booking.refund?.bill?.image;
+
+                                                            const refundAdminReason =
+                                                                booking.refundAdminReason ||
+                                                                booking.refund?.adminReason ||
+                                                                booking.refund?.reason ||
+                                                                '';
+
+                                                            const canPayAgain =
+                                                                booking.status === 'pending' &&
+                                                                booking.paymentMethod === 'vnpay' &&
+                                                                (booking.paymentStatus ===
+                                                                    'unpaid' ||
+                                                                    booking.paymentStatus ===
+                                                                        'partial');
+
+                                                            // TÍNH SỐ TIỀN CHO TỪNG CA
+                                                            const bookingTotal = Number(
+                                                                booking.total || 0
                                                             );
-                                                            const fieldAmount = Number(
-                                                                booking.fieldAmount || 0
+                                                            const refundAmount = Number(
+                                                                booking.refundAmount ??
+                                                                    booking.refund?.amount ??
+                                                                    bookingTotal
                                                             );
-                                                            const hasDepositPaid =
-                                                                booking.depositStatus === 'paid' &&
-                                                                deposit > 0;
+                                                            const isCustomerPaid =
+                                                                booking.status !== 'cancelled' &&
+                                                                (booking.paymentStatus === 'paid' ||
+                                                                    booking.paymentStatus ===
+                                                                        'refunded' ||
+                                                                    booking.paymentStatus ===
+                                                                        'partial');
 
-                                                            let color: string =
-                                                                PAYMENT_COLORS[s] || 'default';
-                                                            let label: string =
-                                                                PAYMENT_LABELS[s] || 'Không rõ';
-
-                                                            // Nếu có tiền online / tiền cọc đã thanh toán
-                                                            if (hasDepositPaid && s !== 'paid') {
-                                                                // Đã thanh toán đủ tiền sân (cọc = 100% tiền sân)
-                                                                if (
-                                                                    fieldAmount > 0 &&
-                                                                    deposit >= fieldAmount
-                                                                ) {
-                                                                    color = 'green';
-                                                                    label =
-                                                                        'Đã thanh toán tiền sân';
-                                                                } else if (fieldAmount > 0) {
-                                                                    // Cọc < 100% tiền sân
-                                                                    const percent = Math.round(
-                                                                        (deposit / fieldAmount) *
-                                                                            100
-                                                                    );
-                                                                    color = 'orange';
-                                                                    label = `Đã đặt cọc ${percent}% tiền sân`;
-                                                                }
-                                                            }
+                                                            const isRefunded =
+                                                                refundStatus === 'refunded';
 
                                                             return (
-                                                                <Tag
-                                                                    color={color}
-                                                                    className='rounded-full px-3 py-1 text-xs md:text-sm'
+                                                                <div
+                                                                    key={booking._id}
+                                                                    className='border border-gray-100 rounded-lg p-3 bg-gray-50'
                                                                 >
-                                                                    {label}
-                                                                </Tag>
-                                                            );
-                                                        })()}
-                                                    </div>
+                                                                    <div className='flex flex-wrap justify-between gap-2'>
+                                                                        <div className='space-y-2'>
+                                                                            <p className='text-sm font-medium text-gray-900'>
+                                                                                Ca {idx + 1}:{' '}
+                                                                                {booking.startTime}{' '}
+                                                                                - {booking.endTime}
+                                                                            </p>
 
-                                                    {/* LÝ DO HỦY (NẾU CÓ) */}
-                                                    {booking.status === 'cancelled' &&
-                                                        booking.cancelReason && (
-                                                            <p className='text-xs text-red-500'>
-                                                                Lý do hủy:{' '}
-                                                                <span className='font-medium'>
-                                                                    {booking.cancelReason}
-                                                                </span>
-                                                            </p>
-                                                        )}
+                                                                            {/* TRẠNG THÁI ĐƠN */}
+                                                                            <div className='flex flex-wrap items-center gap-2 text-xs md:text-sm'>
+                                                                                <span className='text-gray-500'>
+                                                                                    Trạng thái đơn:
+                                                                                </span>
+                                                                                <Tag
+                                                                                    color={
+                                                                                        STATUS_COLORS[
+                                                                                            booking
+                                                                                                .status
+                                                                                        ] ||
+                                                                                        'default'
+                                                                                    }
+                                                                                    className='rounded-full px-3 py-1'
+                                                                                >
+                                                                                    {
+                                                                                        STATUS_LABELS[
+                                                                                            booking
+                                                                                                .status
+                                                                                        ]
+                                                                                    }
+                                                                                </Tag>
+                                                                            </div>
 
-                                                    {/* TRẠNG THÁI HOÀN TIỀN + ẢNH BILL */}
-                                                    {refundStatus !== 'none' && (
-                                                        <div className='flex flex-col gap-1 mt-1'>
-                                                            <div className='flex flex-wrap items-center gap-2'>
-                                                                <span className='text-gray-500'>
-                                                                    Hoàn tiền:
-                                                                </span>
-                                                                <Tag
-                                                                    color={
-                                                                        REFUND_STATUS_COLORS[
-                                                                            refundStatus
-                                                                        ] || 'default'
-                                                                    }
-                                                                    className='rounded-full px-3 py-1 text-xs md:text-sm'
-                                                                >
-                                                                    {REFUND_STATUS_LABELS[
-                                                                        refundStatus
-                                                                    ] || 'Hoàn tiền'}
-                                                                </Tag>
-                                                            </div>
+                                                                            {/* TRẠNG THÁI THANH TOÁN */}
+                                                                            <div className='flex flex-wrap items-center gap-2 text-xs md:text-sm'>
+                                                                                <span className='text-gray-500'>
+                                                                                    Thanh toán:
+                                                                                </span>
+                                                                                {(() => {
+                                                                                    const s =
+                                                                                        booking.paymentStatus;
+                                                                                    const deposit =
+                                                                                        Number(
+                                                                                            booking.depositAmount ||
+                                                                                                0
+                                                                                        );
+                                                                                    const fieldAmount =
+                                                                                        Number(
+                                                                                            booking.fieldAmount ||
+                                                                                                0
+                                                                                        );
+                                                                                    const hasDepositPaid =
+                                                                                        booking.depositStatus ===
+                                                                                            'paid' &&
+                                                                                        deposit > 0;
 
-                                                            {refundBillImage && (
-                                                                <div className='mt-2 space-y-1'>
-                                                                    <span className='text-xs text-gray-500'>
-                                                                        Ảnh bill chuyển khoản:
-                                                                    </span>
-                                                                    <a
-                                                                        href={refundBillImage}
-                                                                        target='_blank'
-                                                                        rel='noreferrer'
-                                                                        className='text-xs text-emerald-600 underline hover:text-emerald-700'
-                                                                    >
-                                                                        Mở ảnh bill trong tab mới
-                                                                    </a>
-                                                                    <div className='mt-1'>
-                                                                        <Image
-                                                                            src={refundBillImage}
-                                                                            alt='Bill hoàn tiền'
-                                                                            className='max-h-64 rounded-md border cursor-pointer'
-                                                                        />
+                                                                                    let color: string =
+                                                                                        PAYMENT_COLORS[
+                                                                                            s
+                                                                                        ] ||
+                                                                                        'default';
+                                                                                    let label: string =
+                                                                                        PAYMENT_LABELS[
+                                                                                            s
+                                                                                        ] ||
+                                                                                        'Không rõ';
+
+                                                                                    if (
+                                                                                        hasDepositPaid &&
+                                                                                        s !== 'paid'
+                                                                                    ) {
+                                                                                        if (
+                                                                                            fieldAmount >
+                                                                                                0 &&
+                                                                                            deposit >=
+                                                                                                fieldAmount
+                                                                                        ) {
+                                                                                            color =
+                                                                                                'green';
+                                                                                            label =
+                                                                                                'Đã thanh toán tiền sân';
+                                                                                        } else if (
+                                                                                            fieldAmount >
+                                                                                            0
+                                                                                        ) {
+                                                                                            const percent =
+                                                                                                Math.round(
+                                                                                                    (deposit /
+                                                                                                        fieldAmount) *
+                                                                                                        100
+                                                                                                );
+                                                                                            color =
+                                                                                                'orange';
+                                                                                            label = `Đã đặt cọc ${percent}% tiền sân`;
+                                                                                        }
+                                                                                    }
+
+                                                                                    return (
+                                                                                        <Tag
+                                                                                            color={
+                                                                                                color
+                                                                                            }
+                                                                                            className='rounded-full px-3 py-1'
+                                                                                        >
+                                                                                            {label}
+                                                                                        </Tag>
+                                                                                    );
+                                                                                })()}
+                                                                            </div>
+
+                                                                            {/* LÝ DO HỦY (NẾU CÓ) */}
+                                                                            {booking.status ===
+                                                                                'cancelled' &&
+                                                                                booking.cancelReason && (
+                                                                                    <p className='text-xs text-red-500'>
+                                                                                        Lý do hủy:{' '}
+                                                                                        <span className='font-medium'>
+                                                                                            {
+                                                                                                booking.cancelReason
+                                                                                            }
+                                                                                        </span>
+                                                                                    </p>
+                                                                                )}
+
+                                                                            {/* HOÀN TIỀN (NẾU CÓ) */}
+                                                                            {refundStatus !==
+                                                                                'none' && (
+                                                                                <div className='flex flex-col gap-1 mt-1'>
+                                                                                    <div className='flex flex-wrap items-center gap-2'>
+                                                                                        <span className='text-gray-500 text-xs'>
+                                                                                            Hoàn
+                                                                                            tiền:
+                                                                                        </span>
+                                                                                        <Tag
+                                                                                            color={
+                                                                                                REFUND_STATUS_COLORS[
+                                                                                                    refundStatus
+                                                                                                ] ||
+                                                                                                'default'
+                                                                                            }
+                                                                                            className='rounded-full px-3 py-1 text-xs'
+                                                                                        >
+                                                                                            {
+                                                                                                REFUND_STATUS_LABELS[
+                                                                                                    refundStatus
+                                                                                                ]
+                                                                                            }
+                                                                                        </Tag>
+                                                                                    </div>
+
+                                                                                    {refundBillImage && (
+                                                                                        <div className='mt-2 space-y-1'>
+                                                                                            <span className='text-xs text-gray-500'>
+                                                                                                Ảnh
+                                                                                                bill
+                                                                                                chuyển
+                                                                                                khoản:
+                                                                                            </span>
+                                                                                            <a
+                                                                                                href={
+                                                                                                    refundBillImage
+                                                                                                }
+                                                                                                target='_blank'
+                                                                                                rel='noreferrer'
+                                                                                                className='text-xs text-emerald-600 underline hover:text-emerald-700'
+                                                                                            >
+                                                                                                Mở
+                                                                                                ảnh
+                                                                                                bill
+                                                                                                trong
+                                                                                                tab
+                                                                                                mới
+                                                                                            </a>
+                                                                                            <div className='mt-1'>
+                                                                                                <Image
+                                                                                                    src={
+                                                                                                        refundBillImage
+                                                                                                    }
+                                                                                                    alt='Bill hoàn tiền'
+                                                                                                    className='max-h-64 rounded-md border cursor-pointer'
+                                                                                                />
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {refundStatus ===
+                                                                                        'rejected' &&
+                                                                                        refundAdminReason && (
+                                                                                            <p className='mt-1 text-xs text-red-500'>
+                                                                                                Lý
+                                                                                                do
+                                                                                                admin
+                                                                                                từ
+                                                                                                chối
+                                                                                                hoàn
+                                                                                                tiền:{' '}
+                                                                                                <span className='font-medium'>
+                                                                                                    {
+                                                                                                        refundAdminReason
+                                                                                                    }
+                                                                                                </span>
+                                                                                            </p>
+                                                                                        )}
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* TIỀN ĐÃ TRẢ / ĐÃ HOÀN THEO TỪNG CA */}
+                                                                            {isCustomerPaid &&
+                                                                                bookingTotal >
+                                                                                    0 && (
+                                                                                    <p className='mt-1 text-xs text-green-700 font-semibold'>
+                                                                                        Khách đã
+                                                                                        trả:{' '}
+                                                                                        {bookingTotal.toLocaleString(
+                                                                                            'vi-VN'
+                                                                                        )}{' '}
+                                                                                        ₫
+                                                                                    </p>
+                                                                                )}
+
+                                                                            {isRefunded &&
+                                                                                refundAmount >
+                                                                                    0 && (
+                                                                                    <p className='mt-1 text-xs text-emerald-600 font-semibold'>
+                                                                                        Đã hoàn trả:{' '}
+                                                                                        {refundAmount.toLocaleString(
+                                                                                            'vi-VN'
+                                                                                        )}{' '}
+                                                                                        ₫
+                                                                                    </p>
+                                                                                )}
+                                                                        </div>
+
+                                                                        {/* ACTION CHO TỪNG CA */}
+                                                                        <div className='text-right space-y-2 min-w-[140px]'>
+                                                                            {/* Xem HĐ */}
+                                                                            {booking.status ===
+                                                                                'completed' &&
+                                                                                (booking.paymentStatus ===
+                                                                                    'paid' ||
+                                                                                    booking.paymentStatus ===
+                                                                                        'refunded') && (
+                                                                                    <button
+                                                                                        className='inline-flex items-center gap-1 rounded-lg border px-3 py-1 text-xs font-medium text-emerald-600 border-emerald-500 hover:bg-emerald-50'
+                                                                                        onClick={() =>
+                                                                                            handleViewInvoice(
+                                                                                                booking._id
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        📄 Xem hóa
+                                                                                        đơn
+                                                                                    </button>
+                                                                                )}
+
+                                                                            {/* Thanh toán lại */}
+                                                                            {canPayAgain && (
+                                                                                <Button
+                                                                                    type='primary'
+                                                                                    size='middle'
+                                                                                    className='w-full'
+                                                                                    loading={
+                                                                                        payingBookingId ===
+                                                                                        booking._id
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        handlePayAgain(
+                                                                                            booking
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    {payingBookingId ===
+                                                                                    booking._id
+                                                                                        ? 'Đang chuyển tới VNPay...'
+                                                                                        : 'Thanh toán lại'}
+                                                                                </Button>
+                                                                            )}
+
+                                                                            {booking.status ===
+                                                                                'cancelled' &&
+                                                                                [
+                                                                                    'pending',
+                                                                                    'processing',
+                                                                                ].includes(
+                                                                                    refundStatus
+                                                                                ) && (
+                                                                                    <p className='text-xs text-blue-500 italic'>
+                                                                                        Đã gửi yêu
+                                                                                        cầu hoàn
+                                                                                        tiền, vui
+                                                                                        lòng chờ
+                                                                                        admin xử lý.
+                                                                                    </p>
+                                                                                )}
+                                                                            {booking.status ===
+                                                                                'cancelled' &&
+                                                                                refundStatus ===
+                                                                                    'refunded' && (
+                                                                                    <p className='text-xs text-green-600 font-semibold'>
+                                                                                        Đã hoàn tiền
+                                                                                        cho bạn.
+                                                                                    </p>
+                                                                                )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            )}
-                                                            {refundStatus === 'rejected' &&
-                                                                refundAdminReason && (
-                                                                    <p className='mt-1 text-xs text-red-500'>
-                                                                        Lý do admin từ chối hoàn
-                                                                        tiền:{' '}
-                                                                        <span className='font-medium'>
-                                                                            {refundAdminReason}
-                                                                        </span>
-                                                                    </p>
-                                                                )}
-                                                        </div>
+                                                            );
+                                                        }
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* RIGHT */}
-                                        <div className='text-right min-w-[220px]'>
-                                            <p className='text-green-700 font-extrabold text-xl'>
-                                                {booking.total.toLocaleString('vi-VN')} ₫
+                                        {/* RIGHT – tổng tiền cả đơn (nhiều ca) */}
+                                        <div className='text-right min-w-[220px] space-y-1'>
+                                            <p className='text-sm text-gray-600'>Tổng tiền đơn:</p>
+                                            <p className='text-lg font-semibold text-gray-900'>
+                                                {groupTotal.toLocaleString('vi-VN')} ₫
                                             </p>
-                                            {/* Xem hóa đơn */}
-                                            {booking.status === 'completed' &&
-                                                (booking.paymentStatus === 'paid' ||
-                                                    booking.paymentStatus === 'refunded') && (
-                                                    <button
-                                                        className='mt-3 inline-flex items-center gap-1 rounded-lg border px-3 py-1 text-xs font-medium text-emerald-600 border-emerald-500 hover:bg-emerald-50'
-                                                        onClick={() =>
-                                                            handleViewInvoice(booking._id)
-                                                        }
-                                                    >
-                                                        📄 Xem hóa đơn
-                                                    </button>
-                                                )}
-                                            {/* Hủy đặt sân (chỉ PENDING và KHÔNG có thanh toán lại) */}
-                                            {booking.status === 'pending' && !canPayAgain && (
+
+                                            {canCancelGroup && (
                                                 <Button
                                                     danger
                                                     type='primary'
                                                     size='middle'
-                                                    className='mt-3 ml-2'
-                                                    onClick={() => openCancelModal(booking._id)}
+                                                    className='mt-3'
+                                                    onClick={() =>
+                                                        openCancelModal(
+                                                            group.bookings.map((b: any) => b._id)
+                                                        )
+                                                    }
                                                 >
                                                     Hủy đặt sân
                                                 </Button>
                                             )}
-                                            {/*  Thanh toán lại cho đơn chưa thanh toán */}
-                                            {canPayAgain && (
-                                                <Button
-                                                    type='primary'
-                                                    size='middle'
-                                                    className='mt-3 ml-2'
-                                                    loading={payingBookingId === booking._id}
-                                                    onClick={() => handlePayAgain(booking)}
-                                                >
-                                                    {payingBookingId === booking._id
-                                                        ? 'Đang chuyển tới VNPay...'
-                                                        : 'Thanh toán lại'}
-                                                </Button>
-                                            )}
-                                            {/*  Yêu cầu hoàn tiền */}
-                                            {canRequestRefund && (
+
+                                            {canRequestRefundGroup && (
                                                 <Button
                                                     size='middle'
-                                                    className='mt-3 ml-2 border-amber-500 text-amber-600 hover:bg-amber-50'
-                                                    onClick={() => openRefundModal(booking)}
+                                                    className='mt-3 border-amber-500 text-amber-600 hover:bg-amber-50'
+                                                    onClick={() => openRefundModal(group.bookings)}
                                                 >
                                                     Yêu cầu hoàn tiền
                                                 </Button>
                                             )}
-                                            {booking.status === 'cancelled' &&
-                                                ['pending', 'processing'].includes(
-                                                    refundStatus
-                                                ) && (
-                                                    <p className='mt-2 text-xs text-blue-500 italic'>
-                                                        Đã gửi yêu cầu hoàn tiền, vui lòng chờ admin
-                                                        xử lý.
-                                                    </p>
-                                                )}
-                                            {booking.status === 'cancelled' &&
-                                                refundStatus === 'refunded' && (
-                                                    <p className='mt-2 text-xs text-green-600 font-semibold'>
-                                                        Đã hoàn tiền cho bạn.
-                                                    </p>
-                                                )}
                                         </div>
                                     </div>
                                 );
