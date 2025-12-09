@@ -182,9 +182,7 @@ const getRefundActionOptions = (current: Booking['refundStatus'] | undefined) =>
     const cur: Exclude<RefundFilter, 'all'> = (current as any) || 'pending';
 
     // Flow chuyển trạng thái:
-    //  - pending  -> chỉ được ở pending hoặc chuyển sang processing
-    //  - processing -> được ở processing, hoặc chuyển sang refunded / rejected
-    //  - refunded / rejected -> khóa cứng, không đổi nữa
+
     const FLOW: Record<Exclude<RefundFilter, 'all'>, Exclude<RefundFilter, 'all'>[]> = {
         pending: ['pending', 'processing'], // ❗ không có 'refunded' ở đây
         processing: ['processing', 'refunded', 'rejected'],
@@ -452,7 +450,7 @@ export default function BookingList() {
             .map((item) => {
                 const totalQty = equipmentQty[item.key] || 0;
                 const base = equipmentBaseQty[item.key] || 0;
-                const qty = Math.max(0, totalQty - base); // chỉ phần thêm mới
+                const qty = Math.max(0, totalQty - base);
 
                 if (qty <= 0) return null;
 
@@ -522,11 +520,10 @@ export default function BookingList() {
                 const deposit = Number(b.depositAmount || 0);
                 const total = Number(b.total || 0);
 
-                // paymentStatus gốc từ BE
                 let paymentStatus: Booking['paymentStatus'] = (b.paymentStatus as any) || 'unpaid';
 
-                // Nếu đã thanh toán online / đặt cọc (depositStatus = paid)
-                // thì luôn coi là "partial". "paid" CHỈ khi BE set sau khi tạo hóa đơn.
+                // có cọc đã thanh toán thì mặc định coi là partial,
+                // còn "paid" chỉ khi BE set sau khi tạo hóa đơn
                 if (hasDepositPaid && (paymentStatus === 'unpaid' || paymentStatus === 'partial')) {
                     paymentStatus = 'partial';
                 }
@@ -537,7 +534,33 @@ export default function BookingList() {
                 };
             });
 
+            // SẮP XẾP: ngày mới trước, trong cùng 1 ngày thì giờ nhỏ lên trước
             const sorted = [...list].sort((a, b) => {
+                const aDate = dayjs(a.date);
+                const bDate = dayjs(b.date);
+
+                // khác ngày -> ngày mới hơn lên trước
+                if (aDate.isValid() && bDate.isValid() && !aDate.isSame(bDate, 'day')) {
+                    return bDate.valueOf() - aDate.valueOf();
+                }
+
+                // cùng ngày -> sort theo giờ bắt đầu (slot đầu tiên nếu có)
+                const getStart = (x: Booking) => {
+                    if (Array.isArray(x.slots) && x.slots.length > 0) {
+                        return x.slots[0]?.startTime || '';
+                    }
+                    return x.startTime || '';
+                };
+
+                const aStart = getStart(a);
+                const bStart = getStart(b);
+
+                if (aStart && bStart && aStart !== bStart) {
+                    // giờ nhỏ lên trước (09:00 < 12:15 < 21:00 ...)
+                    return aStart.localeCompare(bStart);
+                }
+
+                // fallback: nếu vẫn bằng nhau thì sort theo createdAt mới nhất
                 const at = new Date(a.createdAt || a.date).getTime();
                 const bt = new Date(b.createdAt || b.date).getTime();
                 return bt - at;
@@ -720,9 +743,6 @@ export default function BookingList() {
                 console.log('res check out: ', res.data);
 
                 toast.success('🏁 Check-out thành công!');
-                //  KHÔNG tạo hóa đơn, không mở modal thanh toán ở đây nữa
-                // const update: Booking = res.data?.data || bookings.find((b) => b._id === id)!;
-                // openPaymentModal(update);
             }
 
             fetchBookings();
@@ -859,9 +879,7 @@ export default function BookingList() {
             } finally {
                 setPaymentLoading(false);
             }
-        } catch {
-            // lỗi validate form
-        }
+        } catch {}
     };
 
     const handleRefundStatusChange = async (id: string, status: RefundFilter | 'none') => {
@@ -1076,7 +1094,7 @@ export default function BookingList() {
                     );
                 }
 
-                // Fallback: booking cũ chỉ có startTime / endTime
+                // Fallback: booking chỉ có startTime / endTime
                 return `${b.startTime} - ${b.endTime}`;
             },
         },
@@ -1270,14 +1288,14 @@ export default function BookingList() {
                                             size='small'
                                             icon={<PlayCircleOutlined />}
                                             onClick={() => handleAction(b._id, 'checkin')}
-                                            disabled={isFutureBooking}
+                                            // disabled={isFutureBooking}
                                         >
                                             Check-in
                                         </Button>
                                     </span>
                                 </Tooltip>
 
-                                {/* Nút Thanh toán – luôn hiển thị nhưng disabled, đúng flow:
+                                {/* Nút Thanh toán – luôn hiển thị nhưng disabled, 
             chỉ thanh toán sau khi checkout xong */}
                                 <Tooltip title='Chỉ thanh toán sau khi check-out xong'>
                                     <span>
