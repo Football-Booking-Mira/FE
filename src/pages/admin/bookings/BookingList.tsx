@@ -1269,63 +1269,107 @@ export default function BookingList() {
                             </>
                         )}
 
-                        {b.status === 'confirmed' && (
-                            <>
-                                {/* 1 nút Check-in duy nhất */}
-                                <Tooltip
-                                    title={
-                                        isFutureBooking
-                                            ? 'Chỉ được check-in từ 00:00 đúng ngày đá'
-                                            : undefined
-                                    }
-                                >
-                                    <span>
+                        {b.status === 'confirmed' &&
+                            (() => {
+                                const now = dayjs();
+
+                                // ngày đá (theo FE)
+                                const bookingDay = dayjs(b.date).startOf('day');
+
+                                // giờ bắt đầu sớm nhất
+                                const earliestSlot =
+                                    Array.isArray(b.slots) && b.slots.length > 0
+                                        ? [...b.slots].sort((a, c) =>
+                                              a.startTime.localeCompare(c.startTime)
+                                          )[0]
+                                        : null;
+
+                                const earliestStart = earliestSlot?.startTime || b.startTime;
+
+                                let allowFrom: dayjs.Dayjs | null = null;
+                                if (earliestStart) {
+                                    const [h, m] = earliestStart.split(':').map(Number);
+                                    allowFrom = bookingDay
+                                        .hour(h || 0)
+                                        .minute(m || 0)
+                                        .second(0)
+                                        .subtract(15, 'minute'); // cho check-in trước 15p
+                                }
+
+                                let checkinDisabled = false;
+                                let checkinTooltip: string | undefined;
+
+                                // Trước ngày đá
+                                if (now.isBefore(bookingDay, 'day')) {
+                                    checkinDisabled = true;
+                                    checkinTooltip =
+                                        'Chỉ được check-in trong đúng ngày diễn ra lịch đá';
+                                }
+                                // Sau ngày đá (quên check-in)
+                                else if (now.isAfter(bookingDay, 'day')) {
+                                    checkinDisabled = true;
+                                    checkinTooltip = 'Đơn đã quá ngày đá, không thể check-in';
+                                }
+                                // Đúng ngày nhưng chưa tới giờ cho phép
+                                else if (allowFrom && now.isBefore(allowFrom)) {
+                                    checkinDisabled = true;
+                                    checkinTooltip = `Chỉ được check-in trước giờ đá tối đa 15 phút (từ ${allowFrom.format(
+                                        'HH:mm'
+                                    )} trở đi)`;
+                                }
+
+                                return (
+                                    <>
+                                        <Tooltip title={checkinTooltip}>
+                                            <span>
+                                                <Button
+                                                    size='small'
+                                                    icon={<PlayCircleOutlined />}
+                                                    onClick={() => handleAction(b._id, 'checkin')}
+                                                    disabled={checkinDisabled}
+                                                >
+                                                    Check-in
+                                                </Button>
+                                            </span>
+                                        </Tooltip>
+
+                                        {/* Nút Thanh toán – chỉ thanh toán sau checkout */}
+                                        <Tooltip title='Chỉ thanh toán sau khi check-out xong'>
+                                            <span>
+                                                <Button
+                                                    size='small'
+                                                    icon={<DollarOutlined />}
+                                                    disabled
+                                                >
+                                                    Thanh toán
+                                                </Button>
+                                            </span>
+                                        </Tooltip>
+
                                         <Button
                                             size='small'
-                                            icon={<PlayCircleOutlined />}
-                                            onClick={() => handleAction(b._id, 'checkin')}
-                                            // disabled={isFutureBooking}
+                                            icon={<EditOutlined />}
+                                            onClick={() => openEditModal(b)}
                                         >
-                                            Check-in
+                                            Sửa
                                         </Button>
-                                    </span>
-                                </Tooltip>
 
-                                {/* Nút Thanh toán – luôn hiển thị nhưng disabled, 
-            chỉ thanh toán sau khi checkout xong */}
-                                <Tooltip title='Chỉ thanh toán sau khi check-out xong'>
-                                    <span>
-                                        <Button size='small' icon={<DollarOutlined />} disabled>
-                                            Thanh toán
+                                        <Button
+                                            size='small'
+                                            danger
+                                            onClick={() => {
+                                                if (b.paymentMethod === 'cash') {
+                                                    handleAdminCancelCash(b);
+                                                } else {
+                                                    handleAction(b._id, 'cancel');
+                                                }
+                                            }}
+                                        >
+                                            Hủy
                                         </Button>
-                                    </span>
-                                </Tooltip>
-
-                                {/* Sửa */}
-                                <Button
-                                    size='small'
-                                    icon={<EditOutlined />}
-                                    onClick={() => openEditModal(b)}
-                                >
-                                    Sửa
-                                </Button>
-
-                                {/* Hủy */}
-                                <Button
-                                    size='small'
-                                    danger
-                                    onClick={() => {
-                                        if (b.paymentMethod === 'cash') {
-                                            handleAdminCancelCash(b); // đơn tiền mặt / cọc tại sân
-                                        } else {
-                                            handleAction(b._id, 'cancel'); // online (VNPAY/Momo...)
-                                        }
-                                    }}
-                                >
-                                    Hủy
-                                </Button>
-                            </>
-                        )}
+                                    </>
+                                );
+                            })()}
 
                         {b.status === 'in_use' && (
                             <Space>
