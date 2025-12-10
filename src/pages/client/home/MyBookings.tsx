@@ -87,6 +87,12 @@ const handleViewInvoice = async (bookingId: string) => {
     }
 };
 
+// helper: đổi "HH:mm" -> phút
+const timeToMin = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+};
+
 const MyBookings: React.FC = () => {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState<any[]>([]);
@@ -521,37 +527,39 @@ const MyBookings: React.FC = () => {
 
                                 const groupTotal = Number(group.total || 0);
 
-                                // ====== ĐIỀU KIỆN YÊU CẦU HOÀN TIỀN ======
-                                // ====== ĐIỀU KIỆN YÊU CẦU HOÀN TIỀN ======
+                                // tổng số ca = tổng số slot của tất cả booking (nếu không có slots => 1 ca)
+                                const slotCount: number = group.bookings.reduce(
+                                    (sum: number, b: any) => {
+                                        if (Array.isArray(b.slots) && b.slots.length > 0) {
+                                            return sum + b.slots.length;
+                                        }
+                                        return sum + 1;
+                                    },
+                                    0
+                                );
+
+                                //  ĐIỀU KIỆN YÊU CẦU HOÀN TIỀN
                                 const refundableBookings = group.bookings.filter((b: any) => {
                                     const rawRefundStatus =
                                         b.refundStatus ||
                                         (b.paymentStatus === 'refunded' ? 'refunded' : 'none');
 
-                                    // chỉ cho gửi khi chưa có flow hoàn tiền
-                                    // hoặc đã bị từ chối lần trước
                                     const canRefundStatus =
                                         rawRefundStatus === 'none' ||
                                         rawRefundStatus === 'rejected';
 
-                                    // bắt buộc đơn này đã thanh toán / đã cọc
                                     const isPaidOrPartial =
                                         b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
 
-                                    // CHỈ cho yêu cầu hoàn tiền khi ĐÃ HỦY ĐƠN
                                     const allowStatus = b.status === 'cancelled';
 
                                     return allowStatus && isPaidOrPartial && canRefundStatus;
                                 });
 
-                                // Chỉ hiện nút "Yêu cầu hoàn tiền" khi TẤT CẢ ca trong đơn
-                                // đều là cancelled + paid/partial + chưa có flow refund
                                 const canRequestRefundGroup =
                                     refundableBookings.length > 0 &&
                                     refundableBookings.length === group.bookings.length;
 
-                                // TẤT CẢ các ca trong đơn đều đang chờ xác nhận
-                                // VÀ đã có tiền (đã cọc hoặc đã thanh toán)
                                 const canCancelGroup = group.bookings.every((b: any) => {
                                     const isPending = b.status === 'pending';
                                     const isPaidOrPartial =
@@ -560,7 +568,6 @@ const MyBookings: React.FC = () => {
                                     return isPending && isPaidOrPartial;
                                 });
 
-                                // có ít nhất 1 booking đủ điều kiện thanh toán lại => hiện nút "Thanh toán lại" cấp đơn
                                 const canPayAgainGroup = group.bookings.some(
                                     (b: any) =>
                                         b.status === 'pending' &&
@@ -590,9 +597,9 @@ const MyBookings: React.FC = () => {
                                                     <span className='font-semibold'>
                                                         {first.code}
                                                     </span>
-                                                    {group.bookings.length > 1 && (
+                                                    {slotCount > 1 && (
                                                         <span className='ml-1 text-xs text-gray-400'>
-                                                            • {group.bookings.length} ca
+                                                            • {slotCount} ca
                                                         </span>
                                                     )}
                                                 </div>
@@ -653,11 +660,62 @@ const MyBookings: React.FC = () => {
                                                                 >
                                                                     <div className='flex flex-wrap justify-between gap-2'>
                                                                         <div className='space-y-2'>
-                                                                            <p className='text-sm font-medium text-gray-900'>
-                                                                                Ca {idx + 1}:{' '}
-                                                                                {booking.startTime}{' '}
-                                                                                - {booking.endTime}
-                                                                            </p>
+                                                                            {/* HIỂN THỊ TỪNG CA THEO booking.slots */}
+                                                                            {Array.isArray(
+                                                                                booking.slots
+                                                                            ) &&
+                                                                            booking.slots.length >
+                                                                                0 ? (
+                                                                                [...booking.slots]
+                                                                                    .sort(
+                                                                                        (
+                                                                                            a: any,
+                                                                                            b: any
+                                                                                        ) =>
+                                                                                            timeToMin(
+                                                                                                a.startTime
+                                                                                            ) -
+                                                                                            timeToMin(
+                                                                                                b.startTime
+                                                                                            )
+                                                                                    )
+                                                                                    .map(
+                                                                                        (
+                                                                                            slot: any,
+                                                                                            slotIdx: number
+                                                                                        ) => (
+                                                                                            <p
+                                                                                                key={
+                                                                                                    slotIdx
+                                                                                                }
+                                                                                                className='text-sm font-medium text-gray-900'
+                                                                                            >
+                                                                                                Ca{' '}
+                                                                                                {slotIdx +
+                                                                                                    1}
+                                                                                                :{' '}
+                                                                                                {
+                                                                                                    slot.startTime
+                                                                                                }{' '}
+                                                                                                -{' '}
+                                                                                                {
+                                                                                                    slot.endTime
+                                                                                                }
+                                                                                            </p>
+                                                                                        )
+                                                                                    )
+                                                                            ) : (
+                                                                                <p className='text-sm font-medium text-gray-900'>
+                                                                                    Ca {idx + 1}:{' '}
+                                                                                    {
+                                                                                        booking.startTime
+                                                                                    }{' '}
+                                                                                    -{' '}
+                                                                                    {
+                                                                                        booking.endTime
+                                                                                    }
+                                                                                </p>
+                                                                            )}
 
                                                                             {/* TRẠNG THÁI ĐƠN */}
                                                                             <div className='flex flex-wrap items-center gap-2 text-xs md:text-sm'>
