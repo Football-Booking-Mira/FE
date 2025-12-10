@@ -534,17 +534,22 @@ export default function BookingList() {
                 };
             });
 
-            // SẮP XẾP: ngày mới trước, trong cùng 1 ngày thì giờ nhỏ lên trước
+            // SẮP XẾP: đơn mới tạo trước (createdAt mới nhất lên đầu)
             const sorted = [...list].sort((a, b) => {
+                const at = new Date(a.createdAt || a.date).getTime();
+                const bt = new Date(b.createdAt || b.date).getTime();
+
+                // createdAt mới hơn lên trước
+                if (at !== bt) return bt - at;
+
+                // fallback: nếu cùng thời điểm thì sắp theo ngày đá + giờ
                 const aDate = dayjs(a.date);
                 const bDate = dayjs(b.date);
 
-                // khác ngày -> ngày mới hơn lên trước
                 if (aDate.isValid() && bDate.isValid() && !aDate.isSame(bDate, 'day')) {
-                    return bDate.valueOf() - aDate.valueOf();
+                    return aDate.valueOf() - bDate.valueOf(); // ngày sớm trước
                 }
 
-                // cùng ngày -> sort theo giờ bắt đầu (slot đầu tiên nếu có)
                 const getStart = (x: Booking) => {
                     if (Array.isArray(x.slots) && x.slots.length > 0) {
                         return x.slots[0]?.startTime || '';
@@ -554,16 +559,7 @@ export default function BookingList() {
 
                 const aStart = getStart(a);
                 const bStart = getStart(b);
-
-                if (aStart && bStart && aStart !== bStart) {
-                    // giờ nhỏ lên trước (09:00 < 12:15 < 21:00 ...)
-                    return aStart.localeCompare(bStart);
-                }
-
-                // fallback: nếu vẫn bằng nhau thì sort theo createdAt mới nhất
-                const at = new Date(a.createdAt || a.date).getTime();
-                const bt = new Date(b.createdAt || b.date).getTime();
-                return bt - at;
+                return aStart.localeCompare(bStart);
             });
 
             setBookings(sorted);

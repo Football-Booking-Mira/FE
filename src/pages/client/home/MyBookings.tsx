@@ -73,11 +73,13 @@ const TABS = [
 const handleViewInvoice = async (bookingId: string) => {
     try {
         const res = await api.get(`/invoices/by-booking/${bookingId}`);
-        const detail = res.data;
+        const detail = res.data?.data || res.data;
+
         if (!detail?.invoice) {
             toast.error('Không tìm thấy hóa đơn cho đơn này!');
             return;
         }
+
         printInvoiceMira(detail);
     } catch (err: any) {
         const msg = err?.response?.data?.message || 'Không thể tải hóa đơn, vui lòng thử lại!';
@@ -85,15 +87,10 @@ const handleViewInvoice = async (bookingId: string) => {
     }
 };
 
-// ======================= COMPONENT =======================
-
 const MyBookings: React.FC = () => {
     const navigate = useNavigate();
-    // danh sách booking “thô” từ backend (mỗi ca / mỗi block là 1 booking)
     const [bookings, setBookings] = useState<any[]>([]);
-    // danh sách group (gộp nhiều booking chung orderId)
     const [bookingGroups, setBookingGroups] = useState<any[]>([]);
-    // danh sách group sau khi filter theo tab
     const [filteredGroups, setFilteredGroups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<string>('all');
@@ -102,12 +99,10 @@ const MyBookings: React.FC = () => {
     const socketRef = useRef<Socket | null>(null);
     const lastSocketUpdateRef = useRef<number>(0);
 
-    // STATE POPUP HỦY ĐƠN (có thể hủy nhiều ca 1 lần)
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [selectedBookingIds, setSelectedBookingIds] = useState<string[]>([]);
 
-    // STATE POPUP HOÀN TIỀN (có thể gửi cho nhiều ca 1 lần)
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundBookingIds, setRefundBookingIds] = useState<string[]>([]);
     const [refundForm, setRefundForm] = useState({
@@ -119,7 +114,7 @@ const MyBookings: React.FC = () => {
 
     const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
 
-    // ================== THANH TOÁN LẠI ==================
+    //  THANH TOÁN LẠI (1 booking đầu mối, backend tự gom order)
     const handlePayAgain = async (booking: any) => {
         try {
             setPayingBookingId(booking._id);
@@ -135,15 +130,16 @@ const MyBookings: React.FC = () => {
                 return;
             }
 
+            // gửi bookingId / bookingIds cho API
             const body =
                 info.type === 'order'
                     ? {
-                          orderId: info.orderId,
+                          bookingIds: info.bookingIds, // mảng các ca trong đơn gộp
                           isRetryPayment: true,
                           amount: info.amountToPay,
                       }
                     : {
-                          bookingId: info.bookingId,
+                          bookingId: info.bookingId, // đơn lẻ
                           isRetryPayment: true,
                           amount: info.amountToPay,
                       };
@@ -169,7 +165,21 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // ================== FILTER THEO TAB ==================
+    // Thanh toán lại cho cả group (chọn 1 booking phù hợp trong group)
+    const handlePayAgainGroup = (group: any) => {
+        // ưu tiên booking VNPAY, PENDING
+        const candidate =
+            group.bookings.find(
+                (b: any) =>
+                    b.paymentMethod === 'vnpay' &&
+                    b.status === 'pending' &&
+                    (b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial')
+            ) || group.bookings[0];
+
+        if (!candidate) return;
+        handlePayAgain(candidate);
+    };
+
     const applyFilter = (tabKey: string, groupsSource: any[] = bookingGroups) => {
         if (tabKey === 'all') {
             setFilteredGroups(groupsSource);
@@ -194,17 +204,13 @@ const MyBookings: React.FC = () => {
         };
 
         const result = groupsSource
-            .map((g) => {
-                // group xuất hiện nếu có ÍT NHẤT 1 booking con match filter
-                const hasMatch = g.bookings.some(matchBooking);
-                return hasMatch ? g : null;
-            })
+            .map((g) => (g.bookings.some(matchBooking) ? g : null))
             .filter(Boolean) as any[];
 
         setFilteredGroups(result);
     };
 
-    // ================== LOAD BOOKING ==================
+    // LOAD BOOKING
     const fetchBookings = async () => {
         try {
             const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -215,7 +221,6 @@ const MyBookings: React.FC = () => {
             const data = res.data;
 
             if (data?.success) {
-                // 1. Chuẩn hoá paymentStatus theo tiền cọc
                 const mapped = data.data.map((b: any) => {
                     const hasDepositPaid = (b.depositAmount || 0) > 0 && b.depositStatus === 'paid';
                     const deposit = Number(b.depositAmount || 0);
@@ -233,13 +238,9 @@ const MyBookings: React.FC = () => {
                         }
                     }
 
-                    return {
-                        ...b,
-                        paymentStatus,
-                    };
+                    return { ...b, paymentStatus };
                 });
 
-                // 2. Sort theo thời gian tạo
                 const sorted = [...mapped].sort((a: any, b: any) => {
                     const at = new Date(a.createdAt || a.date).getTime();
                     const bt = new Date(b.createdAt || b.date).getTime();
@@ -248,9 +249,7 @@ const MyBookings: React.FC = () => {
 
                 setBookings(sorted);
 
-                // 3. Group các booking cùng orderId (online nhiều ca)
                 const groupMap = new Map<string, any>();
-
                 for (const b of sorted) {
                     const key = b.orderId ? String(b.orderId) : String(b._id);
                     if (!groupMap.has(key)) {
@@ -278,7 +277,6 @@ const MyBookings: React.FC = () => {
 
                 setBookingGroups(groups);
 
-                // 4. Đếm số lượng từng tab theo TỪNG BOOKING (để badge đúng)
                 const counts: Record<string, number> = {
                     all: sorted.length,
                     waiting_payment: sorted.filter(
@@ -294,7 +292,6 @@ const MyBookings: React.FC = () => {
                 };
                 setTabCounts(counts);
 
-                // 5. Áp filter cho tab hiện tại
                 applyFilter(activeTab, groups);
             } else {
                 toast.error(data?.message || 'Không lấy được danh sách đặt sân');
@@ -306,7 +303,7 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // ================== SOCKET ==================
+    // SOCKET
     useEffect(() => {
         fetchBookings();
 
@@ -320,10 +317,7 @@ const MyBookings: React.FC = () => {
 
         const handleBookingUpdated = () => {
             const now = Date.now();
-            if (now - lastSocketUpdateRef.current < 400) {
-                lastSocketUpdateRef.current = now;
-                return;
-            }
+            if (now - lastSocketUpdateRef.current < 400) return;
             lastSocketUpdateRef.current = now;
 
             fetchBookings();
@@ -345,7 +339,6 @@ const MyBookings: React.FC = () => {
         };
     }, []);
 
-    // join room theo court để realtime
     useEffect(() => {
         if (bookings.length && socketRef.current) {
             bookings.forEach((b) => {
@@ -385,9 +378,7 @@ const MyBookings: React.FC = () => {
         try {
             await Promise.all(
                 selectedBookingIds.map((id) =>
-                    api.patch(`/bookings/${id}/cancel`, {
-                        reason: cancelReason.trim(),
-                    })
+                    api.patch(`/bookings/${id}/cancel`, { reason: cancelReason.trim() })
                 )
             );
 
@@ -408,7 +399,6 @@ const MyBookings: React.FC = () => {
     };
 
     // ----------- HOÀN TIỀN (NHIỀU CA) -----------
-    // bookings: mảng booking trong group cần hoàn tiền
     const openRefundModal = (bookings: any[]) => {
         const first = bookings[0] || {};
 
@@ -475,7 +465,7 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // ================== LOADING ==================
+    //  LOADING
     if (loading) {
         return (
             <div className='flex justify-center items-center h-screen'>
@@ -484,7 +474,7 @@ const MyBookings: React.FC = () => {
         );
     }
 
-    // ================== RENDER ==================
+    //  RENDER
     return (
         <div className='min-h-screen bg-gray-50 py-12'>
             <ToastContainer position='top-right' autoClose={2500} theme='colored' />
@@ -531,30 +521,53 @@ const MyBookings: React.FC = () => {
 
                                 const groupTotal = Number(group.total || 0);
 
-                                const pendingInGroup = group.bookings.filter(
-                                    (b: any) => b.status === 'pending'
-                                );
-
+                                // ====== ĐIỀU KIỆN YÊU CẦU HOÀN TIỀN ======
+                                // ====== ĐIỀU KIỆN YÊU CẦU HOÀN TIỀN ======
                                 const refundableBookings = group.bookings.filter((b: any) => {
-                                    const refundStatus =
+                                    const rawRefundStatus =
                                         b.refundStatus ||
                                         (b.paymentStatus === 'refunded' ? 'refunded' : 'none');
 
-                                    return (
-                                        b.status === 'cancelled' &&
-                                        (b.paymentStatus === 'paid' ||
-                                            b.paymentStatus === 'partial') &&
-                                        refundStatus === 'none'
-                                    );
+                                    // chỉ cho gửi khi chưa có flow hoàn tiền
+                                    // hoặc đã bị từ chối lần trước
+                                    const canRefundStatus =
+                                        rawRefundStatus === 'none' ||
+                                        rawRefundStatus === 'rejected';
+
+                                    // bắt buộc đơn này đã thanh toán / đã cọc
+                                    const isPaidOrPartial =
+                                        b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
+
+                                    // CHỈ cho yêu cầu hoàn tiền khi ĐÃ HỦY ĐƠN
+                                    const allowStatus = b.status === 'cancelled';
+
+                                    return allowStatus && isPaidOrPartial && canRefundStatus;
                                 });
 
+                                // Chỉ hiện nút "Yêu cầu hoàn tiền" khi TẤT CẢ ca trong đơn
+                                // đều là cancelled + paid/partial + chưa có flow refund
                                 const canRequestRefundGroup =
                                     refundableBookings.length > 0 &&
                                     refundableBookings.length === group.bookings.length;
 
-                                const canCancelGroup =
-                                    pendingInGroup.length > 0 &&
-                                    pendingInGroup.length === group.bookings.length;
+                                // TẤT CẢ các ca trong đơn đều đang chờ xác nhận
+                                // VÀ đã có tiền (đã cọc hoặc đã thanh toán)
+                                const canCancelGroup = group.bookings.every((b: any) => {
+                                    const isPending = b.status === 'pending';
+                                    const isPaidOrPartial =
+                                        b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
+
+                                    return isPending && isPaidOrPartial;
+                                });
+
+                                // có ít nhất 1 booking đủ điều kiện thanh toán lại => hiện nút "Thanh toán lại" cấp đơn
+                                const canPayAgainGroup = group.bookings.some(
+                                    (b: any) =>
+                                        b.status === 'pending' &&
+                                        b.paymentMethod === 'vnpay' &&
+                                        (b.paymentStatus === 'unpaid' ||
+                                            b.paymentStatus === 'partial')
+                                );
 
                                 return (
                                     <div
@@ -614,15 +627,6 @@ const MyBookings: React.FC = () => {
                                                                 booking.refund?.reason ||
                                                                 '';
 
-                                                            const canPayAgain =
-                                                                booking.status === 'pending' &&
-                                                                booking.paymentMethod === 'vnpay' &&
-                                                                (booking.paymentStatus ===
-                                                                    'unpaid' ||
-                                                                    booking.paymentStatus ===
-                                                                        'partial');
-
-                                                            // TÍNH SỐ TIỀN CHO TỪNG CA
                                                             const bookingTotal = Number(
                                                                 booking.total || 0
                                                             );
@@ -852,7 +856,6 @@ const MyBookings: React.FC = () => {
                                                                                 </div>
                                                                             )}
 
-                                                                            {/* TIỀN ĐÃ TRẢ / ĐÃ HOÀN THEO TỪNG CA */}
                                                                             {isCustomerPaid &&
                                                                                 bookingTotal >
                                                                                     0 && (
@@ -879,9 +882,8 @@ const MyBookings: React.FC = () => {
                                                                                 )}
                                                                         </div>
 
-                                                                        {/* ACTION CHO TỪNG CA */}
+                                                                        {/* ACTION cho từng ca – CHỈ ĐỂ XEM HÓA ĐƠN, không cho thanh toán lại riêng lẻ */}
                                                                         <div className='text-right space-y-2 min-w-[140px]'>
-                                                                            {/* Xem HĐ */}
                                                                             {booking.status ===
                                                                                 'completed' &&
                                                                                 (booking.paymentStatus ===
@@ -900,29 +902,6 @@ const MyBookings: React.FC = () => {
                                                                                         đơn
                                                                                     </button>
                                                                                 )}
-
-                                                                            {/* Thanh toán lại */}
-                                                                            {canPayAgain && (
-                                                                                <Button
-                                                                                    type='primary'
-                                                                                    size='middle'
-                                                                                    className='w-full'
-                                                                                    loading={
-                                                                                        payingBookingId ===
-                                                                                        booking._id
-                                                                                    }
-                                                                                    onClick={() =>
-                                                                                        handlePayAgain(
-                                                                                            booking
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    {payingBookingId ===
-                                                                                    booking._id
-                                                                                        ? 'Đang chuyển tới VNPay...'
-                                                                                        : 'Thanh toán lại'}
-                                                                                </Button>
-                                                                            )}
 
                                                                             {booking.status ===
                                                                                 'cancelled' &&
@@ -959,19 +938,41 @@ const MyBookings: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* RIGHT – tổng tiền cả đơn (nhiều ca) */}
-                                        <div className='text-right min-w-[220px] space-y-1'>
+                                        {/* RIGHT – tổng tiền + action cấp đơn */}
+                                        <div className='text-right min-w-[220px] space-y-2'>
                                             <p className='text-sm text-gray-600'>Tổng tiền đơn:</p>
                                             <p className='text-lg font-semibold text-gray-900'>
                                                 {groupTotal.toLocaleString('vi-VN')} ₫
                                             </p>
+
+                                            {canPayAgainGroup && (
+                                                <Button
+                                                    type='primary'
+                                                    size='middle'
+                                                    className='mt-2 w-full md:w-auto'
+                                                    loading={
+                                                        !!payingBookingId &&
+                                                        group.bookings.some(
+                                                            (b: any) => b._id === payingBookingId
+                                                        )
+                                                    }
+                                                    onClick={() => handlePayAgainGroup(group)}
+                                                >
+                                                    {payingBookingId &&
+                                                    group.bookings.some(
+                                                        (b: any) => b._id === payingBookingId
+                                                    )
+                                                        ? 'Đang chuyển tới VNPay...'
+                                                        : 'Thanh toán lại'}
+                                                </Button>
+                                            )}
 
                                             {canCancelGroup && (
                                                 <Button
                                                     danger
                                                     type='primary'
                                                     size='middle'
-                                                    className='mt-3'
+                                                    className='mt-2 w-full md:w-auto'
                                                     onClick={() =>
                                                         openCancelModal(
                                                             group.bookings.map((b: any) => b._id)
@@ -985,7 +986,7 @@ const MyBookings: React.FC = () => {
                                             {canRequestRefundGroup && (
                                                 <Button
                                                     size='middle'
-                                                    className='mt-3 border-amber-500 text-amber-600 hover:bg-amber-50'
+                                                    className='mt-2 border-amber-500 text-amber-600 hover:bg-amber-50 w-full md:w-auto'
                                                     onClick={() => openRefundModal(group.bookings)}
                                                 >
                                                     Yêu cầu hoàn tiền
@@ -1045,10 +1046,7 @@ const MyBookings: React.FC = () => {
                             value={refundForm.accountNumber}
                             onChange={(e) => {
                                 const value = e.target.value.replace(/\D/g, '');
-                                setRefundForm((prev) => ({
-                                    ...prev,
-                                    accountNumber: value,
-                                }));
+                                setRefundForm((prev) => ({ ...prev, accountNumber: value }));
                             }}
                             placeholder='VD: 0123456789'
                         />
@@ -1059,10 +1057,7 @@ const MyBookings: React.FC = () => {
                             value={refundForm.accountName}
                             onChange={(e) => {
                                 const value = e.target.value.replace(/[0-9]/g, '');
-                                setRefundForm((prev) => ({
-                                    ...prev,
-                                    accountName: value,
-                                }));
+                                setRefundForm((prev) => ({ ...prev, accountName: value }));
                             }}
                             placeholder='VD: NGUYEN VAN A'
                         />
@@ -1075,12 +1070,9 @@ const MyBookings: React.FC = () => {
                                 const value = e.target.value
                                     .replace(/[^A-Za-zÀ-ỹà-ỹ\s]/g, '')
                                     .toUpperCase();
-                                setRefundForm((prev) => ({
-                                    ...prev,
-                                    bankName: value,
-                                }));
+                                setRefundForm((prev) => ({ ...prev, bankName: value }));
                             }}
-                            placeholder='VD: MB BANK, TPBANK '
+                            placeholder='VD: MB BANK, TPBANK'
                         />
                     </div>
                     <div className='mb-6'>
