@@ -87,20 +87,17 @@ const handleViewInvoice = async (bookingId: string) => {
     }
 };
 
-// helper: đổi "HH:mm" -> phút
+// đổi "HH:mm" -> phút
 const timeToMin = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     return h * 60 + m;
 };
 
-//  helper lấy mảng thiết bị từ mọi kiểu response
+// lấy mảng thiết bị từ mọi kiểu response
 const extractEquipmentItems = (raw: any): any[] => {
     if (!raw) return [];
-    // nếu backend trả thẳng là mảng
     if (Array.isArray(raw)) return raw;
-    // nếu nằm trong field items
     if (Array.isArray(raw.items)) return raw.items;
-    // một số backend hay đặt tên như này
     if (Array.isArray(raw.equipments)) return raw.equipments;
     if (Array.isArray(raw.bookingEquipments)) return raw.bookingEquipments;
     if (Array.isArray(raw.data)) return raw.data;
@@ -176,16 +173,15 @@ const MyBookings: React.FC = () => {
                 return;
             }
 
-            // gửi bookingId / bookingIds cho API
             const body =
                 info.type === 'order'
                     ? {
-                          bookingIds: info.bookingIds, // mảng các ca trong đơn gộp
+                          bookingIds: info.bookingIds,
                           isRetryPayment: true,
                           amount: info.amountToPay,
                       }
                     : {
-                          bookingId: info.bookingId, // đơn lẻ
+                          bookingId: info.bookingId,
                           isRetryPayment: true,
                           amount: info.amountToPay,
                       };
@@ -213,7 +209,6 @@ const MyBookings: React.FC = () => {
 
     // Thanh toán lại cho cả group (chọn 1 booking phù hợp trong group)
     const handlePayAgainGroup = (group: any) => {
-        // ưu tiên booking VNPAY, PENDING
         const candidate =
             group.bookings.find(
                 (b: any) =>
@@ -291,7 +286,7 @@ const MyBookings: React.FC = () => {
                     const bt = new Date(b.createdAt || b.date).getTime();
                     return bt - at;
                 });
-                // ƯU TIÊN dùng equipmentItems trả sẵn từ API getBookingsByUser
+
                 const sortedWithEquipments = sorted.map((b: any) => {
                     const items = extractEquipmentItems(
                         b.equipmentItems || b.equipments || b.bookingEquipments || b.items || b.data
@@ -301,11 +296,8 @@ const MyBookings: React.FC = () => {
                 });
 
                 setBookings(sortedWithEquipments);
-
-                // lưu lại toàn bộ list (dùng cho socket join, v.v.)
                 setBookings(sortedWithEquipments);
 
-                // GROUP theo orderId / bookingId nhưng DÙNG booking đã có equipments
                 const groupMap = new Map<string, any>();
                 for (const b of sortedWithEquipments) {
                     const key = b.orderId ? String(b.orderId) : String(b._id);
@@ -334,7 +326,6 @@ const MyBookings: React.FC = () => {
 
                 setBookingGroups(groups);
 
-                // Đếm theo sortedWithEquipments (cho tab)
                 const counts: Record<string, number> = {
                     all: sortedWithEquipments.length,
                     waiting_payment: sortedWithEquipments.filter(
@@ -580,7 +571,6 @@ const MyBookings: React.FC = () => {
 
                                 const groupTotal = Number(group.total || 0);
 
-                                // tổng số ca = tổng số slot của tất cả booking (nếu không có slots => 1 ca)
                                 const slotCount: number = group.bookings.reduce(
                                     (sum: number, b: any) => {
                                         if (Array.isArray(b.slots) && b.slots.length > 0) {
@@ -591,7 +581,6 @@ const MyBookings: React.FC = () => {
                                     0
                                 );
 
-                                //  ĐIỀU KIỆN YÊU CẦU HOÀN TIỀN
                                 const refundableBookings = group.bookings.filter((b: any) => {
                                     const rawRefundStatus =
                                         b.refundStatus ||
@@ -690,19 +679,77 @@ const MyBookings: React.FC = () => {
                                                             const bookingTotal = Number(
                                                                 booking.total || 0
                                                             );
+                                                            const fieldAmount = Number(
+                                                                booking.fieldAmount || 0
+                                                            );
+                                                            const depositAmount =
+                                                                booking.depositStatus === 'paid'
+                                                                    ? Number(
+                                                                          booking.depositAmount || 0
+                                                                      )
+                                                                    : 0;
+
+                                                            const equipmentsTotal = Array.isArray(
+                                                                booking.equipments
+                                                            )
+                                                                ? booking.equipments.reduce(
+                                                                      (sum: number, it: any) =>
+                                                                          sum +
+                                                                          Number(
+                                                                              it.subtotal ||
+                                                                                  it.price *
+                                                                                      it.qty ||
+                                                                                  0
+                                                                          ),
+                                                                      0
+                                                                  )
+                                                                : 0;
+
                                                             const refundAmount = Number(
                                                                 booking.refundAmount ??
                                                                     booking.refund?.amount ??
                                                                     bookingTotal
                                                             );
-                                                            const isCustomerPaid =
-                                                                booking.status !== 'cancelled' &&
-                                                                (booking.paymentStatus === 'paid' ||
-                                                                    booking.paymentStatus ===
-                                                                        'refunded' ||
-                                                                    booking.paymentStatus ===
-                                                                        'partial');
 
+                                                            // TÍNH SỐ TIỀN THỰC TẾ KHÁCH ĐÃ TRẢ TẠI THỜI ĐIỂM HIỆN TẠI
+                                                            let paidAmount = 0;
+                                                            const paymentStatus =
+                                                                booking.paymentStatus;
+                                                            const status = booking.status;
+
+                                                            if (status !== 'cancelled') {
+                                                                if (paymentStatus === 'partial') {
+                                                                    // Chỉ mới cọc 1 phần
+                                                                    paidAmount = depositAmount;
+                                                                } else if (
+                                                                    paymentStatus === 'paid' ||
+                                                                    paymentStatus === 'refunded'
+                                                                ) {
+                                                                    if (status === 'completed') {
+                                                                        // ĐÃ BẤM THANH TOÁN → cộng cả sân + thiết bị
+                                                                        paidAmount =
+                                                                            bookingTotal ||
+                                                                            fieldAmount +
+                                                                                equipmentsTotal ||
+                                                                            0;
+                                                                    } else {
+                                                                        // CHƯA TẠO HÓA ĐƠN → chỉ tính tiền sân
+                                                                        if (depositAmount > 0) {
+                                                                            paidAmount = Math.min(
+                                                                                depositAmount,
+                                                                                fieldAmount ||
+                                                                                    depositAmount
+                                                                            );
+                                                                        } else {
+                                                                            paidAmount =
+                                                                                fieldAmount ||
+                                                                                bookingTotal;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            const isCustomerPaid = paidAmount > 0;
                                                             const isRefunded =
                                                                 refundStatus === 'refunded';
 
@@ -807,7 +854,7 @@ const MyBookings: React.FC = () => {
                                                                                             booking.depositAmount ||
                                                                                                 0
                                                                                         );
-                                                                                    const fieldAmount =
+                                                                                    const fieldAmt =
                                                                                         Number(
                                                                                             booking.fieldAmount ||
                                                                                                 0
@@ -833,23 +880,23 @@ const MyBookings: React.FC = () => {
                                                                                         s !== 'paid'
                                                                                     ) {
                                                                                         if (
-                                                                                            fieldAmount >
+                                                                                            fieldAmt >
                                                                                                 0 &&
                                                                                             deposit >=
-                                                                                                fieldAmount
+                                                                                                fieldAmt
                                                                                         ) {
                                                                                             color =
                                                                                                 'green';
                                                                                             label =
                                                                                                 'Đã thanh toán tiền sân';
                                                                                         } else if (
-                                                                                            fieldAmount >
+                                                                                            fieldAmt >
                                                                                             0
                                                                                         ) {
                                                                                             const percent =
                                                                                                 Math.round(
                                                                                                     (deposit /
-                                                                                                        fieldAmount) *
+                                                                                                        fieldAmt) *
                                                                                                         100
                                                                                                 );
                                                                                             color =
@@ -1027,18 +1074,15 @@ const MyBookings: React.FC = () => {
                                                                                 </div>
                                                                             )}
 
-                                                                            {isCustomerPaid &&
-                                                                                bookingTotal >
-                                                                                    0 && (
-                                                                                    <p className='mt-1 text-xs text-green-700 font-semibold'>
-                                                                                        Khách đã
-                                                                                        trả:{' '}
-                                                                                        {bookingTotal.toLocaleString(
-                                                                                            'vi-VN'
-                                                                                        )}{' '}
-                                                                                        ₫
-                                                                                    </p>
-                                                                                )}
+                                                                            {isCustomerPaid && (
+                                                                                <p className='mt-1 text-xs text-green-700 font-semibold'>
+                                                                                    Khách đã trả:{' '}
+                                                                                    {paidAmount.toLocaleString(
+                                                                                        'vi-VN'
+                                                                                    )}{' '}
+                                                                                    ₫
+                                                                                </p>
+                                                                            )}
 
                                                                             {isRefunded &&
                                                                                 refundAmount >
@@ -1053,7 +1097,7 @@ const MyBookings: React.FC = () => {
                                                                                 )}
                                                                         </div>
 
-                                                                        {/* ACTION cho từng ca – CHỈ ĐỂ XEM HÓA ĐƠN, không cho thanh toán lại riêng lẻ */}
+                                                                        {/* ACTION cho từng ca – CHỈ ĐỂ XEM HÓA ĐƠN */}
                                                                         <div className='text-right space-y-2 min-w-[140px]'>
                                                                             {booking.status ===
                                                                                 'completed' &&
