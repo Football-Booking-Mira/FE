@@ -93,6 +93,46 @@ const timeToMin = (t: string) => {
     return h * 60 + m;
 };
 
+//  helper lấy mảng thiết bị từ mọi kiểu response
+const extractEquipmentItems = (raw: any): any[] => {
+    if (!raw) return [];
+    // nếu backend trả thẳng là mảng
+    if (Array.isArray(raw)) return raw;
+    // nếu nằm trong field items
+    if (Array.isArray(raw.items)) return raw.items;
+    // một số backend hay đặt tên như này
+    if (Array.isArray(raw.equipments)) return raw.equipments;
+    if (Array.isArray(raw.bookingEquipments)) return raw.bookingEquipments;
+    if (Array.isArray(raw.data)) return raw.data;
+    return [];
+};
+
+// Gộp thiết bị theo name + mode + price + unit
+const mergeEquipments = (items: any[] = []) => {
+    const map: Record<string, any> = {};
+
+    items.forEach((it) => {
+        const eq = it.equipmentId || {};
+        const name = eq.name || it.name || 'Thiết bị';
+        const unit = eq.unit || it.unit || '';
+        const mode: 'rent' | 'sell' = it.mode === 'sell' ? 'sell' : 'rent';
+        const price = Number(it.price || (mode === 'rent' ? eq.rentPrice : eq.salePrice) || 0);
+        const qty = Number(it.qty || 0);
+
+        if (qty <= 0) return;
+        const key = `${name}_${mode}_${price}_${unit}`;
+
+        if (!map[key]) {
+            map[key] = { name, mode, unit, price, qty, subtotal: price * qty };
+        } else {
+            map[key].qty += qty;
+            map[key].subtotal += price * qty;
+        }
+    });
+
+    return Object.values(map);
+};
+
 const MyBookings: React.FC = () => {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState<any[]>([]);
@@ -216,7 +256,6 @@ const MyBookings: React.FC = () => {
         setFilteredGroups(result);
     };
 
-    // LOAD BOOKING
     const fetchBookings = async () => {
         try {
             const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -252,11 +291,23 @@ const MyBookings: React.FC = () => {
                     const bt = new Date(b.createdAt || b.date).getTime();
                     return bt - at;
                 });
+                // ƯU TIÊN dùng equipmentItems trả sẵn từ API getBookingsByUser
+                const sortedWithEquipments = sorted.map((b: any) => {
+                    const items = extractEquipmentItems(
+                        b.equipmentItems || b.equipments || b.bookingEquipments || b.items || b.data
+                    );
+                    const equipments = mergeEquipments(items);
+                    return { ...b, equipments };
+                });
 
-                setBookings(sorted);
+                setBookings(sortedWithEquipments);
 
+                // lưu lại toàn bộ list (dùng cho socket join, v.v.)
+                setBookings(sortedWithEquipments);
+
+                // GROUP theo orderId / bookingId nhưng DÙNG booking đã có equipments
                 const groupMap = new Map<string, any>();
-                for (const b of sorted) {
+                for (const b of sortedWithEquipments) {
                     const key = b.orderId ? String(b.orderId) : String(b._id);
                     if (!groupMap.has(key)) {
                         groupMap.set(key, {
@@ -283,18 +334,20 @@ const MyBookings: React.FC = () => {
 
                 setBookingGroups(groups);
 
+                // Đếm theo sortedWithEquipments (cho tab)
                 const counts: Record<string, number> = {
-                    all: sorted.length,
-                    waiting_payment: sorted.filter(
+                    all: sortedWithEquipments.length,
+                    waiting_payment: sortedWithEquipments.filter(
                         (b) => b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial'
                     ).length,
-                    pending: sorted.filter((b) => b.status === 'pending').length,
-                    confirmed: sorted.filter((b) => b.status === 'confirmed').length,
-                    in_use: sorted.filter((b) => b.status === 'in_use').length,
-                    completed: sorted.filter((b) => b.status === 'completed').length,
-                    cancelled: sorted.filter((b) => b.status === 'cancelled').length,
-                    refunded: sorted.filter((b) => (b.refundStatus || 'none') === 'refunded')
-                        .length,
+                    pending: sortedWithEquipments.filter((b) => b.status === 'pending').length,
+                    confirmed: sortedWithEquipments.filter((b) => b.status === 'confirmed').length,
+                    in_use: sortedWithEquipments.filter((b) => b.status === 'in_use').length,
+                    completed: sortedWithEquipments.filter((b) => b.status === 'completed').length,
+                    cancelled: sortedWithEquipments.filter((b) => b.status === 'cancelled').length,
+                    refunded: sortedWithEquipments.filter(
+                        (b) => (b.refundStatus || 'none') === 'refunded'
+                    ).length,
                 };
                 setTabCounts(counts);
 
@@ -817,6 +870,66 @@ const MyBookings: React.FC = () => {
                                                                                     );
                                                                                 })()}
                                                                             </div>
+
+                                                                            {/* THIẾT BỊ ĐÃ THUÊ / MUA */}
+                                                                            {Array.isArray(
+                                                                                booking.equipments
+                                                                            ) &&
+                                                                                booking.equipments
+                                                                                    .length > 0 && (
+                                                                                    <div className='mt-2 space-y-1 text-xs text-gray-700'>
+                                                                                        <div className='font-semibold'>
+                                                                                            {booking.status ===
+                                                                                            'in_use'
+                                                                                                ? 'Thiết bị đang sử dụng:'
+                                                                                                : 'Thiết bị đã thuê / mua:'}
+                                                                                        </div>
+                                                                                        {booking.equipments.map(
+                                                                                            (
+                                                                                                it: any,
+                                                                                                i: number
+                                                                                            ) => (
+                                                                                                <div
+                                                                                                    key={
+                                                                                                        i
+                                                                                                    }
+                                                                                                    className='flex justify-between'
+                                                                                                >
+                                                                                                    <span>
+                                                                                                        {
+                                                                                                            it.name
+                                                                                                        }{' '}
+                                                                                                        <span className='text-gray-500'>
+                                                                                                            (
+                                                                                                            {it.mode ===
+                                                                                                            'sell'
+                                                                                                                ? 'mua'
+                                                                                                                : 'thuê'}{' '}
+                                                                                                            x{' '}
+                                                                                                            {
+                                                                                                                it.qty
+                                                                                                            }{' '}
+                                                                                                            {it.unit ||
+                                                                                                                ''}
+
+                                                                                                            )
+                                                                                                        </span>
+                                                                                                    </span>
+                                                                                                    <span className='font-medium'>
+                                                                                                        {(
+                                                                                                            it.subtotal ||
+                                                                                                            it.price *
+                                                                                                                it.qty
+                                                                                                        ).toLocaleString(
+                                                                                                            'vi-VN'
+                                                                                                        )}{' '}
+                                                                                                        ₫
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            )
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
 
                                                                             {/* LÝ DO HỦY (NẾU CÓ) */}
                                                                             {booking.status ===
