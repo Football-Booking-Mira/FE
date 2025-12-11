@@ -1271,52 +1271,52 @@ export default function BookingList() {
 
                         {b.status === 'confirmed' &&
                             (() => {
-                                const now = dayjs();
+                                // const now = dayjs();
 
-                                // ngày đá (theo FE)
-                                const bookingDay = dayjs(b.date).startOf('day');
+                                // // ngày đá (theo FE)
+                                // const bookingDay = dayjs(b.date).startOf('day');
 
-                                // giờ bắt đầu sớm nhất
-                                const earliestSlot =
-                                    Array.isArray(b.slots) && b.slots.length > 0
-                                        ? [...b.slots].sort((a, c) =>
-                                              a.startTime.localeCompare(c.startTime)
-                                          )[0]
-                                        : null;
+                                // // giờ bắt đầu sớm nhất
+                                // const earliestSlot =
+                                //     Array.isArray(b.slots) && b.slots.length > 0
+                                //         ? [...b.slots].sort((a, c) =>
+                                //               a.startTime.localeCompare(c.startTime)
+                                //           )[0]
+                                //         : null;
 
-                                const earliestStart = earliestSlot?.startTime || b.startTime;
+                                // const earliestStart = earliestSlot?.startTime || b.startTime;
 
-                                let allowFrom: dayjs.Dayjs | null = null;
-                                if (earliestStart) {
-                                    const [h, m] = earliestStart.split(':').map(Number);
-                                    allowFrom = bookingDay
-                                        .hour(h || 0)
-                                        .minute(m || 0)
-                                        .second(0)
-                                        .subtract(15, 'minute'); // cho check-in trước 15p
-                                }
+                                // let allowFrom: dayjs.Dayjs | null = null;
+                                // if (earliestStart) {
+                                //     const [h, m] = earliestStart.split(':').map(Number);
+                                //     allowFrom = bookingDay
+                                //         .hour(h || 0)
+                                //         .minute(m || 0)
+                                //         .second(0)
+                                //         .subtract(15, 'minute'); // cho check-in trước 15p
+                                // }
 
                                 let checkinDisabled = false;
                                 let checkinTooltip: string | undefined;
 
-                                // Trước ngày đá
-                                if (now.isBefore(bookingDay, 'day')) {
-                                    checkinDisabled = true;
-                                    checkinTooltip =
-                                        'Chỉ được check-in trong đúng ngày diễn ra lịch đá';
-                                }
-                                // Sau ngày đá (quên check-in)
-                                else if (now.isAfter(bookingDay, 'day')) {
-                                    checkinDisabled = true;
-                                    checkinTooltip = 'Đơn đã quá ngày đá, không thể check-in';
-                                }
-                                // Đúng ngày nhưng chưa tới giờ cho phép
-                                else if (allowFrom && now.isBefore(allowFrom)) {
-                                    checkinDisabled = true;
-                                    checkinTooltip = `Chỉ được check-in trước giờ đá tối đa 15 phút (từ ${allowFrom.format(
-                                        'HH:mm'
-                                    )} trở đi)`;
-                                }
+                                // // Trước ngày đá
+                                // if (now.isBefore(bookingDay, 'day')) {
+                                //     checkinDisabled = true;
+                                //     checkinTooltip =
+                                //         'Chỉ được check-in trong đúng ngày diễn ra lịch đá';
+                                // }
+                                // // Sau ngày đá (quên check-in)
+                                // else if (now.isAfter(bookingDay, 'day')) {
+                                //     checkinDisabled = true;
+                                //     checkinTooltip = 'Đơn đã quá ngày đá, không thể check-in';
+                                // }
+                                // // Đúng ngày nhưng chưa tới giờ cho phép
+                                // else if (allowFrom && now.isBefore(allowFrom)) {
+                                //     checkinDisabled = true;
+                                //     checkinTooltip = `Chỉ được check-in trước giờ đá tối đa 15 phút (từ ${allowFrom.format(
+                                //         'HH:mm'
+                                //     )} trở đi)`;
+                                // }
 
                                 return (
                                     <>
