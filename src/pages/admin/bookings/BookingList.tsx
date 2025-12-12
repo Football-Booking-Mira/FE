@@ -1558,15 +1558,23 @@ export default function BookingList() {
         {
             title: 'Thông tin hoàn tiền',
             key: 'refundInfo',
-            render: (b: Booking) =>
-                b.refundAccountNumber || b.refundAccountName || b.refundBankName || b.refundNote ? (
-                    <Button size='small' onClick={() => openRefundModal(b, 'account')}>
+            render: (b: Booking) => {
+                const hasRefundInfo = Boolean(
+                    b.refundAccountNumber || b.refundAccountName || b.refundBankName || b.refundNote
+                );
+
+                return (
+                    <Button
+                        size='small'
+                        onClick={() => openRefundModal(b, 'account')}
+                        disabled={!hasRefundInfo}
+                    >
                         Xem chi tiết
                     </Button>
-                ) : (
-                    <span className='text-xs text-gray-400'>-</span>
-                ),
+                );
+            },
         },
+
         {
             title: 'Lý do hủy',
             key: 'cancelReason',
