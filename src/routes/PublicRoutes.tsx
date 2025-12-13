@@ -13,6 +13,7 @@ import ContactPages from "@/pages/client/home/ContactPages";
 import Profile from "@/pages/client/home/Profile";
 import BookingPolicyPage from "@/pages/client/home/BookingPolicyPage.tsx";
 import Equipment from "@/pages/client/home/Equipment";
+import Reviews from "@/pages/client/home/Reviews";
 
 export const PublicRoutes: RouteObject[] = [
   {
@@ -32,6 +33,7 @@ export const PublicRoutes: RouteObject[] = [
       { path: "profile", element: <Profile /> },
       { path: "booking-policy", element: <BookingPolicyPage /> },
       { path: "equipments", element: <Equipment /> },
+      { path: "my-reviews", element: <Reviews /> },
     ],
   },
 ];
