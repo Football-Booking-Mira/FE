@@ -61,3 +61,34 @@ export function isTokenExpired(): boolean {
   const currentTime = Math.floor(new Date().getTime() / 1000);
   return decoded.exp < currentTime;
 }
+
+export interface UserAuth {
+    _id: string;
+    name: string;
+    email: string;
+    phone?: string;
+    role: 'admin' | 'user';
+    status: string;
+    token: string;
+}
+
+const USER_KEY = 'user';
+
+export const getCurrentUser = (): UserAuth | null => {
+    try {
+        const raw = localStorage.getItem(USER_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw) as UserAuth;
+    } catch {
+        return null;
+    }
+};
+
+export const getAccessToken = (): string | null => {
+    const user = getCurrentUser();
+    return user?.token || null;
+};
+
+export const isAuthenticated = (): boolean => {
+    return !!getAccessToken();
+};

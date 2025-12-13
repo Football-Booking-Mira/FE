@@ -58,6 +58,24 @@ const Header = () => {
                     Đặt sân
                 </Link>
             ),
+        },{
+            key: '6',
+            label: (
+                <Link
+                    to='/my-reviews'
+                    style={{
+                        textDecoration: 'none',
+                        fontFamily: 'Arial, sans-serif',
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        color: '#374151',
+                        transition: 'color 0.3s',
+                    }}
+                    {...hoverHandlers}
+                >
+                    Đánh giá
+                </Link>
+            ),
         },
         {
             key: '3',
