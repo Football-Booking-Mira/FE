@@ -15,6 +15,7 @@ import {
     ToolOutlined,
     FileDoneOutlined,
     GiftOutlined,
+    FundViewOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -43,6 +44,7 @@ const AdminLayout: React.FC = () => {
         if (path.startsWith('/admin/reports')) return 'reports';
         if (path.startsWith('/admin/invoices')) return 'invoices';
         if (path.startsWith('/admin/vouchers')) return 'vouchers';
+        if (path.startsWith('/admin/reviews')) return 'reviews';
         return 'dashboard';
     };
 
@@ -110,8 +112,13 @@ const AdminLayout: React.FC = () => {
                         },
                         {
                             key: 'courts',
-                            icon: <AppstoreOutlined />,
+                            icon: <FundViewOutlined  />,
                             label: <Link to='/admin/courts'>Quản lý sân</Link>,
+                        },
+                        {
+                            key: 'reviews',
+                            icon: <AppstoreOutlined />,
+                            label: <Link to='/admin/reviews'>Đánh giá sân</Link>,
                         },
                         {
                             key: 'bookings',
