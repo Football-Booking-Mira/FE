@@ -15,6 +15,8 @@ import VoucherEdit from "../pages/admin/vouchers/VoucherEdit";
 
 import Users from "@/pages/admin/users/users.tsx";
 import BookingReportPage from "@/pages/admin/reports/BookingReportPage";
+import Reviews from "@/pages/client/home/Reviews";
+import ReviewsAdmin from "@/pages/admin/review/ReviewsAdmin";
 
 export const AdminRoutes: RouteObject[] = [
   {
@@ -27,6 +29,7 @@ export const AdminRoutes: RouteObject[] = [
     children: [
       { index: true, element: <DashBoard /> },
       { path: "courts", element: <CourtManagement /> },
+      { path: "reviews", element: <ReviewsAdmin /> },
       { path: "courts/update/:id", element: <CourtUpdate /> },
       { path: "courts/:id", element: <CourtDetail /> },
       { path: "bookings", element: <BookingList /> },
