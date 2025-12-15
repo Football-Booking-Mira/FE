@@ -50,6 +50,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
     const discount = inv.discount || 0;
     const grandTotal = Math.max(0, bookingTotal - discount);
     const alreadyPaidTotal = Number(inv.total || 0) + Number(depositPaidInv || 0);
+    const remainingPay = Math.max(0, grandTotal - alreadyPaidTotal);
 
     const createdAt = inv.createdAt || inv.paidAt;
     const createdAtStr = createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm') : '';
@@ -298,6 +299,11 @@ export const printInvoiceMira = (invoiceDetail: any) => {
         <span>Tổng trước giảm giá</span>
         <span>${formatVND(bookingTotal)}</span>
       </div>
+      <div class="summary-row total">
+  <span>Còn phải thu</span>
+  <span>${formatVND(remainingPay)}</span>
+</div>
+
       ${
           discount > 0
               ? `<div class="summary-row">

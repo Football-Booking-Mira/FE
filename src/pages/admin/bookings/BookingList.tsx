@@ -115,6 +115,8 @@ interface Booking {
     };
     refundAdminReason?: string;
     refundBillImage?: string;
+    hasInvoice?: boolean;
+    invoiceId?: string | null;
 }
 
 interface DashboardStats {
@@ -763,20 +765,21 @@ export default function BookingList() {
     };
 
     const openInvoiceModal = async (b: Booking) => {
+        if (!b?.hasInvoice) {
+            toast.error('Đơn này chưa có hóa đơn. Vui lòng bấm "Thanh toán" để tạo hóa đơn trước!');
+            return;
+        }
+
         try {
-            // mở modal trước, cho user thấy spinner
             setInvoiceModalOpen(true);
             setInvoiceLoading(true);
             setInvoiceDetail(null);
 
             const res = await api.get(`/invoices/by-booking/${b._id}`);
-
-            // chỉ set data để XEM / IN
             setInvoiceDetail(res.data);
         } catch (err: any) {
             const msg = err?.response?.data?.message || 'Không thể tải thông tin hóa đơn!';
             toast.error(msg);
-            // lỗi thì đóng modal lại
             setInvoiceModalOpen(false);
         } finally {
             setInvoiceLoading(false);
@@ -1164,21 +1167,13 @@ export default function BookingList() {
                     );
                 }
                 if (b.status === 'completed') {
-                    const outstanding = getOutstandingAmount(b); // total - depositAmount
-                    const hasOutstanding = outstanding > 0;
+                    const hasInvoice = !!b.hasInvoice;
 
-                    // Chỉ được coi là thanh toán xong khi:
-                    //  - paymentStatus = 'paid' | 'refunded'
-                    //  - VÀ không còn tiền phải thu
-                    const isFullyPaid =
-                        (b.paymentStatus === 'paid' || b.paymentStatus === 'refunded') &&
-                        !hasOutstanding;
-
-                    if (isFullyPaid) {
-                        // chỉ xem / in hóa đơn
+                    // Nếu đã có hóa đơn => chỉ Xem/In (và disable thanh toán)
+                    if (hasInvoice) {
                         return (
                             <Space>
-                                <Tooltip title='Đơn này đã thanh toán xong'>
+                                <Tooltip title='Đơn này đã có hóa đơn'>
                                     <span>
                                         <Button size='small' icon={<DollarOutlined />} disabled>
                                             Thanh toán
@@ -1197,39 +1192,17 @@ export default function BookingList() {
                         );
                     }
 
-                    // Chưa thanh toán hết, còn tiền phải thu (thường là tiền thiết bị)
-                    if (hasOutstanding) {
-                        return (
-                            <Button
-                                size='small'
-                                icon={<DollarOutlined />}
-                                type='primary'
-                                onClick={() => openPaymentModal(b)}
-                            >
-                                Thanh toán
-                            </Button>
-                        );
-                    }
-
-                    // fallback: không còn tiền phải thu nhưng status chưa 'paid'
+                    // Chưa có hóa đơn => luôn cho bấm Thanh toán để tạo hóa đơn
+                    // (dù outstanding = 0 vẫn tạo hóa đơn để in)
                     return (
-                        <Space>
-                            <Tooltip title='Đơn này đã thanh toán xong'>
-                                <span>
-                                    <Button size='small' icon={<DollarOutlined />} disabled>
-                                        Thanh toán
-                                    </Button>
-                                </span>
-                            </Tooltip>
-
-                            <Button
-                                size='small'
-                                icon={<FileTextOutlined />}
-                                onClick={() => openInvoiceModal(b)}
-                            >
-                                Xem hóa đơn
-                            </Button>
-                        </Space>
+                        <Button
+                            size='small'
+                            icon={<DollarOutlined />}
+                            type='primary'
+                            onClick={() => openPaymentModal(b)}
+                        >
+                            Thanh toán
+                        </Button>
                     );
                 }
 
