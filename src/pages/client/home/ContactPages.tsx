@@ -43,8 +43,7 @@ const ContactPages: React.FC = () => {
     <div className="min-h-screen bg-gray-100 px-4 py-20">
       <div className="max-w-3xl mx-auto">
 
-        {/* ===== THÔNG TIN LIÊN HỆ ===== */}
-       {/* ===== THÔNG TIN LIÊN HỆ ===== */}
+{/* ===== THÔNG TIN LIÊN HỆ ===== */}
 <div className="text-center mb-16">
   <h1 className="text-3xl md:text-4xl font-bold tracking-wide text-green-600 mb-6">
     HÃY LIÊN HỆ VỚI CHÚNG TÔI
@@ -55,33 +54,33 @@ const ContactPages: React.FC = () => {
   </p>
 
   <p className="text-gray-700 text-lg leading-relaxed mb-2">
-    hãy liên hệ với chúng tôi qua form điền thông tin liên hệ bên dưới hoặc Facebook.
+    hãy liên hệ với chúng tôi qua form điền thông tin bên dưới
+    hoặc gọi trực tiếp qua số điện thoại.
   </p>
 
-  <p className="text-gray-700 text-lg leading-relaxed mb-10">
+  <p className="text-gray-700 text-lg leading-relaxed mb-6">
     Hoặc gửi email tới{" "}
     <span className="font-semibold text-green-600">
       MiraFootball@gmail.com
     </span>
   </p>
 
-  {/* ICON MXH */}
-  <div className="flex justify-center gap-10 mb-10">
-    
+  {/* ===== SỐ ĐIỆN THOẠI NỔI BẬT ===== */}
+  <div className="inline-flex items-center gap-3 px-8 py-4 mb-10 rounded-full bg-white border border-green-900 shadow-sm">
+    <span className="text-green-600 text-2xl">📞</span>
     <a
-      href="https://www.facebook.com/"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-3xl text-black hover:opacity-60 transition"
+      href="tel:0900000000"
+      className="text-xl font-bold text-green-700 hover:underline"
     >
-      <FacebookOutlined />
+      0900 000 000
     </a>
   </div>
 
-  <a href="/" className="text-base text-gray-600 hover:underline">
+  <a href="/" className="text-base text-gray-600 hover:underline block">
     ← Quay lại trang chủ
   </a>
 </div>
+
 
 
         {/* ===== FORM LIÊN HỆ ===== */}
