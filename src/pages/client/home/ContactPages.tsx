@@ -1,145 +1,147 @@
-
 import React, { useState } from "react";
+import { Form, Input, Button, message } from "antd";
 
-type FormData = {
-  name: string;
-  email: string;
-   phone: string;
-  message: string;
-};
+const { TextArea } = Input;
 
 const ContactPages: React.FC = () => {
-  const [form, setForm] = useState<FormData>({
-    name: "",
-    email: "",
-     phone: "",
-    message: "",
-  });
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
-  const [sent, setSent] = useState(false);
+  const handleSubmit = async (values: {
+    name: string;
+    email: string;
+    phone: string;
+    message: string;
+  }) => {
+    try {
+      setLoading(true);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+      const res = await fetch("http://localhost:3000/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        message.error(data.message || "Gửi liên hệ thất bại");
+        return;
+      }
+
+      message.success("Gửi liên hệ thành công 🎉");
+      form.resetFields();
+    } catch (error) {
+      message.error("Không thể gửi liên hệ");
+    } finally {
+      setLoading(false);
+    }
   };
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  try {
-    const res = await fetch("http://localhost:3000/api/contacts", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(form),
-    });
-
-    if (!res.ok) throw new Error("Gửi thất bại");
-
-    setSent(true);
-    setForm({ name: "", email: "",  phone: "", message: "" });
-  } catch (error) {
-    alert("Không gửi được liên hệ");
-  }
-};
-
 
   return (
-  <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-10">
-
-    <div className="bg-white/90 backdrop-blur-md shadow-xl rounded-2xl p-8 w-full max-w-lg border border-gray-200">
-      <h2 className="text-3xl font-bold text-center text-gray-700 mb-2">
-        Liên hệ với chúng tôi
-      </h2>
-      <p className="text-center text-gray-500 mb-6">
-        Chúng tôi luôn sẵn sàng hỗ trợ bạn!
-      </p>
-
-      {sent && (
-        <p className="text-green-600 bg-green-50 border border-green-200 p-3 rounded-lg text-center mb-4">
-          ✅ Tin nhắn đã được gửi! Chúng tôi sẽ liên hệ lại sớm nhất.
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-10">
+      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-lg">
+        <h2 className="text-3xl font-bold text-center text-gray-700 mb-2">
+          Liên hệ với chúng tôi
+        </h2>
+        <p className="text-center text-gray-500 mb-6">
+          Chúng tôi luôn sẵn sàng hỗ trợ bạn
         </p>
-      )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-
-        {/* Họ và tên */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
-            Họ và tên
-          </label>
-          <input
-            type="text"
-            name="name"
-            placeholder="Nhập họ và tên..."
-            value={form.name}
-            onChange={handleChange}
-            required
-            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-          />
-        </div>
-
-        {/* Email */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            placeholder="Địa chỉ email của bạn..."
-            value={form.email}
-            onChange={handleChange}
-            required
-            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-          />
-        </div>
-        {/* Số điện thoại */}
-<div>
-  <label className="block text-sm font-medium text-gray-600 mb-1">
-    Số điện thoại
-  </label>
-  <input
-    type="tel"
-    name="phone"
-    placeholder="Số điện thoại của bạn..."
-    value={form.phone}
-    onChange={handleChange}
-    required
-    pattern="^[0-9]{9,11}$"
-    className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
-  />
-</div>
-
-        {/* Nội dung */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
-            Nội dung liên hệ
-          </label>
-          <textarea
-            name="message"
-            placeholder="Bạn muốn chúng tôi hỗ trợ gì?"
-            value={form.message}
-            onChange={handleChange}
-            required
-            rows={5}
-            className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 transition resize-none"
-          ></textarea>
-        </div>
-
-        {/* Nút gửi */}
-        <button
-          type="submit"
-          className="w-full bg-green-500 text-white font-semibold py-3 rounded-xl shadow-md hover:bg-black-700 active:scale-95 transition"
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          requiredMark="optional"
         >
-          Gửi tin nhắn
-        </button>
-      </form>
-    </div>
-  </div>
-);
+          {/* Họ tên */}
+          <Form.Item
+            label="Họ và tên"
+            name="name"
+            rules={[
+              { required: true, message: "Vui lòng nhập họ và tên" },
+            ]}
+          >
+            <Input placeholder="Nhập họ và tên" size="large" allowClear />
+          </Form.Item>
 
+          {/* Email */}
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={[
+              { required: true, message: "Vui lòng nhập email" },
+              { type: "email", message: "Email không hợp lệ" },
+            ]}
+          >
+            <Input
+              placeholder="example@gmail.com"
+              size="large"
+              type="email"
+              allowClear
+            />
+          </Form.Item>
+
+          {/* Số điện thoại */}
+          <Form.Item
+            label="Số điện thoại"
+            name="phone"
+            rules={[
+              { required: true, message: "Vui lòng nhập số điện thoại" },
+              {
+                pattern: /^0\d{9}$/,
+                message:
+                  "Số điện thoại phải bắt đầu bằng 0 và gồm đúng 10 chữ số",
+              },
+            ]}
+          >
+            <Input
+              placeholder="0123456789"
+              size="large"
+              allowClear
+            />
+          </Form.Item>
+
+          {/* Nội dung */}
+          <Form.Item
+            label="Nội dung liên hệ"
+            name="message"
+            rules={[
+              { required: true, message: "Vui lòng nhập nội dung hỗ trợ" },
+            ]}
+          >
+            <TextArea
+              rows={5}
+              placeholder="Bạn cần chúng tôi hỗ trợ gì?"
+              allowClear
+            />
+          </Form.Item>
+
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              size="large"
+              loading={loading}
+              style={{
+                background: "#22c55e",
+                borderColor: "#22c55e",
+                height: "44px",
+                fontSize: "16px",
+                fontWeight: 600,
+              }}
+            >
+              Gửi liên hệ
+            </Button>
+          </Form.Item>
+        </Form>
+      </div>
+    </div>
+  );
 };
 
 export default ContactPages;
+
+
+
