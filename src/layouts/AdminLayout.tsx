@@ -16,6 +16,7 @@ import {
     FileDoneOutlined,
     GiftOutlined,
     FundViewOutlined,
+    MailOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
@@ -45,6 +46,7 @@ const AdminLayout: React.FC = () => {
         if (path.startsWith('/admin/invoices')) return 'invoices';
         if (path.startsWith('/admin/vouchers')) return 'vouchers';
         if (path.startsWith('/admin/reviews')) return 'reviews';
+        if (path.startsWith('/admin/contacts')) return 'contacts';
         return 'dashboard';
     };
 
@@ -162,6 +164,11 @@ const AdminLayout: React.FC = () => {
                             icon: <FileDoneOutlined />,
                             label: <Link to='/admin/invoices'>Hóa đơn</Link>,
                         },
+                        {
+  key: 'contacts',
+  icon: <MailOutlined    />,
+  label: <Link to="/admin/contacts">Liên hệ</Link>,
+},
                     ]}
                 />
             </Sider>

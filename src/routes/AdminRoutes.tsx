@@ -15,8 +15,10 @@ import VoucherEdit from "../pages/admin/vouchers/VoucherEdit";
 
 import Users from "@/pages/admin/users/users.tsx";
 import BookingReportPage from "@/pages/admin/reports/BookingReportPage";
+
 import Reviews from "@/pages/client/home/Reviews";
 import ReviewsAdmin from "@/pages/admin/review/ReviewsAdmin";
+import ContactsPage from "@/pages/admin/contacts/ContactsPage";
 
 export const AdminRoutes: RouteObject[] = [
   {
@@ -42,6 +44,7 @@ export const AdminRoutes: RouteObject[] = [
       { path: "vouchers/edit/:id", element: <VoucherEdit /> },
       { path: "booking-policy", element: <BookingPolicyPage /> },
       { path: "reports", element: <BookingReportPage /> },
+      { path: "contacts", element: <ContactsPage /> },
     ],
   },
 ];
