@@ -166,9 +166,7 @@ const MyBookings: React.FC = () => {
             const info = retryRes.data?.data;
 
             if (!info || !info.amountToPay || info.amountToPay <= 0) {
-                toast.error(
-                    'Không có số tiền cần thanh toán thêm cho đơn/nhóm đơn này. Vui lòng kiểm tra lại!'
-                );
+                toast.error('Không có số tiền cần thanh toán thêm cho đơn/nhóm đơn này.');
                 setPayingBookingId(null);
                 return;
             }
@@ -180,11 +178,7 @@ const MyBookings: React.FC = () => {
                           isRetryPayment: true,
                           amount: info.amountToPay,
                       }
-                    : {
-                          bookingId: info.bookingId,
-                          isRetryPayment: true,
-                          amount: info.amountToPay,
-                      };
+                    : { bookingId: info.bookingId, isRetryPayment: true, amount: info.amountToPay };
 
             const payRes = await api.post('/payment/vnpay/create', body);
             const paymentUrl =
@@ -200,8 +194,7 @@ const MyBookings: React.FC = () => {
             window.location.href = paymentUrl;
         } catch (err: any) {
             toast.error(
-                err?.response?.data?.message ||
-                    'Không thể thanh toán lại đơn này, vui lòng thử lại!'
+                err?.response?.data?.message || 'Không thể thanh toán lại, vui lòng thử lại!'
             );
             setPayingBookingId(null);
         }
@@ -271,11 +264,8 @@ const MyBookings: React.FC = () => {
                         (paymentStatus === 'unpaid' || paymentStatus === 'partial') &&
                         hasDepositPaid
                     ) {
-                        if (total > 0 && deposit >= total) {
-                            paymentStatus = 'paid';
-                        } else {
-                            paymentStatus = 'partial';
-                        }
+                        if (total > 0 && deposit >= total) paymentStatus = 'paid';
+                        else paymentStatus = 'partial';
                     }
 
                     return { ...b, paymentStatus };
@@ -295,7 +285,6 @@ const MyBookings: React.FC = () => {
                     return { ...b, equipments };
                 });
 
-                setBookings(sortedWithEquipments);
                 setBookings(sortedWithEquipments);
 
                 const groupMap = new Map<string, any>();
@@ -318,7 +307,8 @@ const MyBookings: React.FC = () => {
                         String(a.startTime || '').localeCompare(String(b.startTime || ''))
                     );
                     g.total = g.bookings.reduce(
-                        (sum: number, b: any) => sum + Number(b.total || 0),
+                        (sum: number, b: any) =>
+                            sum + (b.status === 'cancelled' ? 0 : Number(b.total || 0)),
                         0
                     );
                     return g;
@@ -392,9 +382,7 @@ const MyBookings: React.FC = () => {
     useEffect(() => {
         if (bookings.length && socketRef.current) {
             bookings.forEach((b) => {
-                if (b.courtId?._id) {
-                    socketRef.current?.emit('join:court', b.courtId._id);
-                }
+                if (b.courtId?._id) socketRef.current?.emit('join:court', b.courtId._id);
             });
         }
     }, [bookings]);
@@ -443,17 +431,16 @@ const MyBookings: React.FC = () => {
             toast.error(
                 err?.response?.data?.message ||
                     err.message ||
-                    'Không thể hủy toàn bộ các ca, vui lòng kiểm tra lại!'
+                    'Không thể hủy, vui lòng kiểm tra lại!'
             );
         }
     };
 
-    // ----------- HOÀN TIỀN (NHIỀU CA) -----------
+    // ----------- HOÀN TIỀN -----------
     const openRefundModal = (bookings: any[]) => {
         const first = bookings[0] || {};
 
         setRefundBookingIds(bookings.map((b) => b._id));
-
         setRefundForm({
             accountNumber: first.refundAccountNumber || '',
             accountName: first.refundAccountName || '',
@@ -467,12 +454,7 @@ const MyBookings: React.FC = () => {
     const closeRefundModal = () => {
         setIsRefundModalOpen(false);
         setRefundBookingIds([]);
-        setRefundForm({
-            accountNumber: '',
-            accountName: '',
-            bankName: '',
-            note: '',
-        });
+        setRefundForm({ accountNumber: '', accountName: '', bankName: '', note: '' });
     };
 
     const handleSubmitRefund = async () => {
@@ -499,7 +481,7 @@ const MyBookings: React.FC = () => {
                 )
             );
 
-            toast.success('Đã gửi yêu cầu hoàn tiền cho toàn bộ các ca trong đơn!', {
+            toast.success('Đã gửi yêu cầu hoàn tiền!', {
                 autoClose: 2000,
                 style: { backgroundColor: '#15803d', color: '#fff' },
             });
@@ -508,14 +490,12 @@ const MyBookings: React.FC = () => {
             fetchBookings();
         } catch (err: any) {
             toast.error(
-                err?.response?.data?.message ||
-                    err.message ||
-                    'Không thể gửi yêu cầu hoàn tiền cho toàn bộ ca, vui lòng thử lại!'
+                err?.response?.data?.message || err.message || 'Không thể gửi yêu cầu hoàn tiền!'
             );
         }
     };
 
-    //  LOADING
+    // LOADING
     if (loading) {
         return (
             <div className='flex justify-center items-center h-screen'>
@@ -524,7 +504,6 @@ const MyBookings: React.FC = () => {
         );
     }
 
-    //  RENDER
     return (
         <div className='min-h-screen bg-gray-50 py-12'>
             <ToastContainer position='top-right' autoClose={2500} theme='colored' />
@@ -568,36 +547,30 @@ const MyBookings: React.FC = () => {
                                 const first = group.bookings[0];
                                 const imageUrl =
                                     first.courtId?.images?.[0] || first.courtId?.image || '';
-
                                 const groupTotal = Number(group.total || 0);
 
                                 const slotCount: number = group.bookings.reduce(
                                     (sum: number, b: any) => {
-                                        if (Array.isArray(b.slots) && b.slots.length > 0) {
+                                        if (Array.isArray(b.slots) && b.slots.length > 0)
                                             return sum + b.slots.length;
-                                        }
                                         return sum + 1;
                                     },
                                     0
                                 );
 
+                                // group refund (giữ lại nếu muốn – điều kiện phải đủ toàn bộ ca)
                                 const refundableBookings = group.bookings.filter((b: any) => {
                                     const rawRefundStatus =
                                         b.refundStatus ||
                                         (b.paymentStatus === 'refunded' ? 'refunded' : 'none');
-
                                     const canRefundStatus =
                                         rawRefundStatus === 'none' ||
                                         rawRefundStatus === 'rejected';
-
                                     const isPaidOrPartial =
                                         b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
-
                                     const allowStatus = b.status === 'cancelled';
-
                                     return allowStatus && isPaidOrPartial && canRefundStatus;
                                 });
-
                                 const canRequestRefundGroup =
                                     refundableBookings.length > 0 &&
                                     refundableBookings.length === group.bookings.length;
@@ -606,7 +579,6 @@ const MyBookings: React.FC = () => {
                                     const isPending = b.status === 'pending';
                                     const isPaidOrPartial =
                                         b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
-
                                     return isPending && isPaidOrPartial;
                                 });
 
@@ -633,7 +605,7 @@ const MyBookings: React.FC = () => {
                                                 />
                                             )}
 
-                                            <div className='flex-1'>
+                                            <div className='flex-1 min-w-0'>
                                                 <div className='text-sm text-gray-500 mb-1'>
                                                     Mã đơn:{' '}
                                                     <span className='font-semibold'>
@@ -645,6 +617,7 @@ const MyBookings: React.FC = () => {
                                                         </span>
                                                     )}
                                                 </div>
+
                                                 <h2 className='text-lg font-semibold text-gray-900'>
                                                     {first.courtId?.name || 'Sân bóng'}
                                                 </h2>
@@ -654,7 +627,7 @@ const MyBookings: React.FC = () => {
                                                     })}
                                                 </p>
 
-                                                {/* DANH SÁCH TỪNG CA TRONG ĐƠN */}
+                                                {/* DANH SÁCH TỪNG CA */}
                                                 <div className='mt-3 space-y-3'>
                                                     {group.bookings.map(
                                                         (booking: any, idx: number) => {
@@ -682,6 +655,7 @@ const MyBookings: React.FC = () => {
                                                             const fieldAmount = Number(
                                                                 booking.fieldAmount || 0
                                                             );
+
                                                             const depositAmount =
                                                                 booking.depositStatus === 'paid'
                                                                     ? Number(
@@ -711,40 +685,36 @@ const MyBookings: React.FC = () => {
                                                                     bookingTotal
                                                             );
 
-                                                            // TÍNH SỐ TIỀN THỰC TẾ KHÁCH ĐÃ TRẢ TẠI THỜI ĐIỂM HIỆN TẠI
+                                                            // TÍNH TIỀN KHÁCH ĐÃ TRẢ (cancelled cũng phải hiện)
                                                             let paidAmount = 0;
                                                             const paymentStatus =
                                                                 booking.paymentStatus;
                                                             const status = booking.status;
 
-                                                            if (status !== 'cancelled') {
-                                                                if (paymentStatus === 'partial') {
-                                                                    // Chỉ mới cọc 1 phần
-                                                                    paidAmount = depositAmount;
-                                                                } else if (
-                                                                    paymentStatus === 'paid' ||
-                                                                    paymentStatus === 'refunded'
-                                                                ) {
-                                                                    if (status === 'completed') {
-                                                                        // ĐÃ BẤM THANH TOÁN → cộng cả sân + thiết bị
-                                                                        paidAmount =
-                                                                            bookingTotal ||
-                                                                            fieldAmount +
-                                                                                equipmentsTotal ||
-                                                                            0;
+                                                            if (paymentStatus === 'partial') {
+                                                                paidAmount = depositAmount;
+                                                            } else if (
+                                                                paymentStatus === 'paid' ||
+                                                                paymentStatus === 'refunded'
+                                                            ) {
+                                                                if (status === 'completed') {
+                                                                    paidAmount =
+                                                                        bookingTotal ||
+                                                                        fieldAmount +
+                                                                            equipmentsTotal ||
+                                                                        0;
+                                                                } else {
+                                                                    // chưa tạo hóa đơn → chỉ tính tiền sân
+                                                                    if (depositAmount > 0) {
+                                                                        paidAmount = Math.min(
+                                                                            depositAmount,
+                                                                            fieldAmount ||
+                                                                                depositAmount
+                                                                        );
                                                                     } else {
-                                                                        // CHƯA TẠO HÓA ĐƠN → chỉ tính tiền sân
-                                                                        if (depositAmount > 0) {
-                                                                            paidAmount = Math.min(
-                                                                                depositAmount,
-                                                                                fieldAmount ||
-                                                                                    depositAmount
-                                                                            );
-                                                                        } else {
-                                                                            paidAmount =
-                                                                                fieldAmount ||
-                                                                                bookingTotal;
-                                                                        }
+                                                                        paidAmount =
+                                                                            fieldAmount ||
+                                                                            bookingTotal;
                                                                     }
                                                                 }
                                                             }
@@ -753,57 +723,97 @@ const MyBookings: React.FC = () => {
                                                             const isRefunded =
                                                                 refundStatus === 'refunded';
 
+                                                            const canCancelThis =
+                                                                booking.status === 'pending' &&
+                                                                (booking.paymentStatus === 'paid' ||
+                                                                    booking.paymentStatus ===
+                                                                        'partial');
+
+                                                            //  refund theo từng ca (đây là thứ mày đang thiếu)
+                                                            const canRequestRefundThis =
+                                                                booking.status === 'cancelled' &&
+                                                                (booking.paymentStatus === 'paid' ||
+                                                                    booking.paymentStatus ===
+                                                                        'partial') &&
+                                                                (refundStatus === 'none' ||
+                                                                    refundStatus === 'rejected');
+
                                                             return (
                                                                 <div
                                                                     key={booking._id}
-                                                                    className='border border-gray-100 rounded-lg p-3 bg-gray-50'
+                                                                    className='border border-gray-100 rounded-lg p-3 bg-gray-50 w-full'
                                                                 >
-                                                                    <div className='flex flex-wrap justify-between gap-2'>
-                                                                        <div className='space-y-2'>
-                                                                            {/* HIỂN THỊ TỪNG CA THEO booking.slots */}
+                                                                    {/* Layout trái/phải để nút luôn nằm bên phải */}
+                                                                    <div className='flex flex-col md:flex-row md:items-start md:justify-between gap-3'>
+                                                                        {/* LEFT INFO */}
+                                                                        <div className='min-w-0 flex-1 space-y-2'>
+                                                                            {/* SLOT TIME */}
                                                                             {Array.isArray(
                                                                                 booking.slots
                                                                             ) &&
                                                                             booking.slots.length >
                                                                                 0 ? (
-                                                                                [...booking.slots]
-                                                                                    .sort(
-                                                                                        (
-                                                                                            a: any,
-                                                                                            b: any
-                                                                                        ) =>
-                                                                                            timeToMin(
-                                                                                                a.startTime
-                                                                                            ) -
-                                                                                            timeToMin(
-                                                                                                b.startTime
-                                                                                            )
-                                                                                    )
-                                                                                    .map(
-                                                                                        (
-                                                                                            slot: any,
-                                                                                            slotIdx: number
-                                                                                        ) => (
-                                                                                            <p
-                                                                                                key={
-                                                                                                    slotIdx
-                                                                                                }
-                                                                                                className='text-sm font-medium text-gray-900'
-                                                                                            >
-                                                                                                Ca{' '}
-                                                                                                {slotIdx +
-                                                                                                    1}
-                                                                                                :{' '}
-                                                                                                {
-                                                                                                    slot.startTime
-                                                                                                }{' '}
-                                                                                                -{' '}
-                                                                                                {
-                                                                                                    slot.endTime
-                                                                                                }
-                                                                                            </p>
+                                                                                booking.slots
+                                                                                    .length ===
+                                                                                1 ? (
+                                                                                    <p className='text-sm font-medium text-gray-900'>
+                                                                                        Ca {idx + 1}
+                                                                                        :{' '}
+                                                                                        {
+                                                                                            booking
+                                                                                                .slots[0]
+                                                                                                .startTime
+                                                                                        }{' '}
+                                                                                        -{' '}
+                                                                                        {
+                                                                                            booking
+                                                                                                .slots[0]
+                                                                                                .endTime
+                                                                                        }
+                                                                                    </p>
+                                                                                ) : (
+                                                                                    [
+                                                                                        ...booking.slots,
+                                                                                    ]
+                                                                                        .sort(
+                                                                                            (
+                                                                                                a: any,
+                                                                                                b: any
+                                                                                            ) =>
+                                                                                                timeToMin(
+                                                                                                    a.startTime
+                                                                                                ) -
+                                                                                                timeToMin(
+                                                                                                    b.startTime
+                                                                                                )
                                                                                         )
-                                                                                    )
+                                                                                        .map(
+                                                                                            (
+                                                                                                slot: any,
+                                                                                                slotIdx: number
+                                                                                            ) => (
+                                                                                                <p
+                                                                                                    key={
+                                                                                                        slotIdx
+                                                                                                    }
+                                                                                                    className='text-sm font-medium text-gray-900'
+                                                                                                >
+                                                                                                    Ca{' '}
+                                                                                                    {slotIdx +
+                                                                                                        1}
+
+                                                                                                    :{' '}
+                                                                                                    {
+                                                                                                        slot.startTime
+                                                                                                    }{' '}
+                                                                                                    -{' '}
+                                                                                                    {
+                                                                                                        slot.endTime
+                                                                                                    }
+                                                                                                </p>
+                                                                                            )
+                                                                                        )
+                                                                                )
                                                                             ) : (
                                                                                 <p className='text-sm font-medium text-gray-900'>
                                                                                     Ca {idx + 1}:{' '}
@@ -918,7 +928,7 @@ const MyBookings: React.FC = () => {
                                                                                 })()}
                                                                             </div>
 
-                                                                            {/* THIẾT BỊ ĐÃ THUÊ / MUA */}
+                                                                            {/* THIẾT BỊ */}
                                                                             {Array.isArray(
                                                                                 booking.equipments
                                                                             ) &&
@@ -942,7 +952,7 @@ const MyBookings: React.FC = () => {
                                                                                                     }
                                                                                                     className='flex justify-between'
                                                                                                 >
-                                                                                                    <span>
+                                                                                                    <span className='min-w-0 pr-2'>
                                                                                                         {
                                                                                                             it.name
                                                                                                         }{' '}
@@ -962,7 +972,7 @@ const MyBookings: React.FC = () => {
                                                                                                             )
                                                                                                         </span>
                                                                                                     </span>
-                                                                                                    <span className='font-medium'>
+                                                                                                    <span className='font-medium whitespace-nowrap'>
                                                                                                         {(
                                                                                                             it.subtotal ||
                                                                                                             it.price *
@@ -978,7 +988,7 @@ const MyBookings: React.FC = () => {
                                                                                     </div>
                                                                                 )}
 
-                                                                            {/* LÝ DO HỦY (NẾU CÓ) */}
+                                                                            {/* LÝ DO HỦY */}
                                                                             {booking.status ===
                                                                                 'cancelled' &&
                                                                                 booking.cancelReason && (
@@ -992,7 +1002,7 @@ const MyBookings: React.FC = () => {
                                                                                     </p>
                                                                                 )}
 
-                                                                            {/* HOÀN TIỀN (NẾU CÓ) */}
+                                                                            {/* HOÀN TIỀN STATUS */}
                                                                             {refundStatus !==
                                                                                 'none' && (
                                                                                 <div className='flex flex-col gap-1 mt-1'>
@@ -1097,8 +1107,42 @@ const MyBookings: React.FC = () => {
                                                                                 )}
                                                                         </div>
 
-                                                                        {/* ACTION cho từng ca – CHỈ ĐỂ XEM HÓA ĐƠN */}
-                                                                        <div className='text-right space-y-2 min-w-[140px]'>
+                                                                        {/* RIGHT ACTIONS */}
+                                                                        <div className='shrink-0 flex flex-row md:flex-col md:items-end gap-2'>
+                                                                            {canCancelThis && (
+                                                                                <Button
+                                                                                    danger
+                                                                                    type='primary'
+                                                                                    size='middle'
+                                                                                    onClick={() =>
+                                                                                        openCancelModal(
+                                                                                            [
+                                                                                                booking._id,
+                                                                                            ]
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    Hủy ca này
+                                                                                </Button>
+                                                                            )}
+
+                                                                            {canRequestRefundThis && (
+                                                                                <Button
+                                                                                    size='middle'
+                                                                                    className='border-amber-500 text-amber-600 hover:bg-amber-50'
+                                                                                    onClick={() =>
+                                                                                        openRefundModal(
+                                                                                            [
+                                                                                                booking,
+                                                                                            ]
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    Yêu cầu hoàn
+                                                                                    tiền
+                                                                                </Button>
+                                                                            )}
+
                                                                             {booking.status ===
                                                                                 'completed' &&
                                                                                 (booking.paymentStatus ===
@@ -1126,7 +1170,7 @@ const MyBookings: React.FC = () => {
                                                                                 ].includes(
                                                                                     refundStatus
                                                                                 ) && (
-                                                                                    <p className='text-xs text-blue-500 italic'>
+                                                                                    <p className='text-xs text-blue-500 italic text-right'>
                                                                                         Đã gửi yêu
                                                                                         cầu hoàn
                                                                                         tiền, vui
@@ -1134,11 +1178,12 @@ const MyBookings: React.FC = () => {
                                                                                         admin xử lý.
                                                                                     </p>
                                                                                 )}
+
                                                                             {booking.status ===
                                                                                 'cancelled' &&
                                                                                 refundStatus ===
                                                                                     'refunded' && (
-                                                                                    <p className='text-xs text-green-600 font-semibold'>
+                                                                                    <p className='text-xs text-green-600 font-semibold text-right'>
                                                                                         Đã hoàn tiền
                                                                                         cho bạn.
                                                                                     </p>
@@ -1194,10 +1239,11 @@ const MyBookings: React.FC = () => {
                                                         )
                                                     }
                                                 >
-                                                    Hủy đặt sân
+                                                    Hủy tất cả ca
                                                 </Button>
                                             )}
 
+                                            {/* Giữ lại hoàn theo group nếu muốn (chỉ hiện khi ALL ca trong group đủ điều kiện) */}
                                             {canRequestRefundGroup && (
                                                 <Button
                                                     size='middle'
@@ -1216,7 +1262,7 @@ const MyBookings: React.FC = () => {
                 </div>
             </div>
 
-            {/* MODAL HỦY ĐƠN */}
+            {/* MODAL HỦY */}
             <Modal
                 centered
                 open={isCancelModalOpen}
@@ -1227,7 +1273,6 @@ const MyBookings: React.FC = () => {
                 title='Xác nhận hủy đơn đặt sân'
             >
                 <p className='mb-2'>Vui lòng nhập lý do hủy đơn đặt sân này:</p>
-
                 <div className='mb-8'>
                     <Input.TextArea
                         value={cancelReason}
@@ -1240,7 +1285,7 @@ const MyBookings: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* MODAL YÊU CẦU HOÀN TIỀN */}
+            {/* MODAL HOÀN TIỀN */}
             <Modal
                 centered
                 title='Yêu cầu hoàn tiền'
@@ -1254,6 +1299,7 @@ const MyBookings: React.FC = () => {
                 <p className='mb-3 text-sm text-gray-600'>
                     Vui lòng nhập thông tin tài khoản ngân hàng để nhận tiền hoàn:
                 </p>
+
                 <div className='space-y-3'>
                     <div>
                         <span className='block text-sm mb-1'>Số tài khoản *</span>
@@ -1266,6 +1312,7 @@ const MyBookings: React.FC = () => {
                             placeholder='VD: 0123456789'
                         />
                     </div>
+
                     <div>
                         <span className='block text-sm mb-1'>Tên chủ tài khoản *</span>
                         <Input
@@ -1277,6 +1324,7 @@ const MyBookings: React.FC = () => {
                             placeholder='VD: NGUYEN VAN A'
                         />
                     </div>
+
                     <div>
                         <span className='block text-sm mb-1'>Ngân hàng *</span>
                         <Input
@@ -1290,6 +1338,7 @@ const MyBookings: React.FC = () => {
                             placeholder='VD: MB BANK, TPBANK'
                         />
                     </div>
+
                     <div className='mb-6'>
                         <span className='block text-sm mb-1'>Ghi chú thêm (không bắt buộc)</span>
                         <Input.TextArea
