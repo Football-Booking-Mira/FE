@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Typography, Checkbox, Button, Divider, message } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text, Paragraph } = Typography;
 
 const BookingPolicyPage: React.FC = () => {
+    const navigate = useNavigate();
     const [accepted, setAccepted] = useState(false);
     const [ready, setReady] = useState(false);
 
@@ -11,11 +13,11 @@ const BookingPolicyPage: React.FC = () => {
         const stored = localStorage.getItem('checkout-data');
         if (!stored) {
             message.error('Không tìm thấy thông tin đặt sân, quay lại trang chủ!');
-            window.location.href = '/';
+            navigate('/', { replace: true });
             return;
         }
         setReady(true);
-    }, []);
+    }, [navigate]);
 
     if (!ready) return null;
 
@@ -24,11 +26,11 @@ const BookingPolicyPage: React.FC = () => {
             message.warning('Vui lòng tích vào ô "Tôi đã đọc và đồng ý"');
             return;
         }
-        window.location.href = '/checkout';
+        navigate('/checkout');
     };
 
     const handleBack = () => {
-        window.history.back();
+        navigate(-1);
     };
 
     return (
@@ -159,7 +161,6 @@ const BookingPolicyPage: React.FC = () => {
 
                 <Divider className='!mt-10 !mb-6' />
 
-                {/* checkbox + nút */}
                 <div className='mt-2 space-y-4'>
                     <Checkbox
                         checked={accepted}

@@ -1,13 +1,15 @@
 import Footer from '@/layouts/components/Footer';
 import Header from '@/layouts/components/Header';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 
 const MainLayout = () => {
+    const location = useLocation();
+
     return (
         <>
             <Header />
             <main>
-                <Outlet />
+                <Outlet key={location.key} />
             </main>
             <Footer />
         </>
