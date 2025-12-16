@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Button, Tag, Spin, Empty, Modal, Input, Image } from 'antd';
+import { Button, Tag, Spin, Empty, Modal, Input, Image, Checkbox } from 'antd';
 import { ToastContainer, toast } from 'react-toastify';
 import api from '@/common/utils/api';
 import 'react-toastify/dist/ReactToastify.css';
@@ -130,6 +130,21 @@ const mergeEquipments = (items: any[] = []) => {
     return Object.values(map);
 };
 
+// eligible để “Thanh toán lại”
+const canRetryPay = (b: any) =>
+    b.status === 'pending' &&
+    b.paymentMethod === 'vnpay' &&
+    (b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial');
+
+// tính tiền cần trả cho từng ca (unpaid: full total, partial: total - deposit)
+const calcNeedPay = (b: any) => {
+    const total = Number(b.fieldAmount ?? b.total ?? 0);
+    const depositPaid = b.depositStatus === 'paid' ? Number(b.depositAmount ?? 0) : 0;
+    if (b.paymentStatus === 'partial') return Math.max(0, total - depositPaid);
+    if (b.paymentStatus === 'unpaid') return Math.max(0, total);
+    return 0;
+};
+
 const MyBookings: React.FC = () => {
     const navigate = useNavigate();
     const [bookings, setBookings] = useState<any[]>([]);
@@ -157,7 +172,87 @@ const MyBookings: React.FC = () => {
 
     const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
 
-    //  THANH TOÁN LẠI (1 booking đầu mối, backend tự gom order)
+    // groupId -> list bookingId được chọn để thanh toán lại
+    const [selectedPayByGroup, setSelectedPayByGroup] = useState<Record<string, string[]>>({});
+    // groupId -> list bookingId được chọn để HỦY
+    const [selectedCancelByGroup, setSelectedCancelByGroup] = useState<Record<string, string[]>>(
+        {}
+    );
+
+    const toggleSelectPay = (groupId: string, bookingId: string, checked: boolean) => {
+        setSelectedPayByGroup((prev) => {
+            const cur = new Set(prev[groupId] || []);
+            if (checked) cur.add(bookingId);
+            else cur.delete(bookingId);
+            return { ...prev, [groupId]: Array.from(cur) };
+        });
+    };
+
+    const toggleSelectAllPay = (groupId: string, eligibleIds: string[], checked: boolean) => {
+        setSelectedPayByGroup((prev) => ({
+            ...prev,
+            [groupId]: checked ? eligibleIds : [],
+        }));
+    };
+
+    const toggleSelectCancel = (groupId: string, bookingId: string, checked: boolean) => {
+        setSelectedCancelByGroup((prev) => {
+            const cur = new Set(prev[groupId] || []);
+            if (checked) cur.add(bookingId);
+            else cur.delete(bookingId);
+            return { ...prev, [groupId]: Array.from(cur) };
+        });
+    };
+
+    const toggleSelectAllCancel = (groupId: string, eligibleIds: string[], checked: boolean) => {
+        setSelectedCancelByGroup((prev) => ({
+            ...prev,
+            [groupId]: checked ? eligibleIds : [],
+        }));
+    };
+
+    // Thanh toán lại theo list ca đã chọn (giống shopee)
+    const handlePayAgainSelected = async (selectedBookings: any[]) => {
+        try {
+            if (!selectedBookings.length) return;
+
+            setPayingBookingId(selectedBookings[0]._id);
+
+            const bookingIds = selectedBookings.map((b) => b._id);
+            const amountToPay = selectedBookings.reduce((sum, b) => sum + calcNeedPay(b), 0);
+
+            if (!amountToPay || amountToPay <= 0) {
+                toast.error('Không có số tiền cần thanh toán thêm cho các ca đã chọn!');
+                setPayingBookingId(null);
+                return;
+            }
+
+            const payRes = await api.post('/payment/vnpay/create', {
+                bookingIds,
+                isRetryPayment: true,
+                amount: amountToPay,
+            });
+
+            const paymentUrl =
+                payRes.data?.paymentUrl || payRes.data?.data?.paymentUrl || payRes.data?.data?.url;
+
+            if (!paymentUrl) {
+                toast.error('Không lấy được link thanh toán VNPay!');
+                setPayingBookingId(null);
+                return;
+            }
+
+            toast.success('Đang chuyển tới trang thanh toán VNPay...');
+            window.location.href = paymentUrl;
+        } catch (err: any) {
+            toast.error(
+                err?.response?.data?.message || 'Không thể thanh toán lại, vui lòng thử lại!'
+            );
+            setPayingBookingId(null);
+        }
+    };
+
+    // THANH TOÁN LẠI (fallback)
     const handlePayAgain = async (booking: any) => {
         try {
             setPayingBookingId(booking._id);
@@ -200,7 +295,7 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // Thanh toán lại cho cả group (chọn 1 booking phù hợp trong group)
+    // Thanh toán lại cho cả group (fallback)
     const handlePayAgainGroup = (group: any) => {
         const candidate =
             group.bookings.find(
@@ -316,6 +411,10 @@ const MyBookings: React.FC = () => {
 
                 setBookingGroups(groups);
 
+                // reset selection mỗi lần load lại list để khỏi bị tick linh tinh do socket/update
+                setSelectedPayByGroup({});
+                setSelectedCancelByGroup({});
+
                 const counts: Record<string, number> = {
                     all: sortedWithEquipments.length,
                     waiting_payment: sortedWithEquipments.filter(
@@ -377,6 +476,7 @@ const MyBookings: React.FC = () => {
             socket.disconnect();
             socketRef.current = null;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -558,7 +658,72 @@ const MyBookings: React.FC = () => {
                                     0
                                 );
 
-                                // group refund (giữ lại nếu muốn – điều kiện phải đủ toàn bộ ca)
+                                // pay eligible
+                                const eligiblePayBookings = group.bookings.filter((b: any) =>
+                                    canRetryPay(b)
+                                );
+                                const eligiblePayIds = eligiblePayBookings.map((b: any) => b._id);
+
+                                // cancel eligible
+                                const eligibleCancelBookings = group.bookings.filter((b: any) => {
+                                    return (
+                                        b.status === 'pending' &&
+                                        (b.paymentStatus === 'paid' ||
+                                            b.paymentStatus === 'partial')
+                                    );
+                                });
+                                const eligibleCancelIds = eligibleCancelBookings.map(
+                                    (b: any) => b._id
+                                );
+
+                                // selected cancel (only eligible)
+                                const rawSelectedCancelIds = selectedCancelByGroup[group._id] || [];
+                                const selectedCancelIds = rawSelectedCancelIds.filter((id) =>
+                                    eligibleCancelIds.includes(id)
+                                );
+
+                                // selected pay (only eligible)
+                                const rawSelectedIds = selectedPayByGroup[group._id] || [];
+                                const selectedIds = rawSelectedIds.filter((id) =>
+                                    eligiblePayIds.includes(id)
+                                );
+
+                                const selectedPayBookings = eligiblePayBookings.filter((b: any) =>
+                                    selectedIds.includes(b._id)
+                                );
+
+                                const selectedPayAmount: number = selectedPayBookings.reduce(
+                                    (sum: number, b: any) => sum + calcNeedPay(b),
+                                    0
+                                );
+
+                                // show select all (pay) if >=2
+                                const showSelectAll = eligiblePayIds.length > 1;
+                                const eligibleCount = eligiblePayIds.length;
+                                const selectedCount = selectedIds.length;
+
+                                const allChecked =
+                                    showSelectAll &&
+                                    eligibleCount > 0 &&
+                                    selectedCount === eligibleCount;
+                                const indeterminate =
+                                    showSelectAll &&
+                                    selectedCount > 0 &&
+                                    selectedCount < eligibleCount;
+
+                                // show select all (cancel) if >=2
+                                const showSelectAllCancel = eligibleCancelIds.length > 1;
+                                const cancelAllChecked =
+                                    showSelectAllCancel &&
+                                    eligibleCancelIds.length > 0 &&
+                                    selectedCancelIds.length === eligibleCancelIds.length;
+
+                                const cancelIndeterminate =
+                                    showSelectAllCancel &&
+                                    selectedCancelIds.length > 0 &&
+                                    selectedCancelIds.length < eligibleCancelIds.length;
+
+                                // group refund (nếu muốn – điều kiện phải đủ toàn bộ ca)
                                 const refundableBookings = group.bookings.filter((b: any) => {
                                     const rawRefundStatus =
                                         b.refundStatus ||
@@ -571,23 +736,14 @@ const MyBookings: React.FC = () => {
                                     const allowStatus = b.status === 'cancelled';
                                     return allowStatus && isPaidOrPartial && canRefundStatus;
                                 });
+
                                 const canRequestRefundGroup =
                                     refundableBookings.length > 0 &&
                                     refundableBookings.length === group.bookings.length;
 
-                                const canCancelGroup = group.bookings.every((b: any) => {
-                                    const isPending = b.status === 'pending';
-                                    const isPaidOrPartial =
-                                        b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
-                                    return isPending && isPaidOrPartial;
-                                });
-
-                                const canPayAgainGroup = group.bookings.some(
-                                    (b: any) =>
-                                        b.status === 'pending' &&
-                                        b.paymentMethod === 'vnpay' &&
-                                        (b.paymentStatus === 'unpaid' ||
-                                            b.paymentStatus === 'partial')
+                                // show pay again fallback button if needed
+                                const canPayAgainGroup = group.bookings.some((b: any) =>
+                                    canRetryPay(b)
                                 );
 
                                 return (
@@ -729,7 +885,6 @@ const MyBookings: React.FC = () => {
                                                                     booking.paymentStatus ===
                                                                         'partial');
 
-                                                            //  refund theo từng ca (đây là thứ mày đang thiếu)
                                                             const canRequestRefundThis =
                                                                 booking.status === 'cancelled' &&
                                                                 (booking.paymentStatus === 'paid' ||
@@ -738,15 +893,74 @@ const MyBookings: React.FC = () => {
                                                                 (refundStatus === 'none' ||
                                                                     refundStatus === 'rejected');
 
+                                                            const canRetryThis =
+                                                                canRetryPay(booking);
+
                                                             return (
                                                                 <div
                                                                     key={booking._id}
-                                                                    className='border border-gray-100 rounded-lg p-3 bg-gray-50 w-full'
+                                                                    className='border border-gray-100 rounded-lg p-3 bg-gray-50 w-full relative'
                                                                 >
-                                                                    {/* Layout trái/phải để nút luôn nằm bên phải */}
+                                                                    {/* CHECKBOX góc trái: Pay + Hủy */}
+                                                                    {(canRetryThis ||
+                                                                        canCancelThis) && (
+                                                                        <div className='absolute top-3 left-3 z-10 flex flex-col gap-1'>
+                                                                            {/* Pay again */}
+                                                                            {canRetryThis && (
+                                                                                <Checkbox
+                                                                                    checked={(
+                                                                                        selectedPayByGroup[
+                                                                                            group
+                                                                                                ._id
+                                                                                        ] || []
+                                                                                    ).includes(
+                                                                                        booking._id
+                                                                                    )}
+                                                                                    onChange={(e) =>
+                                                                                        toggleSelectPay(
+                                                                                            group._id,
+                                                                                            booking._id,
+                                                                                            e.target
+                                                                                                .checked
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                            )}
+
+                                                                            {/* Cancel */}
+                                                                            {canCancelThis && (
+                                                                                <Checkbox
+                                                                                    checked={(
+                                                                                        selectedCancelByGroup[
+                                                                                            group
+                                                                                                ._id
+                                                                                        ] || []
+                                                                                    ).includes(
+                                                                                        booking._id
+                                                                                    )}
+                                                                                    onChange={(e) =>
+                                                                                        toggleSelectCancel(
+                                                                                            group._id,
+                                                                                            booking._id,
+                                                                                            e.target
+                                                                                                .checked
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+
                                                                     <div className='flex flex-col md:flex-row md:items-start md:justify-between gap-3'>
                                                                         {/* LEFT INFO */}
-                                                                        <div className='min-w-0 flex-1 space-y-2'>
+                                                                        <div
+                                                                            className={`min-w-0 flex-1 space-y-2 ${
+                                                                                canRetryThis ||
+                                                                                canCancelThis
+                                                                                    ? 'pl-10'
+                                                                                    : ''
+                                                                            }`}
+                                                                        >
                                                                             {/* SLOT TIME */}
                                                                             {Array.isArray(
                                                                                 booking.slots
@@ -1109,23 +1323,6 @@ const MyBookings: React.FC = () => {
 
                                                                         {/* RIGHT ACTIONS */}
                                                                         <div className='shrink-0 flex flex-row md:flex-col md:items-end gap-2'>
-                                                                            {canCancelThis && (
-                                                                                <Button
-                                                                                    danger
-                                                                                    type='primary'
-                                                                                    size='middle'
-                                                                                    onClick={() =>
-                                                                                        openCancelModal(
-                                                                                            [
-                                                                                                booking._id,
-                                                                                            ]
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    Hủy ca này
-                                                                                </Button>
-                                                                            )}
-
                                                                             {canRequestRefundThis && (
                                                                                 <Button
                                                                                     size='middle'
@@ -1199,13 +1396,70 @@ const MyBookings: React.FC = () => {
                                         </div>
 
                                         {/* RIGHT – tổng tiền + action cấp đơn */}
-                                        <div className='text-right min-w-[220px] space-y-2'>
+                                        <div className='text-right min-w-[240px] space-y-2'>
                                             <p className='text-sm text-gray-600'>Tổng tiền đơn:</p>
                                             <p className='text-lg font-semibold text-gray-900'>
-                                                {groupTotal.toLocaleString('vi-VN')} ₫
+                                                {groupTotal.toLocaleString('vi-VN')} VNĐ
                                             </p>
 
-                                            {canPayAgainGroup && (
+                                            {eligiblePayIds.length > 0 && selectedCount > 0 && (
+                                                <>
+                                                    <p className='text-xs text-gray-500 mt-1'>
+                                                        Sẽ thanh toán:
+                                                    </p>
+                                                    <p className='text-base font-semibold text-emerald-600'>
+                                                        {selectedPayAmount.toLocaleString('vi-VN')}{' '}
+                                                        VNĐ
+                                                    </p>
+                                                </>
+                                            )}
+
+                                            {/*  CHỌN TẤT CẢ (THANH TOÁN LẠI) */}
+                                            {showSelectAll && (
+                                                <div className='flex justify-end mt-2'>
+                                                    <Checkbox
+                                                        indeterminate={indeterminate}
+                                                        checked={allChecked}
+                                                        onChange={(e) =>
+                                                            toggleSelectAllPay(
+                                                                group._id,
+                                                                eligiblePayIds,
+                                                                e.target.checked
+                                                            )
+                                                        }
+                                                    >
+                                                        Chọn tất cả
+                                                    </Checkbox>
+                                                </div>
+                                            )}
+
+                                            {/*  THANH TOÁN LẠI THEO CA ĐÃ CHỌN */}
+                                            {eligiblePayIds.length > 0 && (
+                                                <Button
+                                                    type='primary'
+                                                    size='middle'
+                                                    className='mt-2 w-full md:w-auto'
+                                                    disabled={selectedPayBookings.length === 0}
+                                                    loading={
+                                                        !!payingBookingId &&
+                                                        selectedPayBookings.some(
+                                                            (b: any) => b._id === payingBookingId
+                                                        )
+                                                    }
+                                                    onClick={() =>
+                                                        handlePayAgainSelected(selectedPayBookings)
+                                                    }
+                                                >
+                                                    {selectedPayBookings.length > 0
+                                                        ? `Thanh toán lại (${selectedPayBookings.length}) • ${selectedPayAmount.toLocaleString(
+                                                              'vi-VN'
+                                                          )} ₫`
+                                                        : 'Thanh toán lại'}
+                                                </Button>
+                                            )}
+
+                                            {/*  (GIỮ) NÚT PAY AGAIN GROUP nếu group không dùng checkbox */}
+                                            {canPayAgainGroup && eligiblePayIds.length === 0 && (
                                                 <Button
                                                     type='primary'
                                                     size='middle'
@@ -1227,19 +1481,40 @@ const MyBookings: React.FC = () => {
                                                 </Button>
                                             )}
 
-                                            {canCancelGroup && (
+                                            {/*  CHỌN TẤT CẢ (HỦY) */}
+                                            {showSelectAllCancel && (
+                                                <div className='flex justify-end mt-2'>
+                                                    <Checkbox
+                                                        indeterminate={cancelIndeterminate}
+                                                        checked={cancelAllChecked}
+                                                        onChange={(e) =>
+                                                            toggleSelectAllCancel(
+                                                                group._id,
+                                                                eligibleCancelIds,
+                                                                e.target.checked
+                                                            )
+                                                        }
+                                                    >
+                                                        Chọn tất cả để hủy
+                                                    </Checkbox>
+                                                </div>
+                                            )}
+
+                                            {/*  HỦY THEO CA ĐÃ CHỌN (CHỈ 1 NÚT) */}
+                                            {eligibleCancelIds.length > 0 && (
                                                 <Button
                                                     danger
                                                     type='primary'
                                                     size='middle'
                                                     className='mt-2 w-full md:w-auto'
+                                                    disabled={selectedCancelIds.length === 0}
                                                     onClick={() =>
-                                                        openCancelModal(
-                                                            group.bookings.map((b: any) => b._id)
-                                                        )
+                                                        openCancelModal(selectedCancelIds)
                                                     }
                                                 >
-                                                    Hủy tất cả ca
+                                                    {selectedCancelIds.length > 0
+                                                        ? `Hủy (${selectedCancelIds.length}) ca đã chọn`
+                                                        : 'Hủy đã chọn'}
                                                 </Button>
                                             )}
 
