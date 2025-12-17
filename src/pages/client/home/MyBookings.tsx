@@ -1194,7 +1194,7 @@ const MyBookings: React.FC = () => {
                                                                                                         ).toLocaleString(
                                                                                                             'vi-VN'
                                                                                                         )}{' '}
-                                                                                                        ₫
+                                                                                                        VNĐ
                                                                                                     </span>
                                                                                                 </div>
                                                                                             )
@@ -1304,7 +1304,7 @@ const MyBookings: React.FC = () => {
                                                                                     {paidAmount.toLocaleString(
                                                                                         'vi-VN'
                                                                                     )}{' '}
-                                                                                    ₫
+                                                                                    VNĐ
                                                                                 </p>
                                                                             )}
 
@@ -1453,7 +1453,7 @@ const MyBookings: React.FC = () => {
                                                     {selectedPayBookings.length > 0
                                                         ? `Thanh toán lại (${selectedPayBookings.length}) • ${selectedPayAmount.toLocaleString(
                                                               'vi-VN'
-                                                          )} ₫`
+                                                          )} VNĐ`
                                                         : 'Thanh toán lại'}
                                                 </Button>
                                             )}
