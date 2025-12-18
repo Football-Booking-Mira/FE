@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -31,14 +31,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PAYMENT_LABELS: Record<string, string> = {
     unpaid: 'Chưa thanh toán',
-    partial: 'Thanh toán một phần',
+    partial: 'Đã thanh toán', //  ép label
     paid: 'Đã thanh toán',
     refunded: 'Hoàn tiền xong',
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
     unpaid: 'red',
-    partial: 'orange',
+    partial: 'green', // ép màu xanh giống paid
     paid: 'green',
     refunded: 'volcano',
 };
@@ -104,8 +104,28 @@ const extractEquipmentItems = (raw: any): any[] => {
     return [];
 };
 
-// Gộp thiết bị theo name + mode + price + unit
-const mergeEquipments = (items: any[] = []) => {
+const getItemPaidFlag = (it: any): boolean | undefined => {
+    if (typeof it.isPaid === 'boolean') return it.isPaid;
+    if (typeof it.paid === 'boolean') return it.paid;
+    if (typeof it.paymentStatus === 'string') return it.paymentStatus === 'paid';
+    if (typeof it.payStatus === 'string') return it.payStatus === 'paid';
+    return undefined;
+};
+
+const isExtraAfterPaid = (it: any): boolean => {
+    return (
+        it.addedFrom === 'checkin' ||
+        it.fromCheckin === true ||
+        it.isExtra === true ||
+        it.addedByRole === 'admin' ||
+        it.addedBy === 'admin'
+    );
+};
+
+// defaultPaymentStatus dùng để suy ra “các item không có flag”
+// - paid/refunded: mặc định thiết bị đã trả (vì đi cùng VNPay)
+// - partial/unpaid: mặc định thiết bị chưa trả (cọc tính cho sân)
+const mergeEquipments = (items: any[] = [], defaultPaymentStatus: string = 'unpaid') => {
     const map: Record<string, any> = {};
 
     items.forEach((it) => {
@@ -115,16 +135,38 @@ const mergeEquipments = (items: any[] = []) => {
         const mode: 'rent' | 'sell' = it.mode === 'sell' ? 'sell' : 'rent';
         const price = Number(it.price || (mode === 'rent' ? eq.rentPrice : eq.salePrice) || 0);
         const qty = Number(it.qty || 0);
-
         if (qty <= 0) return;
-        const key = `${name}_${mode}_${price}_${unit}`;
 
+        const subtotal = price * qty;
+
+        // quyết định paidFlag
+        let paidFlag = getItemPaidFlag(it);
+
+        if (paidFlag === undefined) {
+            if (isExtraAfterPaid(it))
+                paidFlag = false; // thêm lúc checkin => chưa trả
+            else paidFlag = defaultPaymentStatus === 'paid' || defaultPaymentStatus === 'refunded';
+        }
+
+        const key = `${name}_${mode}_${price}_${unit}`;
         if (!map[key]) {
-            map[key] = { name, mode, unit, price, qty, subtotal: price * qty };
+            map[key] = {
+                name,
+                mode,
+                unit,
+                price,
+                qty,
+                subtotal,
+                paidSubtotal: 0,
+                unpaidSubtotal: 0,
+            };
         } else {
             map[key].qty += qty;
-            map[key].subtotal += price * qty;
+            map[key].subtotal += subtotal;
         }
+
+        if (paidFlag) map[key].paidSubtotal += subtotal;
+        else map[key].unpaidSubtotal += subtotal;
     });
 
     return Object.values(map);
@@ -138,10 +180,14 @@ const canRetryPay = (b: any) =>
 
 // tính tiền cần trả cho từng ca (unpaid: full total, partial: total - deposit)
 const calcNeedPay = (b: any) => {
-    const total = Number(b.fieldAmount ?? b.total ?? 0);
+    const total = Number(b.total ?? 0);
     const depositPaid = b.depositStatus === 'paid' ? Number(b.depositAmount ?? 0) : 0;
-    if (b.paymentStatus === 'partial') return Math.max(0, total - depositPaid);
-    if (b.paymentStatus === 'unpaid') return Math.max(0, total);
+
+    const fallbackTotal =
+        total > 0 ? total : Number(b.fieldAmount ?? 0) + Number(b.equipmentTotal ?? 0);
+
+    if (b.paymentStatus === 'partial') return Math.max(0, fallbackTotal - depositPaid);
+    if (b.paymentStatus === 'unpaid') return Math.max(0, fallbackTotal);
     return 0;
 };
 
@@ -211,7 +257,7 @@ const MyBookings: React.FC = () => {
         }));
     };
 
-    // Thanh toán lại theo list ca đã chọn (giống shopee)
+    // Thanh toán lại theo list ca đã chọn
     const handlePayAgainSelected = async (selectedBookings: any[]) => {
         try {
             if (!selectedBookings.length) return;
@@ -230,7 +276,6 @@ const MyBookings: React.FC = () => {
             const payRes = await api.post('/payment/vnpay/create', {
                 bookingIds,
                 isRetryPayment: true,
-                amount: amountToPay,
             });
 
             const paymentUrl =
@@ -252,7 +297,6 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // THANH TOÁN LẠI (fallback)
     const handlePayAgain = async (booking: any) => {
         try {
             setPayingBookingId(booking._id);
@@ -268,12 +312,8 @@ const MyBookings: React.FC = () => {
 
             const body =
                 info.type === 'order'
-                    ? {
-                          bookingIds: info.bookingIds,
-                          isRetryPayment: true,
-                          amount: info.amountToPay,
-                      }
-                    : { bookingId: info.bookingId, isRetryPayment: true, amount: info.amountToPay };
+                    ? { bookingIds: info.bookingIds, isRetryPayment: true }
+                    : { bookingId: info.bookingId, isRetryPayment: true };
 
             const payRes = await api.post('/payment/vnpay/create', body);
             const paymentUrl =
@@ -295,7 +335,6 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // Thanh toán lại cho cả group (fallback)
     const handlePayAgainGroup = (group: any) => {
         const candidate =
             group.bookings.find(
@@ -335,7 +374,6 @@ const MyBookings: React.FC = () => {
         const result = groupsSource
             .map((g) => (g.bookings.some(matchBooking) ? g : null))
             .filter(Boolean) as any[];
-
         setFilteredGroups(result);
     };
 
@@ -350,20 +388,8 @@ const MyBookings: React.FC = () => {
 
             if (data?.success) {
                 const mapped = data.data.map((b: any) => {
-                    const hasDepositPaid = (b.depositAmount || 0) > 0 && b.depositStatus === 'paid';
-                    const deposit = Number(b.depositAmount || 0);
-                    const total = Number(b.total || 0);
-                    let paymentStatus: string = b.paymentStatus || 'unpaid';
-
-                    if (
-                        (paymentStatus === 'unpaid' || paymentStatus === 'partial') &&
-                        hasDepositPaid
-                    ) {
-                        if (total > 0 && deposit >= total) paymentStatus = 'paid';
-                        else paymentStatus = 'partial';
-                    }
-
-                    return { ...b, paymentStatus };
+                    // giữ nguyên paymentStatus từ backend, chỉ fallback nếu thiếu
+                    return { ...b, paymentStatus: b.paymentStatus || 'unpaid' };
                 });
 
                 const sorted = [...mapped].sort((a: any, b: any) => {
@@ -376,7 +402,7 @@ const MyBookings: React.FC = () => {
                     const items = extractEquipmentItems(
                         b.equipmentItems || b.equipments || b.bookingEquipments || b.items || b.data
                     );
-                    const equipments = mergeEquipments(items);
+                    const equipments = mergeEquipments(items, b.paymentStatus || 'unpaid');
                     return { ...b, equipments };
                 });
 
@@ -397,21 +423,29 @@ const MyBookings: React.FC = () => {
                     groupMap.get(key).bookings.push(b);
                 }
 
+                // group.total fallback
                 const groups = Array.from(groupMap.values()).map((g: any) => {
                     g.bookings.sort((a: any, b: any) =>
                         String(a.startTime || '').localeCompare(String(b.startTime || ''))
                     );
-                    g.total = g.bookings.reduce(
-                        (sum: number, b: any) =>
-                            sum + (b.status === 'cancelled' ? 0 : Number(b.total || 0)),
-                        0
-                    );
+
+                    g.total = g.bookings.reduce((sum: number, b: any) => {
+                        if (b.status === 'cancelled') return sum;
+
+                        const total = Number(b.total || 0);
+                        const fieldAmount = Number(b.fieldAmount || 0);
+                        const equipmentTotal = Number(b.equipmentTotal || 0);
+
+                        const totalAll = total > 0 ? total : fieldAmount + equipmentTotal;
+                        return sum + (Number.isFinite(totalAll) ? totalAll : 0);
+                    }, 0);
+
                     return g;
                 });
 
                 setBookingGroups(groups);
 
-                // reset selection mỗi lần load lại list để khỏi bị tick linh tinh do socket/update
+                // reset selection mỗi lần load lại list
                 setSelectedPayByGroup({});
                 setSelectedCancelByGroup({});
 
@@ -476,7 +510,6 @@ const MyBookings: React.FC = () => {
             socket.disconnect();
             socketRef.current = null;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -492,7 +525,7 @@ const MyBookings: React.FC = () => {
         applyFilter(key);
     };
 
-    // ----------- HỦY ĐƠN (NHIỀU CA) -----------
+    // HỦY ĐƠN (NHIỀU CA)
     const openCancelModal = (bookingIds: string[]) => {
         setSelectedBookingIds(bookingIds);
         setCancelReason('');
@@ -536,7 +569,7 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // ----------- HOÀN TIỀN -----------
+    // HOÀN TIỀN
     const openRefundModal = (bookings: any[]) => {
         const first = bookings[0] || {};
 
@@ -595,7 +628,6 @@ const MyBookings: React.FC = () => {
         }
     };
 
-    // LOADING
     if (loading) {
         return (
             <div className='flex justify-center items-center h-screen'>
@@ -691,7 +723,6 @@ const MyBookings: React.FC = () => {
                                 const selectedPayBookings = eligiblePayBookings.filter((b: any) =>
                                     selectedIds.includes(b._id)
                                 );
-
                                 const selectedPayAmount: number = selectedPayBookings.reduce(
                                     (sum: number, b: any) => sum + calcNeedPay(b),
                                     0
@@ -723,7 +754,7 @@ const MyBookings: React.FC = () => {
                                     selectedCancelIds.length > 0 &&
                                     selectedCancelIds.length < eligibleCancelIds.length;
 
-                                // group refund (nếu muốn – điều kiện phải đủ toàn bộ ca)
+                                // group refund
                                 const refundableBookings = group.bookings.filter((b: any) => {
                                     const rawRefundStatus =
                                         b.refundStatus ||
@@ -741,7 +772,6 @@ const MyBookings: React.FC = () => {
                                     refundableBookings.length > 0 &&
                                     refundableBookings.length === group.bookings.length;
 
-                                // show pay again fallback button if needed
                                 const canPayAgainGroup = group.bookings.some((b: any) =>
                                     canRetryPay(b)
                                 );
@@ -805,77 +835,131 @@ const MyBookings: React.FC = () => {
                                                                 booking.refund?.reason ||
                                                                 '';
 
-                                                            const bookingTotal = Number(
-                                                                booking.total || 0
-                                                            );
                                                             const fieldAmount = Number(
                                                                 booking.fieldAmount || 0
                                                             );
 
-                                                            const depositAmount =
+                                                            // ---- tách tiền thiết bị ----
+                                                            const rentTotal = Array.isArray(
+                                                                booking.equipments
+                                                            )
+                                                                ? booking.equipments
+                                                                      .filter(
+                                                                          (it: any) =>
+                                                                              it.mode !== 'sell'
+                                                                      )
+                                                                      .reduce(
+                                                                          (sum: number, it: any) =>
+                                                                              sum +
+                                                                              Number(
+                                                                                  it.subtotal ||
+                                                                                      it.price *
+                                                                                          it.qty ||
+                                                                                      0
+                                                                              ),
+                                                                          0
+                                                                      )
+                                                                : 0;
+
+                                                            const sellTotal = Array.isArray(
+                                                                booking.equipments
+                                                            )
+                                                                ? booking.equipments
+                                                                      .filter(
+                                                                          (it: any) =>
+                                                                              it.mode === 'sell'
+                                                                      )
+                                                                      .reduce(
+                                                                          (sum: number, it: any) =>
+                                                                              sum +
+                                                                              Number(
+                                                                                  it.subtotal ||
+                                                                                      it.price *
+                                                                                          it.qty ||
+                                                                                      0
+                                                                              ),
+                                                                          0
+                                                                      )
+                                                                : 0;
+
+                                                            const equipmentTotal =
+                                                                rentTotal + sellTotal;
+
+                                                            const totalAll =
+                                                                Number(booking.total || 0) ||
+                                                                fieldAmount + equipmentTotal;
+
+                                                            const refundAmount = Number(
+                                                                booking.refundAmount ??
+                                                                    booking.refund?.amount ??
+                                                                    totalAll
+                                                            );
+
+                                                            const depositPaid =
                                                                 booking.depositStatus === 'paid'
                                                                     ? Number(
                                                                           booking.depositAmount || 0
                                                                       )
                                                                     : 0;
 
-                                                            const equipmentsTotal = Array.isArray(
-                                                                booking.equipments
-                                                            )
-                                                                ? booking.equipments.reduce(
-                                                                      (sum: number, it: any) =>
-                                                                          sum +
-                                                                          Number(
-                                                                              it.subtotal ||
-                                                                                  it.price *
-                                                                                      it.qty ||
-                                                                                  0
-                                                                          ),
-                                                                      0
-                                                                  )
-                                                                : 0;
-
-                                                            const refundAmount = Number(
-                                                                booking.refundAmount ??
-                                                                    booking.refund?.amount ??
-                                                                    bookingTotal
-                                                            );
-
-                                                            // TÍNH TIỀN KHÁCH ĐÃ TRẢ (cancelled cũng phải hiện)
-                                                            let paidAmount = 0;
-                                                            const paymentStatus =
-                                                                booking.paymentStatus;
-                                                            const status = booking.status;
-
-                                                            if (paymentStatus === 'partial') {
-                                                                paidAmount = depositAmount;
-                                                            } else if (
-                                                                paymentStatus === 'paid' ||
-                                                                paymentStatus === 'refunded'
-                                                            ) {
-                                                                if (status === 'completed') {
-                                                                    paidAmount =
-                                                                        bookingTotal ||
-                                                                        fieldAmount +
-                                                                            equipmentsTotal ||
-                                                                        0;
-                                                                } else {
-                                                                    // chưa tạo hóa đơn → chỉ tính tiền sân
-                                                                    if (depositAmount > 0) {
-                                                                        paidAmount = Math.min(
-                                                                            depositAmount,
-                                                                            fieldAmount ||
-                                                                                depositAmount
+                                                            // ✅ FIX LỖI: TÍNH Ở NGOÀI JSX (để dùng được ở mọi chỗ)
+                                                            const paidAmount =
+                                                                Number(booking.paidTotal ?? 0) ||
+                                                                (() => {
+                                                                    if (
+                                                                        booking.paymentStatus ===
+                                                                            'paid' ||
+                                                                        booking.paymentStatus ===
+                                                                            'refunded'
+                                                                    )
+                                                                        return totalAll;
+                                                                    if (
+                                                                        booking.paymentStatus ===
+                                                                        'partial'
+                                                                    )
+                                                                        return Math.min(
+                                                                            depositPaid,
+                                                                            totalAll
                                                                         );
-                                                                    } else {
-                                                                        paidAmount =
-                                                                            fieldAmount ||
-                                                                            bookingTotal;
-                                                                    }
-                                                                }
-                                                            }
+                                                                    return 0;
+                                                                })();
 
-                                                            const isCustomerPaid = paidAmount > 0;
+                                                            const remain =
+                                                                Number(booking.unpaidAmount ?? 0) ||
+                                                                Math.max(0, totalAll - paidAmount);
+
+                                                            const equipPaid =
+                                                                Number(
+                                                                    booking.equipmentPaid ?? 0
+                                                                ) ||
+                                                                (Array.isArray(booking.equipments)
+                                                                    ? booking.equipments.reduce(
+                                                                          (s: number, it: any) =>
+                                                                              s +
+                                                                              Number(
+                                                                                  it.paidSubtotal ||
+                                                                                      0
+                                                                              ),
+                                                                          0
+                                                                      )
+                                                                    : 0);
+
+                                                            const equipUnpaid =
+                                                                Number(
+                                                                    booking.equipmentUnpaid ?? 0
+                                                                ) ||
+                                                                (Array.isArray(booking.equipments)
+                                                                    ? booking.equipments.reduce(
+                                                                          (s: number, it: any) =>
+                                                                              s +
+                                                                              Number(
+                                                                                  it.unpaidSubtotal ||
+                                                                                      0
+                                                                              ),
+                                                                          0
+                                                                      )
+                                                                    : 0);
+
                                                             const isRefunded =
                                                                 refundStatus === 'refunded';
 
@@ -905,7 +989,6 @@ const MyBookings: React.FC = () => {
                                                                     {(canRetryThis ||
                                                                         canCancelThis) && (
                                                                         <div className='absolute top-3 left-3 z-10 flex flex-col gap-1'>
-                                                                            {/* Pay again */}
                                                                             {canRetryThis && (
                                                                                 <Checkbox
                                                                                     checked={(
@@ -927,7 +1010,6 @@ const MyBookings: React.FC = () => {
                                                                                 />
                                                                             )}
 
-                                                                            {/* Cancel */}
                                                                             {canCancelThis && (
                                                                                 <Checkbox
                                                                                     checked={(
@@ -1066,80 +1148,134 @@ const MyBookings: React.FC = () => {
                                                                             </div>
 
                                                                             {/* TRẠNG THÁI THANH TOÁN */}
-                                                                            <div className='flex flex-wrap items-center gap-2 text-xs md:text-sm'>
+                                                                            <div className='flex flex-wrap items-start gap-2 text-xs md:text-sm'>
                                                                                 <span className='text-gray-500'>
                                                                                     Thanh toán:
                                                                                 </span>
-                                                                                {(() => {
-                                                                                    const s =
-                                                                                        booking.paymentStatus;
-                                                                                    const deposit =
-                                                                                        Number(
-                                                                                            booking.depositAmount ||
-                                                                                                0
-                                                                                        );
-                                                                                    const fieldAmt =
-                                                                                        Number(
-                                                                                            booking.fieldAmount ||
-                                                                                                0
-                                                                                        );
-                                                                                    const hasDepositPaid =
-                                                                                        booking.depositStatus ===
-                                                                                            'paid' &&
-                                                                                        deposit > 0;
 
-                                                                                    let color: string =
+                                                                                <Tag
+                                                                                    color={
                                                                                         PAYMENT_COLORS[
-                                                                                            s
+                                                                                            booking
+                                                                                                .paymentStatus
                                                                                         ] ||
-                                                                                        'default';
-                                                                                    let label: string =
-                                                                                        PAYMENT_LABELS[
-                                                                                            s
-                                                                                        ] ||
-                                                                                        'Không rõ';
-
-                                                                                    if (
-                                                                                        hasDepositPaid &&
-                                                                                        s !== 'paid'
-                                                                                    ) {
-                                                                                        if (
-                                                                                            fieldAmt >
-                                                                                                0 &&
-                                                                                            deposit >=
-                                                                                                fieldAmt
-                                                                                        ) {
-                                                                                            color =
-                                                                                                'green';
-                                                                                            label =
-                                                                                                'Đã thanh toán tiền sân';
-                                                                                        } else if (
-                                                                                            fieldAmt >
-                                                                                            0
-                                                                                        ) {
-                                                                                            const percent =
-                                                                                                Math.round(
-                                                                                                    (deposit /
-                                                                                                        fieldAmt) *
-                                                                                                        100
-                                                                                                );
-                                                                                            color =
-                                                                                                'orange';
-                                                                                            label = `Đã đặt cọc ${percent}% tiền sân`;
-                                                                                        }
+                                                                                        'default'
                                                                                     }
+                                                                                    className='rounded-full px-3 py-1'
+                                                                                >
+                                                                                    {PAYMENT_LABELS[
+                                                                                        booking
+                                                                                            .paymentStatus
+                                                                                    ] || 'Không rõ'}
+                                                                                </Tag>
 
-                                                                                    return (
-                                                                                        <Tag
-                                                                                            color={
-                                                                                                color
-                                                                                            }
-                                                                                            className='rounded-full px-3 py-1'
-                                                                                        >
-                                                                                            {label}
-                                                                                        </Tag>
-                                                                                    );
-                                                                                })()}
+                                                                                <div className='w-full mt-2 text-xs text-gray-700 space-y-1'>
+                                                                                    <div className='flex justify-between'>
+                                                                                        <span>
+                                                                                            Tiền sân
+                                                                                        </span>
+                                                                                        <span className='font-medium'>
+                                                                                            {fieldAmount.toLocaleString(
+                                                                                                'vi-VN'
+                                                                                            )}{' '}
+                                                                                            VNĐ
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                    {sellTotal >
+                                                                                        0 && (
+                                                                                        <div className='flex justify-between'>
+                                                                                            <span>
+                                                                                                Thiết
+                                                                                                bị
+                                                                                                mua
+                                                                                            </span>
+                                                                                            <span className='font-medium'>
+                                                                                                {sellTotal.toLocaleString(
+                                                                                                    'vi-VN'
+                                                                                                )}{' '}
+                                                                                                VNĐ
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {rentTotal >
+                                                                                        0 && (
+                                                                                        <div className='flex justify-between'>
+                                                                                            <span>
+                                                                                                Thiết
+                                                                                                bị
+                                                                                                thuê
+                                                                                            </span>
+                                                                                            <span className='font-medium'>
+                                                                                                {rentTotal.toLocaleString(
+                                                                                                    'vi-VN'
+                                                                                                )}{' '}
+                                                                                                VNĐ
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    <div className='flex justify-between pt-1 border-t border-gray-200'>
+                                                                                        <span className='font-semibold'>
+                                                                                            Tổng
+                                                                                        </span>
+                                                                                        <span className='font-semibold'>
+                                                                                            {totalAll.toLocaleString(
+                                                                                                'vi-VN'
+                                                                                            )}{' '}
+                                                                                            VNĐ
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                    <div className='flex justify-between'>
+                                                                                        <span className='text-emerald-700 font-semibold'>
+                                                                                            Đã thanh
+                                                                                            toán
+                                                                                        </span>
+                                                                                        <span className='text-emerald-700 font-semibold'>
+                                                                                            {paidAmount.toLocaleString(
+                                                                                                'vi-VN'
+                                                                                            )}{' '}
+                                                                                            VNĐ
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                    {remain > 0 && (
+                                                                                        <div className='flex justify-between'>
+                                                                                            <span className='text-red-600 font-semibold'>
+                                                                                                Còn
+                                                                                                lại
+                                                                                            </span>
+                                                                                            <span className='text-red-600 font-semibold'>
+                                                                                                {remain.toLocaleString(
+                                                                                                    'vi-VN'
+                                                                                                )}{' '}
+                                                                                                VNĐ
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+
+                                                                                    {/* nếu có thiết bị thêm lúc check-in => sẽ hiện chưa trả đúng */}
+                                                                                    {equipUnpaid >
+                                                                                        0 && (
+                                                                                        <div className='flex justify-between'>
+                                                                                            <span className='text-red-600 font-semibold'>
+                                                                                                Thiết
+                                                                                                bị
+                                                                                                chưa
+                                                                                                thanh
+                                                                                                toán
+                                                                                            </span>
+                                                                                            <span className='text-red-600 font-semibold'>
+                                                                                                {equipUnpaid.toLocaleString(
+                                                                                                    'vi-VN'
+                                                                                                )}{' '}
+                                                                                                VNĐ
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
 
                                                                             {/* THIẾT BỊ */}
@@ -1298,10 +1434,23 @@ const MyBookings: React.FC = () => {
                                                                                 </div>
                                                                             )}
 
-                                                                            {isCustomerPaid && (
+                                                                            {/* 2 dòng thiết bị đã trả / chưa trả */}
+                                                                            {equipPaid > 0 && (
                                                                                 <p className='mt-1 text-xs text-green-700 font-semibold'>
-                                                                                    Khách đã trả:{' '}
-                                                                                    {paidAmount.toLocaleString(
+                                                                                    Thiết bị đã
+                                                                                    thanh toán:{' '}
+                                                                                    {equipPaid.toLocaleString(
+                                                                                        'vi-VN'
+                                                                                    )}{' '}
+                                                                                    VNĐ
+                                                                                </p>
+                                                                            )}
+
+                                                                            {equipUnpaid > 0 && (
+                                                                                <p className='mt-1 text-xs text-red-600 font-semibold'>
+                                                                                    Thiết bị chưa
+                                                                                    thanh toán:{' '}
+                                                                                    {equipUnpaid.toLocaleString(
                                                                                         'vi-VN'
                                                                                     )}{' '}
                                                                                     VNĐ
@@ -1414,7 +1563,7 @@ const MyBookings: React.FC = () => {
                                                 </>
                                             )}
 
-                                            {/*  CHỌN TẤT CẢ (THANH TOÁN LẠI) */}
+                                            {/* CHỌN TẤT CẢ (THANH TOÁN LẠI) */}
                                             {showSelectAll && (
                                                 <div className='flex justify-end mt-2'>
                                                     <Checkbox
@@ -1433,7 +1582,7 @@ const MyBookings: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {/*  THANH TOÁN LẠI THEO CA ĐÃ CHỌN */}
+                                            {/* THANH TOÁN LẠI THEO CA ĐÃ CHỌN */}
                                             {eligiblePayIds.length > 0 && (
                                                 <Button
                                                     type='primary'
@@ -1458,7 +1607,7 @@ const MyBookings: React.FC = () => {
                                                 </Button>
                                             )}
 
-                                            {/*  (GIỮ) NÚT PAY AGAIN GROUP nếu group không dùng checkbox */}
+                                            {/* (GIỮ) NÚT PAY AGAIN GROUP nếu group không dùng checkbox */}
                                             {canPayAgainGroup && eligiblePayIds.length === 0 && (
                                                 <Button
                                                     type='primary'
@@ -1481,7 +1630,7 @@ const MyBookings: React.FC = () => {
                                                 </Button>
                                             )}
 
-                                            {/*  CHỌN TẤT CẢ (HỦY) */}
+                                            {/* CHỌN TẤT CẢ (HỦY) */}
                                             {showSelectAllCancel && (
                                                 <div className='flex justify-end mt-2'>
                                                     <Checkbox
@@ -1500,7 +1649,7 @@ const MyBookings: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            {/*  HỦY THEO CA ĐÃ CHỌN (CHỈ 1 NÚT) */}
+                                            {/* HỦY THEO CA ĐÃ CHỌN */}
                                             {eligibleCancelIds.length > 0 && (
                                                 <Button
                                                     danger
@@ -1518,7 +1667,7 @@ const MyBookings: React.FC = () => {
                                                 </Button>
                                             )}
 
-                                            {/* Giữ lại hoàn theo group nếu muốn (chỉ hiện khi ALL ca trong group đủ điều kiện) */}
+                                            {/* HOÀN THEO GROUP */}
                                             {canRequestRefundGroup && (
                                                 <Button
                                                     size='middle'
