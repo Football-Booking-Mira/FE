@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,22 +28,28 @@ interface SlotItem {
 interface CheckoutData {
     courtId: string;
     courtName: string;
-    date: string; // ISO string
+    date: string;
     slots: SlotItem[];
-    totalPrice: number;
+
+    totalPrice: number; //  tổng thanh toán (sân + thiết bị) nếu có
     totalDuration: number;
     overallStart: string;
     overallEnd: string;
-    bookingId?: string;
 
-    bookingIds?: string[]; // nhiều booking
-    isMultiBooking?: boolean; // true/false
+    //  breakdown (nếu có)
+    totalFieldPrice?: number; // tiền sân
+    equipmentTotal?: number; // tiền thiết bị
+    equipmentBySlot?: Record<string, any[]>;
+
+    bookingId?: string;
+    bookingIds?: string[];
+    isMultiBooking?: boolean;
 
     startTime?: string;
     endTime?: string;
 
     isRetryPayment?: boolean;
-    total?: number;
+    total?: number; // fallback legacy
 }
 
 const formatDate = (value: string) => {
@@ -55,6 +61,11 @@ const formatDate = (value: string) => {
 const formatCurrency = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)} VNĐ`;
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const safeNum = (v: any) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+};
 
 const Checkout: React.FC = () => {
     const navigate = useNavigate();
@@ -83,14 +94,74 @@ const Checkout: React.FC = () => {
         }
     }, [bookingData, navigate]);
 
-    // Tính toán base total (trước voucher)
-    const baseTotal = bookingData
-        ? bookingData.isRetryPayment && retryInfo
-            ? retryInfo.amountToPay
-            : (bookingData.totalPrice ?? bookingData.total ?? 0)
-        : 0;
+    if (!bookingData) return null;
 
-    // Voucher validation hook
+    //  DERIVED MONEY (TIỀN SÂN + THIẾT BỊ)
+    const fieldMoney = useMemo(() => {
+        // ưu tiên totalFieldPrice
+        const direct = safeNum(bookingData.totalFieldPrice);
+        if (direct > 0) return direct;
+
+        // fallback: sum slot.price
+        const fromSlots =
+            Array.isArray(bookingData.slots) && bookingData.slots.length > 0
+                ? bookingData.slots.reduce((sum, s) => sum + safeNum(s.price), 0)
+                : 0;
+
+        return fromSlots;
+    }, [bookingData.totalFieldPrice, bookingData.slots]);
+
+    const equipMoney = useMemo(
+        () => safeNum(bookingData.equipmentTotal),
+        [bookingData.equipmentTotal]
+    );
+
+    const computedGrandTotal = useMemo(() => {
+        const sum = fieldMoney + equipMoney;
+        return sum > 0 ? sum : 0;
+    }, [fieldMoney, equipMoney]);
+
+    // base total (trước voucher): ưu tiên totalPrice nếu > 0, fallback = field + equip
+    const baseTotal = useMemo(() => {
+        if (bookingData.isRetryPayment && retryInfo) return safeNum(retryInfo.amountToPay);
+
+        const direct = safeNum(bookingData.totalPrice ?? bookingData.total);
+        if (direct > 0) return direct;
+
+        return computedGrandTotal;
+    }, [
+        bookingData.isRetryPayment,
+        retryInfo,
+        bookingData.totalPrice,
+        bookingData.total,
+        computedGrandTotal,
+    ]);
+
+    //  TIME & DURATION
+    const totalHours = useMemo(() => {
+        const d = safeNum(bookingData.totalDuration);
+        if (d > 0) return d / 60;
+
+        const fromSlots =
+            Array.isArray(bookingData.slots) && bookingData.slots.length > 0
+                ? bookingData.slots.reduce((sum, s) => sum + safeNum(s.duration), 0) / 60
+                : 0;
+
+        return fromSlots || 0;
+    }, [bookingData.totalDuration, bookingData.slots]);
+
+    const firstSlot = bookingData.slots?.[0];
+    const lastSlot =
+        bookingData.slots && bookingData.slots.length > 0
+            ? bookingData.slots[bookingData.slots.length - 1]
+            : undefined;
+
+    const bookingStartTime =
+        bookingData.overallStart || firstSlot?.startTime || bookingData.startTime || '06:00';
+    const bookingEndTime =
+        bookingData.overallEnd || lastSlot?.endTime || bookingData.endTime || '07:00';
+
+    //  Voucher validation hook
     const {
         validating: validatingVoucher,
         voucherResult,
@@ -113,82 +184,10 @@ const Checkout: React.FC = () => {
         error: publicVouchersError,
     } = usePublicVouchers(20);
 
-    // Cập nhật totalAmount khi có voucher hoặc thay đổi baseTotal
-    // Chỉ áp dụng voucher khi tạo booking mới, không phải retry payment
-    useEffect(() => {
-        if (bookingData?.isRetryPayment) {
-            // Retry payment: không áp dụng voucher
-            return;
-        }
-        if (voucherResult && finalTotal > 0) {
-            setTotalAmount(finalTotal);
-        } else {
-            setTotalAmount(baseTotal);
-        }
-    }, [voucherResult, finalTotal, baseTotal, bookingData?.isRetryPayment]);
-
-    // ĐỌC checkout-data & gọi API thanh toán lại (nếu có)
-    useEffect(() => {
-        if (!bookingData) return;
-
-        //  từ MyBookings, đang Thanh toán lại
-        if (bookingData.isRetryPayment && bookingData.bookingId) {
-            api.get(`/bookings/${bookingData.bookingId}/retry-payment-info`)
-                .then((res) => {
-                    const info = res.data.data;
-                    setRetryInfo({
-                        bookingId: info.bookingId,
-                        amountToPay: info.amountToPay,
-                    });
-                    setTotalAmount(info.amountToPay);
-                })
-                .catch((err) => {
-                    const msg = err?.response?.data?.message || 'Không thể thanh toán lại đơn này!';
-                    toast.error(msg);
-                    // fallback về tổng cũ nếu có
-                    const fallback = bookingData.totalPrice ?? bookingData.total ?? 0;
-                    setTotalAmount(fallback);
-                });
-        } else {
-            //  flow đặt sân mới
-            const amount = bookingData.totalPrice ?? bookingData.total ?? 0;
-            setTotalAmount(amount);
-        }
-    }, [bookingData]);
-
-    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo'>('vnpay');
+    // Prefill thông tin người đặt từ tài khoản hiện tại (localStorage.user)
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
-    const [isPaying, setIsPaying] = useState(false);
-
-    const [errors, setErrors] = useState<{
-        name?: string;
-        phone?: string;
-        email?: string;
-    }>({});
-
-    if (!bookingData) return null;
-
-    //  TÍNH TOÁN TỪ DỮ LIỆU MỚI
-    const totalPrice = bookingData.totalPrice ?? bookingData.total ?? 0;
-    const totalHours =
-        bookingData.totalDuration && bookingData.totalDuration > 0
-            ? bookingData.totalDuration / 60
-            : bookingData.slots?.reduce((sum, s) => sum + s.duration, 0) / 60 || 0;
-
-    const firstSlot = bookingData.slots?.[0];
-    const lastSlot =
-        bookingData.slots && bookingData.slots.length > 0
-            ? bookingData.slots[bookingData.slots.length - 1]
-            : undefined;
-
-    const bookingStartTime =
-        bookingData.overallStart || firstSlot?.startTime || bookingData.startTime || '06:00';
-    const bookingEndTime =
-        bookingData.overallEnd || lastSlot?.endTime || bookingData.endTime || '07:00';
-
-    // Prefill thông tin người đặt từ tài khoản hiện tại (localStorage.user)
     useEffect(() => {
         try {
             const stored = localStorage.getItem('user');
@@ -201,13 +200,61 @@ const Checkout: React.FC = () => {
                 if (!name && userName) setName(userName);
             }
         } catch {
-            // ignore JSON parse errors
+            // ignore
         }
-        // chỉ chạy lần đầu khi mount
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Xử lý apply voucher (từ input hoặc từ danh sách chọn)
+    // ĐỌC checkout-data & gọi API thanh toán lại (nếu có)
+    useEffect(() => {
+        if (!bookingData) return;
+
+        if (bookingData.isRetryPayment && bookingData.bookingId) {
+            api.get(`/bookings/${bookingData.bookingId}/retry-payment-info`)
+                .then((res) => {
+                    const info = res.data.data;
+                    setRetryInfo({
+                        bookingId: info.bookingId,
+                        amountToPay: info.amountToPay,
+                    });
+                    setTotalAmount(safeNum(info.amountToPay));
+                })
+                .catch((err) => {
+                    const msg = err?.response?.data?.message || 'Không thể thanh toán lại đơn này!';
+                    toast.error(msg);
+
+                    // fallback về baseTotal hiện tại
+                    setTotalAmount(baseTotal);
+                });
+        } else {
+            // flow đặt sân mới -> mặc định là baseTotal (trước voucher)
+            setTotalAmount(baseTotal);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bookingData]);
+
+    // Cập nhật totalAmount khi có voucher hoặc thay đổi baseTotal
+    // Chỉ áp dụng voucher khi tạo booking mới, không phải retry payment
+    useEffect(() => {
+        if (bookingData?.isRetryPayment) return;
+
+        if (voucherResult && safeNum(finalTotal) > 0) {
+            setTotalAmount(safeNum(finalTotal));
+        } else {
+            setTotalAmount(baseTotal);
+        }
+    }, [voucherResult, finalTotal, baseTotal, bookingData?.isRetryPayment]);
+
+    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo'>('vnpay');
+    const [isPaying, setIsPaying] = useState(false);
+
+    const [errors, setErrors] = useState<{
+        name?: string;
+        phone?: string;
+        email?: string;
+    }>({});
+
+    //  Voucher actions
     const handleApplyVoucher = async (codeFromList?: string, expectedDiscountValue?: number) => {
         const rawCode = (codeFromList ?? voucherInput).trim();
         if (!rawCode) {
@@ -230,17 +277,13 @@ const Checkout: React.FC = () => {
         minOrderValue: number,
         discountValue: number
     ) => {
-        // Nếu voucher yêu cầu tổng đơn tối thiểu và đơn hiện tại không đủ, chặn luôn
         if (minOrderValue > 0 && baseTotal < minOrderValue) {
             toast.error(
                 `❌ Không thể áp dụng voucher "${code}". Đơn của bạn (${new Intl.NumberFormat(
                     'vi-VN'
                 ).format(baseTotal)}đ) chưa đủ điều kiện. Đơn tối thiểu: ${new Intl.NumberFormat(
                     'vi-VN'
-                ).format(minOrderValue)}đ`,
-                {
-                    duration: 4000,
-                }
+                ).format(minOrderValue)}đ`
             );
             return;
         }
@@ -249,13 +292,13 @@ const Checkout: React.FC = () => {
         setVoucherDialogOpen(false);
     };
 
-    // Xử lý xóa voucher
     const handleRemoveVoucher = () => {
         clearVoucher();
         setVoucherInput('');
         setTotalAmount(baseTotal);
     };
 
+    //  SUBMIT
     const handleSubmit = async () => {
         if (!bookingData) {
             toast.error('Không tìm thấy thông tin đặt sân!');
@@ -298,15 +341,15 @@ const Checkout: React.FC = () => {
 
         try {
             setIsPaying(true);
-            // Dùng biến local để luôn là bản mới nhất
+
+            // local snapshot
             let currentCheckout: CheckoutData = { ...bookingData };
             let bookingId = currentCheckout.bookingId;
             let bookingIds = currentCheckout.bookingIds || [];
 
-            //  Phân biệt flow THÀNH TOÁN LẠI vs ĐẶT SÂN MỚI
             const isRetryCheckout = currentCheckout.isRetryPayment || !!retryInfo;
 
-            // Nếu là flow ĐẶT SÂN MỚI: luôn tạo booking mới, không dùng bookingId/bookingIds cũ
+            // flow đặt sân mới: reset ids
             if (!isRetryCheckout) {
                 bookingId = undefined;
                 bookingIds = [];
@@ -315,8 +358,14 @@ const Checkout: React.FC = () => {
                 currentCheckout.isMultiBooking = false;
             }
 
-            //  Nếu chưa có booking -> tạo mới
+            // tạo booking nếu chưa có
             if (!bookingId) {
+                //  totalFieldAmount gửi TIỀN SÂN (không phải grand)
+                const totalFieldAmount = fieldMoney;
+
+                //  totalAmountToPay: tổng thanh toán trước voucher (để BE có thể dùng nếu cần)
+                const totalAllAmount = computedGrandTotal || baseTotal;
+
                 const resBooking = await fetch('http://localhost:3000/api/bookings', {
                     method: 'POST',
                     headers: {
@@ -329,7 +378,7 @@ const Checkout: React.FC = () => {
                         date: bookingData.date,
                         startTime: bookingStartTime,
                         endTime: bookingEndTime,
-                        paymentMethod, // vnpay / momo
+                        paymentMethod,
                         note: '',
                         customerInfo: {
                             name: nameTrim,
@@ -337,7 +386,15 @@ const Checkout: React.FC = () => {
                             email: emailTrim,
                         },
                         slots: bookingData.slots,
-                        totalFieldAmount: totalPrice,
+
+                        //  giữ field cho BE
+                        totalFieldAmount,
+
+                        //  gửi thêm để BE muốn dùng thì dùng (không ảnh hưởng nếu BE ignore)
+                        equipmentTotal: equipMoney,
+                        totalAmount: totalAllAmount,
+                        equipmentBySlot: bookingData.equipmentBySlot || undefined,
+
                         voucherCode: voucherResult?.code || undefined,
                     }),
                 });
@@ -356,11 +413,16 @@ const Checkout: React.FC = () => {
                     bookingIds = created.map((b: any) => b._id);
                     bookingId = bookingIds[0];
 
+                    // nếu server trả total/fieldAmount thì lấy để sync
                     const totalFromServer = created.reduce(
-                        (sum: number, b: any) => sum + Number(b.total || b.fieldAmount || 0),
+                        (sum: number, b: any) => sum + safeNum(b.total || b.fieldAmount || 0),
                         0
                     );
-                    setTotalAmount(totalFromServer);
+
+                    if (totalFromServer > 0 && currentCheckout.isRetryPayment !== true) {
+                        // chỉ sync nếu là flow mới
+                        setTotalAmount(totalFromServer);
+                    }
 
                     currentCheckout = {
                         ...currentCheckout,
@@ -379,27 +441,28 @@ const Checkout: React.FC = () => {
                     };
                 }
 
-                // cập nhật state + localStorage 1 lần
                 setBookingData(currentCheckout);
                 localStorage.setItem('checkout-data', JSON.stringify(currentCheckout));
             }
 
-            //  Gọi VNPay
+            //  VNPay
             if (paymentMethod === 'vnpay') {
-                if (totalAmount <= 0) {
+                const payAmount = safeNum(totalAmount);
+
+                if (payAmount <= 0) {
                     toast.error('Số tiền thanh toán không hợp lệ!');
                     setIsPaying(false);
                     return;
                 }
 
-                const payload: any = {
-                    amount: totalAmount,
-                };
+                const payload: any = {};
 
-                const isRetry = currentCheckout.isRetryPayment || !!retryInfo;
-                if (isRetry) payload.isRetryPayment = true;
+                const isRetry = currentCheckout.isRetryPayment === true || !!retryInfo;
+                if (isRetry) {
+                    payload.isRetryPayment = true;
+                    payload.amount = payAmount; // chỉ retry mới gửi amount
+                }
 
-                // Nếu là nhiều booking dùng mảng ids, ngược lại dùng 1 bookingId
                 if (currentCheckout.isMultiBooking && bookingIds.length > 0) {
                     payload.bookingIds = bookingIds;
                 } else if (bookingId) {
@@ -412,17 +475,12 @@ const Checkout: React.FC = () => {
                     body: JSON.stringify(payload),
                 });
 
-                //  XỬ LÝ LỖI TỪ BE
-                // Kiểm tra status code trước khi parse JSON
                 if (!res.ok) {
-                    let errorData;
+                    let errorData: any;
                     try {
                         errorData = await res.json();
                     } catch {
-                        // Nếu không parse được JSON, dùng message mặc định
-                        errorData = {
-                            message: 'Không tạo được liên kết thanh toán VNPay!',
-                        };
+                        errorData = { message: 'Không tạo được liên kết thanh toán VNPay!' };
                     }
 
                     const errorMsg =
@@ -430,39 +488,31 @@ const Checkout: React.FC = () => {
                     const isVoucherOutOfStock =
                         errorData.code === 'VOUCHER_OUT_OF_STOCK' ||
                         res.status === 409 ||
-                        errorMsg.includes('hết lượt sử dụng') ||
-                        errorMsg.includes('hết lượt') ||
-                        errorMsg.includes('hết lượt sử dụng');
+                        String(errorMsg).includes('hết lượt');
 
                     if (isVoucherOutOfStock && voucherResult?.code) {
-                        // Voucher đã hết lượt - xóa voucher và yêu cầu chọn voucher khác
                         clearVoucher();
                         setVoucherInput('');
                         setTotalAmount(baseTotal);
                         setIsPaying(false);
                         toast.error(
-                            `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`,
-                            { duration: 5000 }
+                            `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
                         );
                         return;
                     }
 
-                    // Lỗi khác từ BE
                     setIsPaying(false);
-                    toast.error(errorMsg, { duration: 5000 });
+                    toast.error(errorMsg);
                     return;
                 }
 
-                // Parse JSON khi response OK
                 const data = await res.json();
 
-                // Kiểm tra lại data.success (phòng trường hợp BE trả về success: false nhưng status 200)
                 if (!data.success) {
                     const errorMsg = data.message || 'Không tạo được liên kết thanh toán VNPay!';
                     const isVoucherOutOfStock =
                         data.code === 'VOUCHER_OUT_OF_STOCK' ||
-                        errorMsg.includes('hết lượt sử dụng') ||
-                        errorMsg.includes('hết lượt');
+                        String(errorMsg).includes('hết lượt');
 
                     if (isVoucherOutOfStock && voucherResult?.code) {
                         clearVoucher();
@@ -470,14 +520,13 @@ const Checkout: React.FC = () => {
                         setTotalAmount(baseTotal);
                         setIsPaying(false);
                         toast.error(
-                            `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`,
-                            { duration: 5000 }
+                            `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
                         );
                         return;
                     }
 
                     setIsPaying(false);
-                    toast.error(errorMsg, { duration: 5000 });
+                    toast.error(errorMsg);
                     return;
                 }
 
@@ -489,21 +538,19 @@ const Checkout: React.FC = () => {
                     window.location.href = paymentUrl;
                 } else {
                     setIsPaying(false);
-                    toast.error('Không tạo được liên kết thanh toán VNPay!', {
-                        duration: 5000,
-                    });
+                    toast.error('Không tạo được liên kết thanh toán VNPay!');
                 }
                 return;
             }
 
-            //  Giả lập MoMo
+            //  MoMo giả lập
             if (paymentMethod === 'momo') {
                 const payload = {
                     ...bookingData,
                     bookingId,
-                    customer: { name: nameTrim, phone: phoneTrim, email: emailTrim },
+                    customer: { name: name.trim(), phone: phone.trim(), email: email.trim() },
                     paymentMethod: 'momo',
-                    amount: totalAmount || totalPrice,
+                    amount: safeNum(totalAmount) || baseTotal,
                 };
                 console.log('Dữ liệu gửi thanh toán MoMo:', payload);
                 toast.success('Giả lập thanh toán MoMo thành công!');
@@ -529,6 +576,7 @@ const Checkout: React.FC = () => {
                         <h2 className='font-semibold text-lg text-gray-700 mb-4'>
                             Thông tin đặt sân
                         </h2>
+
                         <div className='grid grid-cols-2 gap-2 text-gray-600'>
                             <span>Sân:</span>
                             <span className='font-medium text-gray-800'>
@@ -561,19 +609,31 @@ const Checkout: React.FC = () => {
                             <span>Tổng số giờ:</span>
                             <span className='font-medium text-gray-800'>{totalHours} giờ</span>
 
-                            <span>Tổng tiền:</span>
+                            {/*  breakdown */}
+                            <span>Tiền sân:</span>
+                            <span className='font-medium text-gray-800'>
+                                {formatCurrency(fieldMoney)}
+                            </span>
+
+                            <span>Tiền thiết bị:</span>
+                            <span className='font-medium text-gray-800'>
+                                {formatCurrency(equipMoney)}
+                            </span>
+
+                            <span>Tổng thanh toán:</span>
                             <span className='font-bold text-green-700 text-lg'>
                                 {formatCurrency(baseTotal)}
                             </span>
                         </div>
                     </div>
 
-                    {/* Phần Voucher - Chỉ hiển thị khi tạo booking mới */}
+                    {/* Voucher - chỉ khi tạo booking mới */}
                     {!bookingData.isRetryPayment && (
                         <div className='bg-blue-50 rounded-xl p-6 shadow-inner border border-blue-200'>
                             <h2 className='font-semibold text-lg text-gray-700 mb-4'>
                                 Mã giảm giá (Voucher)
                             </h2>
+
                             {!voucherResult ? (
                                 <div className='space-y-4'>
                                     <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
@@ -581,6 +641,7 @@ const Checkout: React.FC = () => {
                                             Nhấn nút bên phải để xem danh sách các voucher đang hoạt
                                             động và còn hạn, sau đó chọn một mã phù hợp.
                                         </p>
+
                                         <Dialog
                                             open={voucherDialogOpen}
                                             onOpenChange={setVoucherDialogOpen}
@@ -593,6 +654,7 @@ const Checkout: React.FC = () => {
                                                     Chọn mã voucher
                                                 </Button>
                                             </DialogTrigger>
+
                                             <DialogContent>
                                                 <DialogHeader>
                                                     <DialogTitle>Chọn mã voucher</DialogTitle>
@@ -621,6 +683,7 @@ const Checkout: React.FC = () => {
                                                             const isDisabled =
                                                                 v.minOrderValue > 0 &&
                                                                 baseTotal < v.minOrderValue;
+
                                                             return (
                                                                 <button
                                                                     key={v.code}
@@ -659,17 +722,15 @@ const Checkout: React.FC = () => {
                                                                             {v.discountDisplay}
                                                                         </span>
                                                                     </div>
+
                                                                     {v.description && (
                                                                         <p
-                                                                            className={`text-xs ${
-                                                                                isDisabled
-                                                                                    ? 'text-gray-400'
-                                                                                    : 'text-gray-600'
-                                                                            }`}
+                                                                            className={`text-xs ${isDisabled ? 'text-gray-400' : 'text-gray-600'}`}
                                                                         >
                                                                             {v.description}
                                                                         </p>
                                                                     )}
+
                                                                     <div className='flex flex-wrap gap-3 text-xs text-gray-500 mt-1'>
                                                                         <span>
                                                                             Còn lại:{' '}
@@ -679,6 +740,7 @@ const Checkout: React.FC = () => {
                                                                                 }
                                                                             </span>
                                                                         </span>
+
                                                                         {v.minOrderValue > 0 && (
                                                                             <span>
                                                                                 Đơn tối thiểu:{' '}
@@ -704,6 +766,7 @@ const Checkout: React.FC = () => {
                                                                                 )}
                                                                             </span>
                                                                         )}
+
                                                                         <span>
                                                                             Hạn dùng:{' '}
                                                                             <span className='font-semibold'>
@@ -729,11 +792,13 @@ const Checkout: React.FC = () => {
                                             </DialogContent>
                                         </Dialog>
                                     </div>
+
                                     {!isAuthenticated && (
                                         <p className='text-sm text-amber-600'>
                                             ⚠️ Vui lòng đăng nhập để sử dụng voucher
                                         </p>
                                     )}
+
                                     {voucherError && (
                                         <p className='text-sm text-red-600 bg-red-50 p-2 rounded'>
                                             ❌ {voucherError}
@@ -758,15 +823,18 @@ const Checkout: React.FC = () => {
                                                 Xóa
                                             </Button>
                                         </div>
+
                                         <div className='grid grid-cols-2 gap-2 text-sm text-gray-700'>
                                             <span>Giảm giá:</span>
                                             <span className='font-bold text-green-700'>
                                                 -{formatCurrency(discountAmount)}
                                             </span>
+
                                             <span>Tổng tiền ban đầu:</span>
                                             <span className='font-medium text-gray-600 line-through'>
                                                 {formatCurrency(baseTotal)}
                                             </span>
+
                                             <span>Tổng tiền sau giảm:</span>
                                             <span className='font-bold text-green-700 text-lg'>
                                                 {formatCurrency(finalTotal)}
@@ -809,9 +877,7 @@ const Checkout: React.FC = () => {
                                     value={phone}
                                     onChange={(e) => {
                                         const raw = e.target.value.replace(/\D/g, '');
-                                        if (raw.length <= 10) {
-                                            setPhone(raw);
-                                        }
+                                        if (raw.length <= 10) setPhone(raw);
                                         if (errors.phone)
                                             setErrors((p) => ({ ...p, phone: undefined }));
                                     }}
