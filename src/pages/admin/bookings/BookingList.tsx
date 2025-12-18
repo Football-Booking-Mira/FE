@@ -143,7 +143,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const PAYMENT_LABELS: Record<string, string> = {
     unpaid: 'Chưa thanh toán',
-    partial: 'Thanh toán một phần',
+    partial: 'Đã thanh toán',
     paid: 'Đã thanh toán',
     refunded: 'Đã hoàn tiền',
 };
@@ -1103,35 +1103,6 @@ export default function BookingList() {
             dataIndex: 'total',
             render: (t: number) => (t ? formatVND(t) : '-'),
         },
-        {
-            title: 'Thanh toán',
-            dataIndex: 'paymentStatus',
-            render: (_: any, record: Booking) => {
-                const s = record.paymentStatus;
-                const deposit = Number(record.depositAmount || 0);
-                const fieldAmount = Number(record.fieldAmount || 0);
-                const hasDepositPaid = record.depositStatus === 'paid' && deposit > 0;
-
-                let color: string = 'red';
-                if (s === 'paid' || s === 'refunded') color = 'green';
-                else if (s === 'partial') color = 'orange';
-
-                // Đơn có tiền online / cọc đã thanh toán
-                if (s === 'partial' && hasDepositPaid) {
-                    const percent =
-                        fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
-
-                    const label =
-                        percent >= 100
-                            ? 'Đã thanh toán tiền sân' // cọc đủ 100% tiền sân
-                            : `Đã đặt cọc ${percent}% tiền sân`; // cọc một phần
-
-                    return <Tag color={color}>{label}</Tag>;
-                }
-
-                return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
-            },
-        },
 
         {
             title: 'Trạng thái',
@@ -1454,20 +1425,10 @@ export default function BookingList() {
             dataIndex: 'paymentStatus',
             render: (_: any, record: Booking) => {
                 const s = record.paymentStatus;
-                const deposit = Number(record.depositAmount || 0);
-                const fieldAmount = Number(record.fieldAmount || 0);
-                const hasDepositPaid = record.depositStatus === 'paid' && deposit > 0;
 
                 let color: string = 'red';
-                if (s === 'paid' || s === 'refunded') color = 'green';
-                else if (s === 'partial') color = 'orange';
-
-                if (s === 'partial' && hasDepositPaid) {
-                    const percent =
-                        fieldAmount > 0 ? Math.round((deposit / fieldAmount) * 100) : 50;
-
-                    return <Tag color={color}>Đã đặt cọc {percent}% tiền sân</Tag>;
-                }
+                if (s === 'paid' || s === 'partial') color = 'green';
+                else if (s === 'refunded') color = 'green'; // thì đổi ở đây
 
                 return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
             },
