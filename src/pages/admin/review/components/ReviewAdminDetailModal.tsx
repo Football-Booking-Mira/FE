@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Descriptions, Spin, Tag } from "antd";
+import { Modal, Descriptions, Spin, Tag, Rate } from "antd";
 import axios from "axios";
 
 interface Props {
@@ -122,6 +122,15 @@ const ReviewAdminDetailModal: React.FC<Props> = ({ open, reviewId, onClose }) =>
                             {review.comment}
                         </div>
                     </Descriptions.Item>
+                    <Descriptions.Item label="Đánh giá">
+                        <div className="flex items-center gap-2">
+                            <Rate disabled value={review.rating} />
+                            <span className="text-gray-500 text-sm">
+                                ({review.rating}/5)
+                            </span>
+                        </div>
+                    </Descriptions.Item>
+
 
 
                     <Descriptions.Item label="Trạng thái đánh giá">
