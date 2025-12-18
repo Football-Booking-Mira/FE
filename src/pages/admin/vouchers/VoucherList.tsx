@@ -18,7 +18,7 @@ import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import api from "@/common/utils/api";
-import { DISCOUNT_TYPES, VOUCHER_STATUS } from "@/common/constants/enums";
+import { DISCOUNT_TYPES } from "@/common/constants/enums";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -36,7 +36,8 @@ interface Voucher {
   perUserLimit: number;
   startDate: string;
   endDate: string;
-  status: string;
+  status: string; // ACTIVE | INACTIVE (admin)
+  computedStatus: "active" | "upcoming" | "expired"; // BE trả về
   usageCount: number;
   createdAt: string;
 }
@@ -128,10 +129,14 @@ const VoucherList: React.FC = () => {
       render: (_: any, record: Voucher) => (
         <Space direction="vertical" size={0}>
           <Text>
-            Đã dùng: <Text strong>{record.totalIssued - record.remainingQuantity}</Text>
+            Đã dùng:{" "}
+            <Text strong>
+              {record.totalIssued - record.remainingQuantity}
+            </Text>
           </Text>
           <Text>
-            Còn lại: <Text strong type="success">
+            Còn lại:{" "}
+            <Text strong type="success">
               {record.remainingQuantity}
             </Text>
           </Text>
@@ -162,14 +167,20 @@ const VoucherList: React.FC = () => {
     },
     {
       title: "Trạng thái",
-      dataIndex: "status",
-      key: "status",
+      key: "computedStatus",
       width: 120,
-      render: (status: string) => (
-        <Tag color={status === VOUCHER_STATUS.ACTIVE ? "green" : "default"}>
-          {status === VOUCHER_STATUS.ACTIVE ? "Hoạt động" : "Tạm dừng"}
-        </Tag>
-      ),
+      render: (_: any, record: Voucher) => {
+        switch (record.computedStatus) {
+          case "active":
+            return <Tag color="green">Hoạt động</Tag>;
+          case "upcoming":
+            return <Tag color="blue">Sắp diễn ra</Tag>;
+          case "expired":
+            return <Tag color="red">Hết hạn</Tag>;
+          default:
+            return <Tag>Không xác định</Tag>;
+        }
+      },
     },
     {
       title: "Thao tác",
@@ -194,11 +205,7 @@ const VoucherList: React.FC = () => {
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
           >
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              size="small"
-            >
+            <Button danger icon={<DeleteOutlined />} size="small">
               Xóa
             </Button>
           </Popconfirm>
@@ -212,7 +219,9 @@ const VoucherList: React.FC = () => {
       <Row justify="space-between" align="middle">
         <Col>
           <Title level={3}>Quản lý voucher</Title>
-          <Text type="secondary">Danh sách và quản lý các voucher khuyến mãi</Text>
+          <Text type="secondary">
+            Danh sách và quản lý các voucher khuyến mãi
+          </Text>
         </Col>
         <Col>
           <Button
@@ -256,4 +265,3 @@ const VoucherList: React.FC = () => {
 };
 
 export default VoucherList;
-
