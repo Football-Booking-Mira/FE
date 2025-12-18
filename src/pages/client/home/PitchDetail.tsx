@@ -30,6 +30,18 @@ interface SelectedSlot {
     duration: number;
 }
 
+interface Review {
+    _id: string;
+    rating: number;
+    comment: string;
+    createdAt: string;
+    userId: {
+        _id: string;
+        name: string;
+        avatar: string;
+    };
+}
+
 //  ENV URL
 const RAW_API = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const API_BASE = RAW_API.endsWith('/api') ? RAW_API : `${RAW_API}/api`;
@@ -59,7 +71,8 @@ const PitchDetail: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
     const [currentImage, setCurrentImage] = useState(0);
-
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [open, setOpen] = useState(true);
     const [equipmentBySlot, setEquipmentBySlot] = useState<Record<string, EquipmentPickItem[]>>({});
 
     const [equipModalOpen, setEquipModalOpen] = useState(false);
@@ -134,6 +147,37 @@ const PitchDetail: React.FC = () => {
         });
     }, [selectedSlots]);
 
+    // review
+    useEffect(() => {
+        if (!id) return;
+
+        const fetchReviews = async () => {
+            try {
+                setLoading(true);
+                const token = localStorage.getItem("token");
+
+                const res = await fetch(
+                    `http://localhost:3000/api/review/court-pulic/${id}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+
+                const json = await res.json();
+                if (json.success) {
+                    setReviews(json.data.reviews);
+                }
+            } catch (error) {
+                console.error("Lỗi lấy review:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchReviews();
+    }, [id]);
     // đếm thiết bị theo slot để hiện “Thiết bị (n)” trong ô ca
     const equipmentCountBySlot = useMemo(() => {
         const m: Record<string, number> = {};
@@ -271,11 +315,10 @@ const PitchDetail: React.FC = () => {
                                 <img
                                     key={idx}
                                     src={img}
-                                    className={`w-28 h-20 object-cover rounded-lg cursor-pointer border-2 ${
-                                        currentImage === idx
-                                            ? 'border-green-600'
-                                            : 'border-gray-300 hover:border-green-400'
-                                    }`}
+                                    className={`w-28 h-20 object-cover rounded-lg cursor-pointer border-2 ${currentImage === idx
+                                        ? 'border-green-600'
+                                        : 'border-gray-300 hover:border-green-400'
+                                        }`}
                                     onClick={() => setCurrentImage(idx)}
                                     alt={`thumb-${idx}`}
                                 />
@@ -317,10 +360,10 @@ const PitchDetail: React.FC = () => {
                                 {court.type === 'indoor'
                                     ? 'Trong nhà'
                                     : court.type === 'outdoor'
-                                      ? 'Ngoài trời'
-                                      : court.type === 'vip'
-                                        ? 'VIP'
-                                        : court.type}
+                                        ? 'Ngoài trời'
+                                        : court.type === 'vip'
+                                            ? 'VIP'
+                                            : court.type}
                             </span>
                         </div>
 
@@ -451,16 +494,110 @@ const PitchDetail: React.FC = () => {
                     <button
                         onClick={handleBooking}
                         disabled={!selectedSlots.length}
-                        className={`w-full mt-6 font-bold py-3 rounded-lg transition ${
-                            selectedSlots.length
-                                ? 'bg-green-600 hover:bg-green-700 text-white'
-                                : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                        }`}
+                        className={`w-full mt-6 font-bold py-3 rounded-lg transition ${selectedSlots.length
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                            }`}
                         type='button'
                     >
                         Đặt sân
                     </button>
+                    <div className="bg-white shadow-md rounded-2xl p-6 border border-gray-200 h-fit mt-5">
+                        {/* Header */}
+                        <div
+                            className="flex items-center justify-between cursor-pointer select-none"
+                            onClick={() => setOpen(!open)}
+                        >
+                            <div className="flex items-center gap-2">
+                                <span className="text-yellow-500 text-xl">⭐</span>
+                                <h3 className="text-xl font-semibold text-gray-900 !mb-0">
+                                    Đánh giá & nhận xét sân
+                                </h3>
+                            </div>
+
+                            <span className="text-gray-500 text-lg transition-transform duration-200">
+                                {open ? "▾" : "▸"}
+                            </span>
+                        </div>
+
+                        {/* Content */}
+                        {open && (
+                            <div className="mt-5 space-y-5">
+                                {/* Loading */}
+                                {loading && (
+                                    <div className="text-gray-500 text-sm italic">
+                                        Đang tải đánh giá...
+                                    </div>
+                                )}
+
+                                {/* Empty */}
+                                {!loading && reviews.length === 0 && (
+                                    <div className="text-gray-500 italic text-sm">
+                                        Sân này chưa có đánh giá nào
+                                    </div>
+                                )}
+
+                                {/* Reviews */}
+                                {!loading &&
+                                    reviews.map((review) => (
+                                        <div
+                                            key={review._id}
+                                            className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"
+                                        >
+                                            {/* User */}
+                                            <div className="flex items-center gap-4 mb-3">
+                                                <img
+                                                    src={
+                                                        review.userId.avatar ||
+                                                        `https://ui-avatars.com/api/?name=${review.userId.name}&background=random`
+                                                    }
+                                                    alt={review.userId.name}
+                                                    className="w-11 h-11 rounded-full object-cover border"
+                                                />
+
+                                                <div className="flex-1">
+                                                    <p className="font-medium text-gray-800">
+                                                        {review.userId.name}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {new Date(review.createdAt).toLocaleDateString("vi-VN")}
+                                                    </p>
+                                                </div>
+
+                                                {/* Rating number */}
+                                                <span className="text-sm font-semibold text-yellow-500">
+                                                    {review.rating}/5
+                                                </span>
+                                            </div>
+
+                                            {/* Stars */}
+                                            <div className="flex items-center gap-1 mb-2">
+                                                {Array.from({ length: 5 }).map((_, i) => (
+                                                    <span
+                                                        key={i}
+                                                        className={
+                                                            i < review.rating
+                                                                ? "text-yellow-400"
+                                                                : "text-gray-300"
+                                                        }
+                                                    >
+                                                        ★
+                                                    </span>
+                                                ))}
+                                            </div>
+
+                                            {/* Comment */}
+                                            <p className="text-gray-700 text-sm leading-relaxed">
+                                                {review.comment}
+                                            </p>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+
                 </div>
+
             </div>
 
             {/* MODAL CHỌN THIẾT BỊ */}
@@ -473,7 +610,7 @@ const PitchDetail: React.FC = () => {
                 initialItems={activeSlotKey ? equipmentBySlot[activeSlotKey] || [] : []}
                 onSave={handleSaveEquip}
             />
-        </div>
+        </div >
     );
 };
 

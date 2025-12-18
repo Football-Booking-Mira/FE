@@ -84,7 +84,7 @@ const Reviews = ({ }: any) => {
                 "http://localhost:3000/api/review",
                 {
                     bookingId: selectedBookingId,
-                    rating: 5,
+                    rating: values.rating, 
                     comment: values.comment,
                 },
                 {
@@ -97,8 +97,8 @@ const Reviews = ({ }: any) => {
             message.success("Đánh giá thành công!");
 
             setOpenReviewModal(false);
-            fetchData(); // reload danh sách
-
+            form.resetFields();
+            fetchData(); 
         } catch (err: any) {
             message.error(
                 err?.response?.data?.message || "Gửi đánh giá thất bại"
@@ -107,6 +107,7 @@ const Reviews = ({ }: any) => {
             setSubmitting(false);
         }
     };
+
 
     const renderCourtCard = (item: any, isReviewed = false) => {
         const typeConfig = COURT_TYPE_CONFIG[item.courtId.type] || {
@@ -170,87 +171,102 @@ const Reviews = ({ }: any) => {
     }
 
     return (
-    <>
-        <div
-            style={{
-                padding: "24px 16px",
-                display: "flex",
-                justifyContent: "center",
-            }}
-        >
+        <>
             <div
                 style={{
-                    width: "100%",
-                    maxWidth: 1100, // 👈 thu nhỏ khung nội dung
+                    padding: "24px 16px",
+                    display: "flex",
+                    justifyContent: "center",
                 }}
             >
-                <Tabs defaultActiveKey="unreviewed">
-                    <TabPane
-                        tab={`Chưa đánh giá (${unreviewedTotal})`}
-                        key="unreviewed"
-                    >
-                        {unreviewed.length ? (
-                            <Row gutter={[16, 16]} justify="start">
-                                {unreviewed.map(item =>
-                                    renderCourtCard(item, false)
-                                )}
-                            </Row>
-                        ) : (
-                            <Empty />
-                        )}
-                    </TabPane>
-
-                    <TabPane
-                        tab={`Đã đánh giá (${reviewed.length})`}
-                        key="reviewed"
-                    >
-                        {reviewed.length ? (
-                            <Row gutter={[16, 16]} justify="start">
-                                {reviewed.map(item =>
-                                    renderCourtCard(item, true)
-                                )}
-                            </Row>
-                        ) : (
-                            <Empty />
-                        )}
-                    </TabPane>
-                </Tabs>
-            </div>
-        </div>
-
-        <ReviewDetailModal
-            open={detailOpen}
-            onClose={() => setDetailOpen(false)}
-            review={reviewDetail}
-        />
-
-        <Modal
-            title="Đánh giá sân"
-            open={openReviewModal}
-            onCancel={() => setOpenReviewModal(false)}
-            onOk={handleSubmitReview}
-            okText="Gửi đánh giá"
-            confirmLoading={submitting}
-            destroyOnClose
-        >
-            <Form form={form} layout="vertical">
-                <Form.Item
-                    label="Nhận xét"
-                    name="comment"
-                    rules={[
-                        { required: true, message: "Vui lòng nhập nhận xét" },
-                        { min: 5, message: "Nhận xét tối thiểu 5 ký tự" },
-                    ]}
+                <div
+                    style={{
+                        width: "100%",
+                        maxWidth: 1100,
+                    }}
                 >
-                    <Input.TextArea
-                        rows={4}
-                        placeholder="Chia sẻ trải nghiệm của bạn..."
-                    />
-                </Form.Item>
-            </Form>
-        </Modal>
-    </>
-);
+                    <Tabs defaultActiveKey="unreviewed">
+                        <TabPane
+                            tab={`Chưa đánh giá (${unreviewedTotal})`}
+                            key="unreviewed"
+                        >
+                            {unreviewed.length ? (
+                                <Row gutter={[16, 16]} justify="start">
+                                    {unreviewed.map(item =>
+                                        renderCourtCard(item, false)
+                                    )}
+                                </Row>
+                            ) : (
+                                <Empty />
+                            )}
+                        </TabPane>
+
+                        <TabPane
+                            tab={`Đã đánh giá (${reviewed.length})`}
+                            key="reviewed"
+                        >
+                            {reviewed.length ? (
+                                <Row gutter={[16, 16]} justify="start">
+                                    {reviewed.map(item =>
+                                        renderCourtCard(item, true)
+                                    )}
+                                </Row>
+                            ) : (
+                                <Empty />
+                            )}
+                        </TabPane>
+                    </Tabs>
+                </div>
+            </div>
+
+            <ReviewDetailModal
+                open={detailOpen}
+                onClose={() => setDetailOpen(false)}
+                review={reviewDetail}
+            />
+
+            <Modal
+                title="Đánh giá sân"
+                open={openReviewModal}
+                onCancel={() => setOpenReviewModal(false)}
+                onOk={handleSubmitReview}
+                okText="Gửi đánh giá"
+                confirmLoading={submitting}
+                destroyOnClose
+            >
+                <Form form={form} layout="vertical">
+                    {/* Rating */}
+                    <Form.Item
+                        label="Đánh giá"
+                        name="rating"
+                        rules={[
+                            { required: true, message: "Vui lòng chọn số sao đánh giá" },
+                        ]}
+                    >
+                        <Rate allowClear={false} />
+                    </Form.Item>
+
+                    {/* Comment */}
+                    <Form.Item
+                        label="Nhận xét"
+                        name="comment"
+                        rules={[
+                            { required: true, message: "Vui lòng nhập nhận xét" },
+                            { min: 5, message: "Nhận xét tối thiểu 5 ký tự" },
+                        ]}
+                    >
+                        <Input.TextArea
+                            rows={4}
+                            placeholder="Chia sẻ trải nghiệm của bạn..."
+                            showCount
+                            maxLength={300}
+                        />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+        </>
+    );
 
 
 

@@ -38,9 +38,9 @@ const ReviewDetailModal = ({ open, onClose, review }: Props) => {
                     {userId.name} – {userId.email}
                 </Descriptions.Item>
 
-                {/* <Descriptions.Item label="Số sao">
+                <Descriptions.Item label="Số sao">
                     <Rate disabled value={rating} />
-                </Descriptions.Item> */}
+                </Descriptions.Item>
 
                 <Descriptions.Item label="Nhận xét">
                     {comment}
