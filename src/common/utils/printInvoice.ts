@@ -42,15 +42,32 @@ export const printInvoiceMira = (invoiceDetail: any) => {
     const customer = booking.customerInfo || booking.customerId || inv.customerId || {};
     const methodLabel = PAYMENT_METHOD_TEXT[inv.method] || inv.method || '—';
 
-    const fieldAmount = booking.fieldAmount ?? booking.total ?? 0;
-    const equipmentTotal = booking.equipmentTotal ?? 0;
-    const bookingTotal = booking.total ?? fieldAmount + equipmentTotal;
+    // tiền sân/thiết bị lấy đúng field, không lấy booking.total cho tiền sân
+    const fieldAmount = Number(booking.fieldAmount || 0);
+    const equipmentTotal = Number(booking.equipmentTotal || 0);
 
-    const depositPaidInv = booking.depositAmount ?? 0;
-    const discount = inv.discount || 0;
-    const grandTotal = Math.max(0, bookingTotal - discount);
-    const alreadyPaidTotal = Number(inv.total || 0) + Number(depositPaidInv || 0);
-    const remainingPay = Math.max(0, grandTotal - alreadyPaidTotal);
+    // booking.total BE nên đã là (field + equipment - voucherDiscount). Nếu chưa có thì tự tính
+    const bookingTotal =
+        Number(booking.total || 0) > 0
+            ? Number(booking.total || 0)
+            : Math.max(0, fieldAmount + equipmentTotal - Number(booking.discountTotal || 0));
+
+    // inv.discount là giảm thêm trên hóa đơn (nếu có)
+    const invoiceDiscount = Number(inv.discount || 0);
+    const grandTotal = Math.max(0, bookingTotal - invoiceDiscount);
+
+    // depositAmount sau khi tạo invoice thường = tổng đã thanh toán (đặt cọc + hóa đơn này)
+    const totalPaid = Number(booking.depositAmount || 0);
+    const paidThisInvoice = Number(inv.total || 0);
+
+    // đã thanh toán trước = tổng đã trả - tiền hoá đơn này (không âm)
+    const prepaidBefore = Math.max(0, totalPaid - paidThisInvoice);
+
+    // còn phải thu = tổng - tổng đã trả (không âm)
+    const remainingPay = Math.max(0, grandTotal - totalPaid);
+
+    // để show "Tổng đã thanh toán" đúng
+    const alreadyPaidTotal = totalPaid;
 
     const createdAt = inv.createdAt || inv.paidAt;
     const createdAtStr = createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm') : '';
@@ -305,25 +322,27 @@ export const printInvoiceMira = (invoiceDetail: any) => {
 </div>
 
       ${
-          discount > 0
+          invoiceDiscount > 0
               ? `<div class="summary-row">
-                   <span>Giảm giá trên hóa đơn</span>
-                   <span>- ${formatVND(discount)}</span>
-                 </div>`
+         <span>Giảm giá trên hóa đơn</span>
+         <span>- ${formatVND(invoiceDiscount)}</span>
+       </div>`
               : ''
       }
+
       <div class="summary-row total">
         <span>Tổng cộng</span>
         <span>${formatVND(grandTotal)}</span>
       </div>
-      ${
-          depositPaidInv > 0
-              ? `<div class="summary-row muted">
-                   <span>Đã thanh toán trước</span>
-                   <span>- ${formatVND(depositPaidInv)}</span>
-                 </div>`
-              : ''
-      }
+     ${
+         prepaidBefore > 0
+             ? `<div class="summary-row muted">
+         <span>Đã thanh toán trước</span>
+         <span>- ${formatVND(prepaidBefore)}</span>
+       </div>`
+             : ''
+     }
+
       <div class="summary-row">
         <span>Khách thanh toán hóa đơn này</span>
         <span style="font-weight:700;color:#2563eb;">
