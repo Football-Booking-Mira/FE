@@ -15,6 +15,7 @@ const ReviewsAdmin = () => {
         total: 0,
     });
 
+    const token = localStorage.getItem("token");
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
 
@@ -25,7 +26,6 @@ const ReviewsAdmin = () => {
     const fetchReviews = async (page: number) => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("token");
             const res = await axios.get(
                 `http://localhost:3000/api/review/admin/list?page=${page}&limit=${pagination.limit}`,
                 {
@@ -49,6 +49,20 @@ const ReviewsAdmin = () => {
             setLoading(false);
         }
     };
+
+    const updateStatus = async (id: string, status: string) => {
+        await axios.patch(
+            `http://localhost:3000/api/review/${id}/status`,
+            { status },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            }
+        );
+        fetchReviews(pagination.page);
+    };
+
 
     const columns = [
         {
@@ -82,10 +96,21 @@ const ReviewsAdmin = () => {
             dataIndex: "comment",
             key: "comment",
             width: 320,
-            render: (comment: string) => (
-                <Paragraph ellipsis={{ rows: 2, expandable: false }}>
-                    {comment}
-                </Paragraph>
+            render: (_: any, record: any) => (
+                <div>
+                    <Paragraph
+                        ellipsis={{ rows: 2, expandable: false }}
+                        style={{ marginBottom: 4 }}
+                    >
+                        {record.comment}
+                    </Paragraph>
+
+                    <Rate
+                        disabled
+                        value={record.rating}
+                        style={{ fontSize: 14 }}
+                    />
+                </div>
             ),
         },
         {
@@ -94,7 +119,7 @@ const ReviewsAdmin = () => {
             key: "status",
             render: (status: string) => (
                 <Tag color={status === "active" ? "green" : "red"}>
-                    {status === "active" ? "Hoạt động" : "Ẩn"}
+                    {status === "active" ? "Hiện" : "Ẩn"}
                 </Tag>
             ),
         },
@@ -112,6 +137,19 @@ const ReviewsAdmin = () => {
                     >
                         Xem chi tiết
                     </Button>
+                    <Button
+                        size="small"
+                        danger={record.status === "active"}
+                        onClick={() =>
+                            updateStatus(
+                                record._id,
+                                record.status === "active" ? "inactive" : "active"
+                            )
+                        }
+                    >
+                        {record.status === "active" ? "Ẩn" : "Hiện"}
+                    </Button>
+
                 </Space>
             ),
         },
