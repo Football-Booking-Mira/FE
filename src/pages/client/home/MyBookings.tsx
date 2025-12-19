@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Button, Tag, Spin, Empty, Modal, Input, Image, Checkbox, Alert } from 'antd';
+import { Button, Tag, Spin, Empty, Modal, Input, Image, Checkbox } from 'antd';
 import { ToastContainer, toast } from 'react-toastify';
 import api from '@/common/utils/api';
 import 'react-toastify/dist/ReactToastify.css';
@@ -31,14 +31,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PAYMENT_LABELS: Record<string, string> = {
     unpaid: 'Chưa thanh toán',
-    partial: 'Đã thanh toán',
+    partial: 'Đã thanh toán', //  ép label
     paid: 'Đã thanh toán',
     refunded: 'Hoàn tiền xong',
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
     unpaid: 'red',
-    partial: 'green',
+    partial: 'green', // ép màu xanh giống paid
     paid: 'green',
     refunded: 'volcano',
 };
@@ -87,11 +87,13 @@ const handleViewInvoice = async (bookingId: string) => {
     }
 };
 
+// đổi "HH:mm" -> phút
 const timeToMin = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     return h * 60 + m;
 };
 
+// lấy mảng thiết bị từ mọi kiểu response
 const extractEquipmentItems = (raw: any): any[] => {
     if (!raw) return [];
     if (Array.isArray(raw)) return raw;
@@ -120,6 +122,9 @@ const isExtraAfterPaid = (it: any): boolean => {
     );
 };
 
+// defaultPaymentStatus dùng để suy ra “các item không có flag”
+// - paid/refunded: mặc định thiết bị đã trả (vì đi cùng VNPay)
+// - partial/unpaid: mặc định thiết bị chưa trả (cọc tính cho sân)
 const mergeEquipments = (items: any[] = [], defaultPaymentStatus: string = 'unpaid') => {
     const map: Record<string, any> = {};
 
@@ -134,10 +139,12 @@ const mergeEquipments = (items: any[] = [], defaultPaymentStatus: string = 'unpa
 
         const subtotal = price * qty;
 
+        // quyết định paidFlag
         let paidFlag = getItemPaidFlag(it);
 
         if (paidFlag === undefined) {
-            if (isExtraAfterPaid(it)) paidFlag = false;
+            if (isExtraAfterPaid(it))
+                paidFlag = false; // thêm lúc checkin => chưa trả
             else paidFlag = defaultPaymentStatus === 'paid' || defaultPaymentStatus === 'refunded';
         }
 
@@ -165,31 +172,13 @@ const mergeEquipments = (items: any[] = [], defaultPaymentStatus: string = 'unpa
     return Object.values(map);
 };
 
+// eligible để “Thanh toán lại”
 const canRetryPay = (b: any) =>
     b.status === 'pending' &&
     b.paymentMethod === 'vnpay' &&
     (b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial');
 
-const calcGrossNetDiscount = (booking: any) => {
-    const fieldAmount = Number(booking.fieldAmount || 0);
-
-    const equipmentTotal =
-        Number(booking.equipmentTotal || 0) ||
-        (Array.isArray(booking.equipments)
-            ? booking.equipments.reduce((s: number, it: any) => s + Number(it.subtotal || 0), 0)
-            : 0);
-
-    const gross = Math.max(0, fieldAmount + equipmentTotal);
-
-    const net =
-        Number(booking.total || 0) > 0
-            ? Number(booking.total || 0)
-            : Math.max(0, gross - Number(booking.discountTotal || 0));
-
-    const discount = Math.max(0, gross - net);
-    return { gross, net, discount };
-};
-
+// tính tiền cần trả cho từng ca (unpaid: full total, partial: total - deposit)
 const calcNeedPay = (b: any) => {
     const total = Number(b.total ?? 0);
     const depositPaid = b.depositStatus === 'paid' ? Number(b.depositAmount ?? 0) : 0;
@@ -214,9 +203,6 @@ const MyBookings: React.FC = () => {
     const socketRef = useRef<Socket | null>(null);
     const lastSocketUpdateRef = useRef<number>(0);
 
-    const [cancelVoucherWarning, setCancelVoucherWarning] = useState<string>('');
-    const [ackVoucherLoss, setAckVoucherLoss] = useState(false);
-
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [selectedBookingIds, setSelectedBookingIds] = useState<string[]>([]);
@@ -236,10 +222,6 @@ const MyBookings: React.FC = () => {
     const [selectedPayByGroup, setSelectedPayByGroup] = useState<Record<string, string[]>>({});
     // groupId -> list bookingId được chọn để HỦY
     const [selectedCancelByGroup, setSelectedCancelByGroup] = useState<Record<string, string[]>>(
-        {}
-    );
-    // groupId -> list bookingId được chọn để HOÀN TIỀN
-    const [selectedRefundByGroup, setSelectedRefundByGroup] = useState<Record<string, string[]>>(
         {}
     );
 
@@ -275,22 +257,7 @@ const MyBookings: React.FC = () => {
         }));
     };
 
-    const toggleSelectRefund = (groupId: string, bookingId: string, checked: boolean) => {
-        setSelectedRefundByGroup((prev) => {
-            const cur = new Set(prev[groupId] || []);
-            if (checked) cur.add(bookingId);
-            else cur.delete(bookingId);
-            return { ...prev, [groupId]: Array.from(cur) };
-        });
-    };
-
-    const toggleSelectAllRefund = (groupId: string, eligibleIds: string[], checked: boolean) => {
-        setSelectedRefundByGroup((prev) => ({
-            ...prev,
-            [groupId]: checked ? eligibleIds : [],
-        }));
-    };
-
+    // Thanh toán lại theo list ca đã chọn
     const handlePayAgainSelected = async (selectedBookings: any[]) => {
         try {
             if (!selectedBookings.length) return;
@@ -421,6 +388,7 @@ const MyBookings: React.FC = () => {
 
             if (data?.success) {
                 const mapped = data.data.map((b: any) => {
+                    // giữ nguyên paymentStatus từ backend, chỉ fallback nếu thiếu
                     return { ...b, paymentStatus: b.paymentStatus || 'unpaid' };
                 });
 
@@ -455,6 +423,7 @@ const MyBookings: React.FC = () => {
                     groupMap.get(key).bookings.push(b);
                 }
 
+                // group.total fallback
                 const groups = Array.from(groupMap.values()).map((g: any) => {
                     g.bookings.sort((a: any, b: any) =>
                         String(a.startTime || '').localeCompare(String(b.startTime || ''))
@@ -463,12 +432,12 @@ const MyBookings: React.FC = () => {
                     g.total = g.bookings.reduce((sum: number, b: any) => {
                         if (b.status === 'cancelled') return sum;
 
-                        const net = Number(b.total || 0);
+                        const total = Number(b.total || 0);
                         const fieldAmount = Number(b.fieldAmount || 0);
                         const equipmentTotal = Number(b.equipmentTotal || 0);
 
-                        const fallbackNet = net > 0 ? net : fieldAmount + equipmentTotal;
-                        return sum + (Number.isFinite(fallbackNet) ? fallbackNet : 0);
+                        const totalAll = total > 0 ? total : fieldAmount + equipmentTotal;
+                        return sum + (Number.isFinite(totalAll) ? totalAll : 0);
                     }, 0);
 
                     return g;
@@ -479,7 +448,6 @@ const MyBookings: React.FC = () => {
                 // reset selection mỗi lần load lại list
                 setSelectedPayByGroup({});
                 setSelectedCancelByGroup({});
-                setSelectedRefundByGroup({});
 
                 const counts: Record<string, number> = {
                     all: sortedWithEquipments.length,
@@ -508,6 +476,7 @@ const MyBookings: React.FC = () => {
         }
     };
 
+    // SOCKET
     useEffect(() => {
         fetchBookings();
 
@@ -560,49 +529,6 @@ const MyBookings: React.FC = () => {
     const openCancelModal = (bookingIds: string[]) => {
         setSelectedBookingIds(bookingIds);
         setCancelReason('');
-        setAckVoucherLoss(false);
-
-        const group = bookingGroups.find((g: any) =>
-            (g.bookings || []).some((b: any) => bookingIds.includes(String(b._id)))
-        );
-
-        if (!group) {
-            setCancelVoucherWarning('');
-            setIsCancelModalOpen(true);
-            return;
-        }
-
-        const activeBookings = (group.bookings || []).filter((b: any) => b.status !== 'cancelled');
-
-        const voucherCode =
-            activeBookings.find((b: any) => String(b.voucherCode || '').trim())?.voucherCode || '';
-
-        const voucherName =
-            activeBookings.find((b: any) => String(b.voucherName || '').trim())?.voucherName ||
-            activeBookings.find((b: any) => String(b.voucherTitle || '').trim())?.voucherTitle ||
-            activeBookings.find((b: any) => String(b.voucher?.name || '').trim())?.voucher?.name ||
-            activeBookings.find((b: any) => String(b.voucher?.title || '').trim())?.voucher
-                ?.title ||
-            '';
-
-        const voucherText = `${voucherName ? `${voucherName}` : 'Voucher/Giảm giá'}${
-            voucherCode ? ` (${voucherCode})` : ''
-        }`;
-
-        const orderDiscountSum = activeBookings.reduce(
-            (s: number, b: any) => s + Math.max(0, Number(b.discountTotal || 0)),
-            0
-        );
-
-        if (orderDiscountSum <= 0) {
-            setCancelVoucherWarning('');
-            setIsCancelModalOpen(true);
-            return;
-        }
-
-        // (giữ nguyên text cảnh báo)
-        const msg = `⚠️ Đơn này đang được áp dụng ${voucherText}.\n`;
-        setCancelVoucherWarning(msg);
         setIsCancelModalOpen(true);
     };
 
@@ -613,11 +539,6 @@ const MyBookings: React.FC = () => {
     };
 
     const handleConfirmCancel = async () => {
-        if (cancelVoucherWarning && !ackVoucherLoss) {
-            toast.error('Vui lòng xác nhận bạn đã hiểu voucher có thể không còn áp dụng khi hủy!');
-            return;
-        }
-
         if (!selectedBookingIds.length) return;
 
         if (!cancelReason.trim()) {
@@ -649,10 +570,10 @@ const MyBookings: React.FC = () => {
     };
 
     // HOÀN TIỀN
-    const openRefundModal = (bookingsInput: any[]) => {
-        const first = bookingsInput[0] || {};
+    const openRefundModal = (bookings: any[]) => {
+        const first = bookings[0] || {};
 
-        setRefundBookingIds(bookingsInput.map((b) => b._id));
+        setRefundBookingIds(bookings.map((b) => b._id));
         setRefundForm({
             accountNumber: first.refundAccountNumber || '',
             accountName: first.refundAccountName || '',
@@ -787,22 +708,6 @@ const MyBookings: React.FC = () => {
                                     (b: any) => b._id
                                 );
 
-                                // refund eligible
-                                const eligibleRefundBookings = group.bookings.filter((b: any) => {
-                                    const refundStatus =
-                                        b.refundStatus ||
-                                        (b.paymentStatus === 'refunded' ? 'refunded' : 'none');
-                                    return (
-                                        b.status === 'cancelled' &&
-                                        (b.paymentStatus === 'paid' ||
-                                            b.paymentStatus === 'partial') &&
-                                        (refundStatus === 'none' || refundStatus === 'rejected')
-                                    );
-                                });
-                                const eligibleRefundIds = eligibleRefundBookings.map(
-                                    (b: any) => b._id
-                                );
-
                                 // selected cancel (only eligible)
                                 const rawSelectedCancelIds = selectedCancelByGroup[group._id] || [];
                                 const selectedCancelIds = rawSelectedCancelIds.filter((id) =>
@@ -814,6 +719,7 @@ const MyBookings: React.FC = () => {
                                 const selectedIds = rawSelectedIds.filter((id) =>
                                     eligiblePayIds.includes(id)
                                 );
+
                                 const selectedPayBookings = eligiblePayBookings.filter((b: any) =>
                                     selectedIds.includes(b._id)
                                 );
@@ -822,19 +728,11 @@ const MyBookings: React.FC = () => {
                                     0
                                 );
 
-                                // selected refund (only eligible)
-                                const rawSelectedRefundIds = selectedRefundByGroup[group._id] || [];
-                                const selectedRefundIds = rawSelectedRefundIds.filter((id) =>
-                                    eligibleRefundIds.includes(id)
-                                );
-                                const selectedRefundBookings = eligibleRefundBookings.filter(
-                                    (b: any) => selectedRefundIds.includes(b._id)
-                                );
-
-                                // show select all (pay)
+                                // show select all (pay) if >=2
                                 const showSelectAll = eligiblePayIds.length > 1;
                                 const eligibleCount = eligiblePayIds.length;
                                 const selectedCount = selectedIds.length;
+
                                 const allChecked =
                                     showSelectAll &&
                                     eligibleCount > 0 &&
@@ -844,27 +742,35 @@ const MyBookings: React.FC = () => {
                                     selectedCount > 0 &&
                                     selectedCount < eligibleCount;
 
-                                // show select all (cancel)
+                                // show select all (cancel) if >=2
                                 const showSelectAllCancel = eligibleCancelIds.length > 1;
                                 const cancelAllChecked =
                                     showSelectAllCancel &&
                                     eligibleCancelIds.length > 0 &&
                                     selectedCancelIds.length === eligibleCancelIds.length;
+
                                 const cancelIndeterminate =
                                     showSelectAllCancel &&
                                     selectedCancelIds.length > 0 &&
                                     selectedCancelIds.length < eligibleCancelIds.length;
 
-                                // show select all (refund)
-                                const showSelectAllRefund = eligibleRefundIds.length > 1;
-                                const refundAllChecked =
-                                    showSelectAllRefund &&
-                                    eligibleRefundIds.length > 0 &&
-                                    selectedRefundIds.length === eligibleRefundIds.length;
-                                const refundIndeterminate =
-                                    showSelectAllRefund &&
-                                    selectedRefundIds.length > 0 &&
-                                    selectedRefundIds.length < eligibleRefundIds.length;
+                                // group refund
+                                const refundableBookings = group.bookings.filter((b: any) => {
+                                    const rawRefundStatus =
+                                        b.refundStatus ||
+                                        (b.paymentStatus === 'refunded' ? 'refunded' : 'none');
+                                    const canRefundStatus =
+                                        rawRefundStatus === 'none' ||
+                                        rawRefundStatus === 'rejected';
+                                    const isPaidOrPartial =
+                                        b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
+                                    const allowStatus = b.status === 'cancelled';
+                                    return allowStatus && isPaidOrPartial && canRefundStatus;
+                                });
+
+                                const canRequestRefundGroup =
+                                    refundableBookings.length > 0 &&
+                                    refundableBookings.length === group.bookings.length;
 
                                 const canPayAgainGroup = group.bookings.some((b: any) =>
                                     canRetryPay(b)
@@ -933,6 +839,7 @@ const MyBookings: React.FC = () => {
                                                                 booking.fieldAmount || 0
                                                             );
 
+                                                            // ---- tách tiền thiết bị ----
                                                             const rentTotal = Array.isArray(
                                                                 booking.equipments
                                                             )
@@ -978,21 +885,14 @@ const MyBookings: React.FC = () => {
                                                             const equipmentTotal =
                                                                 rentTotal + sellTotal;
 
-                                                            const gross =
+                                                            const totalAll =
+                                                                Number(booking.total || 0) ||
                                                                 fieldAmount + equipmentTotal;
-                                                            const net =
-                                                                Number(booking.total || 0) > 0
-                                                                    ? Number(booking.total || 0)
-                                                                    : gross;
-                                                            const discount = Math.max(
-                                                                0,
-                                                                gross - net
-                                                            );
 
                                                             const refundAmount = Number(
                                                                 booking.refundAmount ??
                                                                     booking.refund?.amount ??
-                                                                    net
+                                                                    totalAll
                                                             );
 
                                                             const depositPaid =
@@ -1002,6 +902,7 @@ const MyBookings: React.FC = () => {
                                                                       )
                                                                     : 0;
 
+                                                            // ✅ FIX LỖI: TÍNH Ở NGOÀI JSX (để dùng được ở mọi chỗ)
                                                             const paidAmount =
                                                                 Number(booking.paidTotal ?? 0) ||
                                                                 (() => {
@@ -1011,21 +912,37 @@ const MyBookings: React.FC = () => {
                                                                         booking.paymentStatus ===
                                                                             'refunded'
                                                                     )
-                                                                        return net;
+                                                                        return totalAll;
                                                                     if (
                                                                         booking.paymentStatus ===
                                                                         'partial'
                                                                     )
                                                                         return Math.min(
                                                                             depositPaid,
-                                                                            net
+                                                                            totalAll
                                                                         );
                                                                     return 0;
                                                                 })();
 
                                                             const remain =
                                                                 Number(booking.unpaidAmount ?? 0) ||
-                                                                Math.max(0, net - paidAmount);
+                                                                Math.max(0, totalAll - paidAmount);
+
+                                                            const equipPaid =
+                                                                Number(
+                                                                    booking.equipmentPaid ?? 0
+                                                                ) ||
+                                                                (Array.isArray(booking.equipments)
+                                                                    ? booking.equipments.reduce(
+                                                                          (s: number, it: any) =>
+                                                                              s +
+                                                                              Number(
+                                                                                  it.paidSubtotal ||
+                                                                                      0
+                                                                              ),
+                                                                          0
+                                                                      )
+                                                                    : 0);
 
                                                             const equipUnpaid =
                                                                 Number(
@@ -1068,10 +985,9 @@ const MyBookings: React.FC = () => {
                                                                     key={booking._id}
                                                                     className='border border-gray-100 rounded-lg p-3 bg-gray-50 w-full relative'
                                                                 >
-                                                                    {/* CHECKBOX góc trái: Pay + Hủy + Hoàn */}
+                                                                    {/* CHECKBOX góc trái: Pay + Hủy */}
                                                                     {(canRetryThis ||
-                                                                        canCancelThis ||
-                                                                        canRequestRefundThis) && (
+                                                                        canCancelThis) && (
                                                                         <div className='absolute top-3 left-3 z-10 flex flex-col gap-1'>
                                                                             {canRetryThis && (
                                                                                 <Checkbox
@@ -1114,27 +1030,6 @@ const MyBookings: React.FC = () => {
                                                                                     }
                                                                                 />
                                                                             )}
-
-                                                                            {canRequestRefundThis && (
-                                                                                <Checkbox
-                                                                                    checked={(
-                                                                                        selectedRefundByGroup[
-                                                                                            group
-                                                                                                ._id
-                                                                                        ] || []
-                                                                                    ).includes(
-                                                                                        booking._id
-                                                                                    )}
-                                                                                    onChange={(e) =>
-                                                                                        toggleSelectRefund(
-                                                                                            group._id,
-                                                                                            booking._id,
-                                                                                            e.target
-                                                                                                .checked
-                                                                                        )
-                                                                                    }
-                                                                                />
-                                                                            )}
                                                                         </div>
                                                                     )}
 
@@ -1143,8 +1038,7 @@ const MyBookings: React.FC = () => {
                                                                         <div
                                                                             className={`min-w-0 flex-1 space-y-2 ${
                                                                                 canRetryThis ||
-                                                                                canCancelThis ||
-                                                                                canRequestRefundThis
+                                                                                canCancelThis
                                                                                     ? 'pl-10'
                                                                                     : ''
                                                                             }`}
@@ -1322,45 +1216,12 @@ const MyBookings: React.FC = () => {
                                                                                         </div>
                                                                                     )}
 
-                                                                                    <div className='flex justify-between pt-2 border-t border-gray-200'>
-                                                                                        <span className='text-gray-600'>
-                                                                                            Tạm tính
-                                                                                        </span>
-                                                                                        <span className='font-medium'>
-                                                                                            {gross.toLocaleString(
-                                                                                                'vi-VN'
-                                                                                            )}{' '}
-                                                                                            VNĐ
-                                                                                        </span>
-                                                                                    </div>
-
-                                                                                    {discount >
-                                                                                        0 && (
-                                                                                        <div className='flex justify-between'>
-                                                                                            <span className='text-gray-600'>
-                                                                                                Giảm
-                                                                                                giá
-                                                                                                /
-                                                                                                Voucher
-                                                                                            </span>
-                                                                                            <span className='font-semibold text-red-600'>
-                                                                                                -
-                                                                                                {discount.toLocaleString(
-                                                                                                    'vi-VN'
-                                                                                                )}{' '}
-                                                                                                VNĐ
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    )}
-
-                                                                                    <div className='flex justify-between'>
+                                                                                    <div className='flex justify-between pt-1 border-t border-gray-200'>
                                                                                         <span className='font-semibold'>
                                                                                             Tổng
-                                                                                            thanh
-                                                                                            toán
                                                                                         </span>
-                                                                                        <span className='font-semibold text-blue-600'>
-                                                                                            {net.toLocaleString(
+                                                                                        <span className='font-semibold'>
+                                                                                            {totalAll.toLocaleString(
                                                                                                 'vi-VN'
                                                                                             )}{' '}
                                                                                             VNĐ
@@ -1395,6 +1256,7 @@ const MyBookings: React.FC = () => {
                                                                                         </div>
                                                                                     )}
 
+                                                                                    {/* nếu có thiết bị thêm lúc check-in => sẽ hiện chưa trả đúng */}
                                                                                     {equipUnpaid >
                                                                                         0 && (
                                                                                         <div className='flex justify-between'>
@@ -1423,6 +1285,12 @@ const MyBookings: React.FC = () => {
                                                                                 booking.equipments
                                                                                     .length > 0 && (
                                                                                     <div className='mt-2 space-y-1 text-xs text-gray-700'>
+                                                                                        <div className='font-semibold'>
+                                                                                            {booking.status ===
+                                                                                            'in_use'
+                                                                                                ? 'Thiết bị đang sử dụng:'
+                                                                                                : 'Thiết bị đã thuê / mua:'}
+                                                                                        </div>
                                                                                         {booking.equipments.map(
                                                                                             (
                                                                                                 it: any,
@@ -1432,25 +1300,37 @@ const MyBookings: React.FC = () => {
                                                                                                     key={
                                                                                                         i
                                                                                                     }
-                                                                                                    className='truncate'
+                                                                                                    className='flex justify-between'
                                                                                                 >
-                                                                                                    {
-                                                                                                        it.name
-                                                                                                    }{' '}
-                                                                                                    <span className='text-gray-500'>
-                                                                                                        (
-                                                                                                        {it.mode ===
-                                                                                                        'sell'
-                                                                                                            ? 'mua'
-                                                                                                            : 'thuê'}{' '}
-                                                                                                        x{' '}
+                                                                                                    <span className='min-w-0 pr-2'>
                                                                                                         {
-                                                                                                            it.qty
+                                                                                                            it.name
                                                                                                         }{' '}
-                                                                                                        {it.unit ||
-                                                                                                            ''}
+                                                                                                        <span className='text-gray-500'>
+                                                                                                            (
+                                                                                                            {it.mode ===
+                                                                                                            'sell'
+                                                                                                                ? 'mua'
+                                                                                                                : 'thuê'}{' '}
+                                                                                                            x{' '}
+                                                                                                            {
+                                                                                                                it.qty
+                                                                                                            }{' '}
+                                                                                                            {it.unit ||
+                                                                                                                ''}
 
-                                                                                                        )
+                                                                                                            )
+                                                                                                        </span>
+                                                                                                    </span>
+                                                                                                    <span className='font-medium whitespace-nowrap'>
+                                                                                                        {(
+                                                                                                            it.subtotal ||
+                                                                                                            it.price *
+                                                                                                                it.qty
+                                                                                                        ).toLocaleString(
+                                                                                                            'vi-VN'
+                                                                                                        )}{' '}
+                                                                                                        VNĐ
                                                                                                     </span>
                                                                                                 </div>
                                                                                             )
@@ -1554,6 +1434,29 @@ const MyBookings: React.FC = () => {
                                                                                 </div>
                                                                             )}
 
+                                                                            {/* 2 dòng thiết bị đã trả / chưa trả */}
+                                                                            {equipPaid > 0 && (
+                                                                                <p className='mt-1 text-xs text-green-700 font-semibold'>
+                                                                                    Thiết bị đã
+                                                                                    thanh toán:{' '}
+                                                                                    {equipPaid.toLocaleString(
+                                                                                        'vi-VN'
+                                                                                    )}{' '}
+                                                                                    VNĐ
+                                                                                </p>
+                                                                            )}
+
+                                                                            {equipUnpaid > 0 && (
+                                                                                <p className='mt-1 text-xs text-red-600 font-semibold'>
+                                                                                    Thiết bị chưa
+                                                                                    thanh toán:{' '}
+                                                                                    {equipUnpaid.toLocaleString(
+                                                                                        'vi-VN'
+                                                                                    )}{' '}
+                                                                                    VNĐ
+                                                                                </p>
+                                                                            )}
+
                                                                             {isRefunded &&
                                                                                 refundAmount >
                                                                                     0 && (
@@ -1562,13 +1465,30 @@ const MyBookings: React.FC = () => {
                                                                                         {refundAmount.toLocaleString(
                                                                                             'vi-VN'
                                                                                         )}{' '}
-                                                                                        VNĐ
+                                                                                        ₫
                                                                                     </p>
                                                                                 )}
                                                                         </div>
 
                                                                         {/* RIGHT ACTIONS */}
                                                                         <div className='shrink-0 flex flex-row md:flex-col md:items-end gap-2'>
+                                                                            {canRequestRefundThis && (
+                                                                                <Button
+                                                                                    size='middle'
+                                                                                    className='border-amber-500 text-amber-600 hover:bg-amber-50'
+                                                                                    onClick={() =>
+                                                                                        openRefundModal(
+                                                                                            [
+                                                                                                booking,
+                                                                                            ]
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    Yêu cầu hoàn
+                                                                                    tiền
+                                                                                </Button>
+                                                                            )}
+
                                                                             {booking.status ===
                                                                                 'completed' &&
                                                                                 (booking.paymentStatus ===
@@ -1711,74 +1631,50 @@ const MyBookings: React.FC = () => {
                                             )}
 
                                             {/* CHỌN TẤT CẢ (HỦY) */}
-
-                                            {showSelectAllCancel &&
-                                                selectedCancelIds.length > 0 && (
-                                                    <div className='flex justify-end mt-2'>
-                                                        <Checkbox
-                                                            indeterminate={cancelIndeterminate}
-                                                            checked={cancelAllChecked}
-                                                            onChange={(e) =>
-                                                                toggleSelectAllCancel(
-                                                                    group._id,
-                                                                    eligibleCancelIds,
-                                                                    e.target.checked
-                                                                )
-                                                            }
-                                                        >
-                                                            Chọn tất cả để hủy
-                                                        </Checkbox>
-                                                    </div>
-                                                )}
-
-                                            {/* HỦY THEO CA ĐÃ CHỌN */}
-                                            {eligibleCancelIds.length > 0 &&
-                                                selectedCancelIds.length > 0 && (
-                                                    <Button
-                                                        danger
-                                                        type='primary'
-                                                        size='middle'
-                                                        className='mt-2 w-full md:w-auto'
-                                                        onClick={() =>
-                                                            openCancelModal(selectedCancelIds)
-                                                        }
-                                                    >
-                                                        {`Hủy (${selectedCancelIds.length}) ca đã chọn`}
-                                                    </Button>
-                                                )}
-
-                                            {/* CHỌN TẤT CẢ (HOÀN TIỀN) */}
-                                            {showSelectAllRefund && (
+                                            {showSelectAllCancel && (
                                                 <div className='flex justify-end mt-2'>
                                                     <Checkbox
-                                                        indeterminate={refundIndeterminate}
-                                                        checked={refundAllChecked}
+                                                        indeterminate={cancelIndeterminate}
+                                                        checked={cancelAllChecked}
                                                         onChange={(e) =>
-                                                            toggleSelectAllRefund(
+                                                            toggleSelectAllCancel(
                                                                 group._id,
-                                                                eligibleRefundIds,
+                                                                eligibleCancelIds,
                                                                 e.target.checked
                                                             )
                                                         }
                                                     >
-                                                        Chọn tất cả để hoàn
+                                                        Chọn tất cả để hủy
                                                     </Checkbox>
                                                 </div>
                                             )}
 
-                                            {/* HOÀN THEO CA ĐÃ CHỌN */}
-                                            {eligibleRefundIds.length > 0 && (
+                                            {/* HỦY THEO CA ĐÃ CHỌN */}
+                                            {eligibleCancelIds.length > 0 && (
+                                                <Button
+                                                    danger
+                                                    type='primary'
+                                                    size='middle'
+                                                    className='mt-2 w-full md:w-auto'
+                                                    disabled={selectedCancelIds.length === 0}
+                                                    onClick={() =>
+                                                        openCancelModal(selectedCancelIds)
+                                                    }
+                                                >
+                                                    {selectedCancelIds.length > 0
+                                                        ? `Hủy (${selectedCancelIds.length}) ca đã chọn`
+                                                        : 'Hủy đã chọn'}
+                                                </Button>
+                                            )}
+
+                                            {/* HOÀN THEO GROUP */}
+                                            {canRequestRefundGroup && (
                                                 <Button
                                                     size='middle'
                                                     className='mt-2 border-amber-500 text-amber-600 hover:bg-amber-50 w-full md:w-auto'
-                                                    disabled={selectedRefundBookings.length === 0}
-                                                    onClick={() =>
-                                                        openRefundModal(selectedRefundBookings)
-                                                    }
+                                                    onClick={() => openRefundModal(group.bookings)}
                                                 >
-                                                    {selectedRefundBookings.length > 0
-                                                        ? `Yêu cầu hoàn tiền (${selectedRefundBookings.length})`
-                                                        : 'Yêu cầu hoàn tiền'}
+                                                    Yêu cầu hoàn tiền
                                                 </Button>
                                             )}
                                         </div>
@@ -1800,26 +1696,6 @@ const MyBookings: React.FC = () => {
                 cancelText='Đóng'
                 title='Xác nhận hủy đơn đặt sân'
             >
-                {cancelVoucherWarning && (
-                    <div className='mb-3'>
-                        <Alert
-                            type='warning'
-                            showIcon
-                            message='Voucher không còn áp dụng'
-                            description={
-                                <div style={{ whiteSpace: 'pre-line' }}>{cancelVoucherWarning}</div>
-                            }
-                        />
-                        <div className='mt-2'>
-                            <Checkbox
-                                checked={ackVoucherLoss}
-                                onChange={(e) => setAckVoucherLoss(e.target.checked)}
-                            >
-                                Tôi đã hiểu và vẫn muốn hủy (voucher có thể bị mất)
-                            </Checkbox>
-                        </div>
-                    </div>
-                )}
                 <p className='mb-2'>Vui lòng nhập lý do hủy đơn đặt sân này:</p>
                 <div className='mb-8'>
                     <Input.TextArea
