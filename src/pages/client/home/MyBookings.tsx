@@ -212,6 +212,9 @@ const MyBookings: React.FC = () => {
   });
 
   const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
+  const [printingInvoiceId, setPrintingInvoiceId] = useState<string | null>(
+    null
+  );
 
   // groupId -> list bookingId được chọn để thanh toán lại
   const [selectedPayByGroup, setSelectedPayByGroup] = useState<
@@ -372,6 +375,36 @@ const MyBookings: React.FC = () => {
 
     if (!candidate) return;
     handlePayAgain(candidate);
+  };
+
+  const handleViewInvoice = async (booking: any) => {
+    try {
+      setPrintingInvoiceId(booking._id);
+
+      if (!booking?.hasInvoice) {
+        toast.error(
+          'Đơn này chưa có hóa đơn. Vui lòng bấm "Thanh toán" để tạo hóa đơn trước!'
+        );
+        setPrintingInvoiceId(null);
+        return;
+      }
+
+      const res = await api.get(`/invoices/by-booking/${booking._id}`);
+
+      if (!res?.data?.invoice) {
+        toast.error("Không tìm thấy hóa đơn!");
+        setPrintingInvoiceId(null);
+        return;
+      }
+
+      printInvoiceMira(res.data);
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || "Không thể tải thông tin hóa đơn!"
+      );
+    } finally {
+      setPrintingInvoiceId(null);
+    }
   };
 
   const applyFilter = (tabKey: string, groupsSource: any[] = bookingGroups) => {
@@ -927,9 +960,14 @@ const MyBookings: React.FC = () => {
 
                             const equipmentTotal = rentTotal + sellTotal;
 
+                            const voucherDiscount = Number(
+                              booking.voucherDiscount || booking.discountTotal || 0
+                            );
+
                             const totalAll =
-                              Number(booking.total || 0) ||
-                              fieldAmount + equipmentTotal;
+                              Number(booking.total || 0) > 0
+                                ? Number(booking.total || 0)
+                                : Math.max(0, fieldAmount + equipmentTotal - voucherDiscount);
 
                             const refundAmount = Number(
                               booking.refundAmount ??
@@ -1340,7 +1378,16 @@ const MyBookings: React.FC = () => {
                                       </Button>
                                     )}
 
-                                    {/* Xem hóa đơn button removed */}
+                                    <Button
+                                      size="middle"
+                                      className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+                                      loading={
+                                        printingInvoiceId === booking._id
+                                      }
+                                      onClick={() => handleViewInvoice(booking)}
+                                    >
+                                      Xem hóa đơn
+                                    </Button>
 
                                     {booking.status === "cancelled" &&
                                       ["pending", "processing"].includes(
