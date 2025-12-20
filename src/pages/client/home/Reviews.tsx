@@ -232,7 +232,7 @@ const Reviews = ({ }: any) => {
                 onOk={handleSubmitReview}
                 okText="Gửi đánh giá"
                 confirmLoading={submitting}
-                destroyOnClose
+                destroyOnHidden
             >
                 <Form form={form} layout="vertical">
                     {/* Rating */}

@@ -95,6 +95,8 @@ api.interceptors.request.use(
 /* ========================
    RESPONSE INTERCEPTOR
 ========================= */
+import { toast } from 'react-toastify';
+
 api.interceptors.response.use(
   (response) => response,
 
@@ -107,6 +109,23 @@ api.interceptors.response.use(
 
     console.error(" API RESPONSE STATUS:", status);
     console.error(" API RESPONSE DATA:", data);
+
+    // If unauthorized, clear local auth and redirect to login
+    if (status === 401) {
+      try {
+        toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      } catch (e) {
+        // toast may not be available in non-browser envs, ignore
+      }
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 700);
+      }
+    }
 
     // GIỮ NGUYÊN lỗi, không tạo Error mới
     // để client có thể đọc error.response đầy đủ
