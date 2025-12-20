@@ -1407,16 +1407,21 @@ const MyBookings: React.FC = () => {
                                       </Button>
                                     )}
 
-                                    <Button
-                                      size="middle"
-                                      className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
-                                      loading={
-                                        printingInvoiceId === booking._id
-                                      }
-                                      onClick={() => handleViewInvoice(booking)}
-                                    >
-                                      Xem hóa đơn
-                                    </Button>
+                                    {booking.status === "completed" &&
+                                      booking.hasInvoice && (
+                                        <Button
+                                          size="middle"
+                                          className="border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+                                          loading={
+                                            printingInvoiceId === booking._id
+                                          }
+                                          onClick={() =>
+                                            handleViewInvoice(booking)
+                                          }
+                                        >
+                                          Xem hóa đơn
+                                        </Button>
+                                      )}
 
                                     {booking.status === "cancelled" &&
                                       ["pending", "processing"].includes(
