@@ -298,14 +298,6 @@ export default function BookingList() {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const invoicePrintRef = useRef<HTMLDivElement | null>(null);
 
-  // modal chỉnh sửa giá sân (admin)
-  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
-  const [adjustInvoiceDetail, setAdjustInvoiceDetail] = useState<any | null>(
-    null
-  );
-  const [adjustLoading, setAdjustLoading] = useState(false);
-  const [adjustAmount, setAdjustAmount] = useState<number | null>(null);
-
   // modal chi tiết đơn đang sử dụng (thiết bị)
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -827,65 +819,6 @@ export default function BookingList() {
     }
   };
 
-  const openAdjustFieldModal = async (b: Booking) => {
-    if (!b?.hasInvoice) {
-      toast.error("Đơn này chưa có hóa đơn. Vui lòng tạo hóa đơn trước!");
-      return;
-    }
-    try {
-      setAdjustModalOpen(true);
-      setAdjustLoading(true);
-      setAdjustInvoiceDetail(null);
-      const res = await api.get(`/invoices/by-booking/${b._id}`);
-      setAdjustInvoiceDetail(res.data);
-      setAdjustAmount(Number(b.fieldAmount || 0));
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.message || "Không thể tải thông tin hóa đơn!";
-      toast.error(msg);
-      setAdjustModalOpen(false);
-    } finally {
-      setAdjustLoading(false);
-    }
-  };
-
-  const handleConfirmAdjust = async () => {
-    if (!adjustInvoiceDetail?.invoice) return;
-    const inv = adjustInvoiceDetail.invoice;
-    if (
-      typeof adjustAmount !== "number" ||
-      Number.isNaN(adjustAmount) ||
-      adjustAmount < 0
-    ) {
-      toast.error("Số tiền không hợp lệ");
-      return;
-    }
-    try {
-      setAdjustLoading(true);
-      await api.patch(`/invoices/${inv._id}/adjust-field`, {
-        newFieldAmount: Number(adjustAmount),
-      });
-      toast.success("Cập nhật giá sân thành công");
-      setAdjustModalOpen(false);
-      setAdjustInvoiceDetail(null);
-      fetchBookings();
-      fetchStats();
-      // refresh invoice modal nếu đang mở cùng booking
-      if (
-        invoiceModalOpen &&
-        invoiceDetail?.invoice?.bookingId?._id === inv.bookingId
-      ) {
-        const r = await api.get(`/invoices/by-booking/${inv.bookingId}`);
-        setInvoiceDetail(r.data);
-      }
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || "Lỗi khi cập nhật giá sân!";
-      toast.error(msg);
-    } finally {
-      setAdjustLoading(false);
-    }
-  };
-
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrData, setQrData] = useState<QrData | null>(null);
 
@@ -1271,10 +1204,6 @@ export default function BookingList() {
                     </Button>
                   </span>
                 </Tooltip>
-
-                <Button size="small" onClick={() => openAdjustFieldModal(b)}>
-                  Sửa giá sân
-                </Button>
 
                 <Button
                   size="small"
@@ -2437,64 +2366,6 @@ export default function BookingList() {
               </div>
             </Card>
           </Form>
-        )}
-      </Modal>
-
-      {/* Modal CHỈNH SỬA GIÁ SÂN */}
-      <Modal
-        open={adjustModalOpen}
-        onCancel={() => {
-          setAdjustModalOpen(false);
-          setAdjustInvoiceDetail(null);
-        }}
-        title="Chỉnh sửa giá sân"
-        footer={[
-          <Button
-            key="cancel"
-            onClick={() => {
-              setAdjustModalOpen(false);
-              setAdjustInvoiceDetail(null);
-            }}
-          >
-            Hủy
-          </Button>,
-          <Button
-            key="ok"
-            type="primary"
-            loading={adjustLoading}
-            onClick={handleConfirmAdjust}
-          >
-            Cập nhật
-          </Button>,
-        ]}
-      >
-        {adjustInvoiceDetail ? (
-          <div className="space-y-4">
-            <div>
-              <div className="text-sm text-gray-500">Giá hiện tại</div>
-              <div className="text-lg font-bold">
-                {formatVND(
-                  adjustInvoiceDetail.invoice.bookingId?.fieldAmount || 0
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-500">Giá mới (đồng)</div>
-              <Input
-                type="number"
-                value={adjustAmount ?? ""}
-                onChange={(e) => setAdjustAmount(Number(e.target.value))}
-                min={0}
-              />
-            </div>
-            <div className="text-xs text-gray-500">
-              Thao tác này sẽ cập nhật hóa đơn và trạng thái thanh toán của đơn.
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-center py-6">
-            <Spin />
-          </div>
         )}
       </Modal>
 
