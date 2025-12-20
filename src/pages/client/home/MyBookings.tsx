@@ -961,13 +961,24 @@ const MyBookings: React.FC = () => {
                             const equipmentTotal = rentTotal + sellTotal;
 
                             const voucherDiscount = Number(
-                              booking.voucherDiscount || booking.discountTotal || 0
+                              booking.voucherDiscount ||
+                                booking.discountTotal ||
+                                0
                             );
+                            const voucherCode =
+                              booking.voucherCode ||
+                              booking.voucher?.code ||
+                              "";
 
                             const totalAll =
                               Number(booking.total || 0) > 0
                                 ? Number(booking.total || 0)
-                                : Math.max(0, fieldAmount + equipmentTotal - voucherDiscount);
+                                : Math.max(
+                                    0,
+                                    fieldAmount +
+                                      equipmentTotal -
+                                      voucherDiscount
+                                  );
 
                             const refundAmount = Number(
                               booking.refundAmount ??
@@ -1179,6 +1190,24 @@ const MyBookings: React.FC = () => {
                                             <span>Thiết bị thuê</span>
                                             <span className="font-medium">
                                               {rentTotal.toLocaleString(
+                                                "vi-VN"
+                                              )}{" "}
+                                              VNĐ
+                                            </span>
+                                          </div>
+                                        )}
+
+                                        {voucherDiscount > 0 && (
+                                          <div className="flex justify-between">
+                                            <span className="text-emerald-600">
+                                              Giảm giá voucher
+                                              {voucherCode
+                                                ? ` (${voucherCode})`
+                                                : ""}
+                                            </span>
+                                            <span className="text-emerald-600 font-medium">
+                                              -
+                                              {voucherDiscount.toLocaleString(
                                                 "vi-VN"
                                               )}{" "}
                                               VNĐ

@@ -96,11 +96,13 @@ interface Booking {
   voucherId?: string;
   voucherCode?: string;
   voucherDiscount?: number;
+  voucher?: { code?: string };
   voucherSnapshot?: {
     discountType?: "percent" | "amount";
     discountValue?: number;
     maxDiscountValue?: number;
     minOrderValue?: number;
+    code?: string;
   };
 
   // thông tin cọc / đã thanh toán trước
@@ -1651,6 +1653,19 @@ export default function BookingList() {
   // tổng gốc của booking
   const originalTotal = paymentBooking?.total || 0;
 
+  // voucher (nếu có)
+  const voucherDiscount = Number(
+    paymentBooking?.voucherDiscount ||
+      paymentBooking?.discountTotal ||
+      paymentBooking?.voucherSnapshot?.discountValue ||
+      0
+  );
+  const voucherCode =
+    paymentBooking?.voucherCode ||
+    paymentBooking?.voucher?.code ||
+    paymentBooking?.voucherSnapshot?.code ||
+    "";
+
   // số tiền đã thanh toán trước (vnpay / đặt cọc)
   const depositPaid =
     paymentBooking && paymentBooking.depositAmount
@@ -2305,6 +2320,17 @@ export default function BookingList() {
                   {formatVND(paymentBooking.equipmentTotal ?? 0)}
                 </span>
               </div>
+
+              {voucherDiscount > 0 && (
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-emerald-600">
+                    Giảm giá voucher{voucherCode ? ` (${voucherCode})` : ""}
+                  </span>
+                  <span className="text-emerald-600 font-medium">
+                    - {formatVND(voucherDiscount)}
+                  </span>
+                </div>
+              )}
 
               <div className="border-t border-dashed border-gray-300 mt-3 pt-2 flex justify-between text-sm">
                 <span>Tổng cộng</span>
