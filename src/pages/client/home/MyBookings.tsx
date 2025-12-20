@@ -522,28 +522,7 @@ const MyBookings: React.FC = () => {
     }
   };
 
-  // View or create invoice for a booking
-  const handleViewInvoice = async (booking: any) => {
-    const bookingId = booking?._id;
-    if (!bookingId) return;
-
-    try {
-      toast.info("Đang tải hóa đơn...", { autoClose: 1200 });
-      const res = await api.get(`/invoices/by-booking/${bookingId}`);
-      const detail = res.data?.data || res.data;
-
-      if (!detail?.invoice) {
-        toast.error("Không tìm thấy hóa đơn cho đơn này!");
-        return;
-      }
-
-      printInvoiceMira(detail);
-    } catch (err: any) {
-      const data = err?.response?.data;
-      const msg = data?.message || "Không thể tải hóa đơn, vui lòng thử lại!";
-      toast.error(msg);
-    }
-  };
+  // Invoice view removed per user request
 
   // SOCKET
   useEffect(() => {
@@ -1361,20 +1340,7 @@ const MyBookings: React.FC = () => {
                                       </Button>
                                     )}
 
-                                    {(booking.paymentStatus === "paid" ||
-                                      booking.paymentStatus === "refunded" ||
-                                      booking.paymentStatus === "partial") &&
-                                      booking.status !== "pending" && (
-                                        <button
-                                          title="Xem hóa đơn"
-                                          className="inline-flex items-center gap-1 rounded-lg border px-3 py-1 text-xs font-medium text-emerald-600 border-emerald-500 hover:bg-emerald-50"
-                                          onClick={() =>
-                                            handleViewInvoice(booking)
-                                          }
-                                        >
-                                          📄 Xem hóa đơn
-                                        </button>
-                                      )}
+                                    {/* Xem hóa đơn button removed */}
 
                                     {booking.status === "cancelled" &&
                                       ["pending", "processing"].includes(
