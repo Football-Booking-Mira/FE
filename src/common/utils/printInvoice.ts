@@ -45,12 +45,13 @@ export const printInvoiceMira = (invoiceDetail: any) => {
     // tiền sân/thiết bị lấy đúng field, không lấy booking.total cho tiền sân
     const fieldAmount = Number(booking.fieldAmount || 0);
     const equipmentTotal = Number(booking.equipmentTotal || 0);
+    const voucherDiscount = Number(booking.voucherDiscount || booking.discountTotal || 0);
 
     // booking.total BE nên đã là (field + equipment - voucherDiscount). Nếu chưa có thì tự tính
     const bookingTotal =
         Number(booking.total || 0) > 0
             ? Number(booking.total || 0)
-            : Math.max(0, fieldAmount + equipmentTotal - Number(booking.discountTotal || 0));
+            : Math.max(0, fieldAmount + equipmentTotal - voucherDiscount);
 
     // inv.discount là giảm thêm trên hóa đơn (nếu có)
     const invoiceDiscount = Number(inv.discount || 0);
@@ -312,8 +313,14 @@ export const printInvoiceMira = (invoiceDetail: any) => {
         <span>Tiền thiết bị</span>
         <span>${formatVND(equipmentTotal)}</span>
       </div>
+      ${voucherDiscount > 0 ? `
+        <div class="summary-row" style="color:#16a34a;">
+          <span>Giảm giá voucher ${booking.voucherCode ? `(${booking.voucherCode})` : ''}</span>
+          <span>- ${formatVND(voucherDiscount)}</span>
+        </div>
+      ` : ''}
       <div class="summary-row">
-        <span>Tổng trước giảm giá</span>
+        <span>Tổng sau giảm giá</span>
         <span>${formatVND(bookingTotal)}</span>
       </div>
       <div class="summary-row total">
