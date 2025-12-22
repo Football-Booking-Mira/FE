@@ -159,11 +159,7 @@ const AdminLayout: React.FC = () => {
                             icon: <BarChartOutlined />,
                             label: <Link to='/admin/reports'>Báo cáo</Link>,
                         },
-                        {
-                            key: 'invoices',
-                            icon: <FileDoneOutlined />,
-                            label: <Link to='/admin/invoices'>Hóa đơn</Link>,
-                        },
+                       
                         {
   key: 'contacts',
   icon: <MailOutlined    />,
