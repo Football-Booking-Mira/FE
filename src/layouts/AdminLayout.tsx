@@ -108,7 +108,7 @@ const AdminLayout: React.FC = () => {
                     onOpenChange={(keys) => setOpenKeys(keys as string[])}
                     items={[
                         {
-                            key: 'dashboard',
+                            key: 'reports',
                             icon: <DashboardOutlined />,
                             label: <Link to='/admin'>Tổng quan</Link>,
                         },
@@ -154,11 +154,11 @@ const AdminLayout: React.FC = () => {
                             icon: <GiftOutlined />,
                             label: <Link to='/admin/vouchers'>Voucher</Link>,
                         },
-                        {
-                            key: 'reports',
-                            icon: <BarChartOutlined />,
-                            label: <Link to='/admin/reports'>Báo cáo</Link>,
-                        },
+                        // {
+                        //     key: 'reports',
+                        //     icon: <BarChartOutlined />,
+                        //     label: <Link to='/admin/reports'>Báo cáo</Link>,
+                        // },
                        
                         {
   key: 'contacts',

@@ -136,21 +136,7 @@ export default function BookingStatsReportPage() {
     fetchStats(selectedPeriod, newOffset);
   };
 
-  // const getPeriodLabel = () => {
-  //   const now = new Date();
-  //   if (selectedPeriod === 'year') {
-  //     return `Năm ${now.getFullYear()}`;
-  //   } else if (selectedPeriod === 'month') {
-  //     const targetDate = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
-  //     return `Tháng ${targetDate.getMonth() + 1}/${targetDate.getFullYear()}`;
-  //   } else {
-  //     const targetDate = new Date(now.getTime() + (periodOffset * 7 * 24 * 60 * 60 * 1000));
-  //     const startOfWeek = new Date(targetDate.setDate(targetDate.getDate() - targetDate.getDay()));
-  //     const endOfWeek = new Date(startOfWeek.getTime() + (6 * 24 * 60 * 60 * 1000));
-  //     return `Tuần ${startOfWeek.getDate()}/${startOfWeek.getMonth() + 1} - ${endOfWeek.getDate()}/${endOfWeek.getMonth() + 1}`;
-  //   }
-    
-  // };
+  
 
   const getPeriodLabel = () => {
   const now = new Date();
@@ -252,7 +238,6 @@ export default function BookingStatsReportPage() {
                 ? Number(stats.totalRevenue).toLocaleString("vi-VN")
                 : "0"} ₫
             </div>
-            {/* <p className="text-sm text-gray-500 mt-1">Tính theo 7 ngày gần nhất</p> */}
           </CardContent>
         </Card>
 

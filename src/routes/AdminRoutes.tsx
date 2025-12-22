@@ -29,7 +29,7 @@ export const AdminRoutes: RouteObject[] = [
       </RoleRoute>
     ),
     children: [
-      { index: true, element: <DashBoard /> },
+      { index: true, element: <BookingReportPage /> },
       { path: "courts", element: <CourtManagement /> },
       { path: "reviews", element: <ReviewsAdmin /> },
       { path: "courts/update/:id", element: <CourtUpdate /> },
@@ -43,7 +43,7 @@ export const AdminRoutes: RouteObject[] = [
       { path: "vouchers/create", element: <VoucherCreate /> },
       { path: "vouchers/edit/:id", element: <VoucherEdit /> },
       { path: "booking-policy", element: <BookingPolicyPage /> },
-      { path: "reports", element: <BookingReportPage /> },
+      // { path: "admin", element: <BookingReportPage /> },
       { path: "contacts", element: <ContactsPage /> },
     ],
   },
