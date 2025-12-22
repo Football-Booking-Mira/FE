@@ -26,12 +26,6 @@ const MODE_LABELS: Record<EquipmentMode, string> = {
   both: "Cho thuê & bán", // chỉ dùng cho select
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  in_stock: "Còn hàng",
-  out_of_stock: "Hết hàng",
-  discontinued: "Ngừng bán",
-};
-
 const STATUS_COLORS: Record<string, string> = {
   in_stock: "green",
   out_of_stock: "red",
@@ -230,17 +224,7 @@ const UserEquipmentList: React.FC = () => {
               style={{ width: 300 }}
             />
 
-            <Select
-              style={{ width: 150 }}
-              placeholder="Trạng thái"
-              allowClear
-              onChange={(v) => setFilterStatus(v || "")}
-              options={[
-                { value: "in_stock", label: "Còn hàng" },
-                { value: "out_of_stock", label: "Hết hàng" },
-                { value: "discontinued", label: "Ngừng bán" },
-              ]}
-            />
+            
 
             <Select
               style={{ width: 150 }}
