@@ -346,7 +346,7 @@ export default function BookingStatsReportPage() {
     return formatCurrency(value);
   }}
 />
-                  <Tooltip formatter={(value: any) => formatCurrency(value) + " ₫"} />
+                  <Tooltip formatter={(value: any) => [formatCurrency(value) + " ₫","Doanh thu"]} />
                   <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
