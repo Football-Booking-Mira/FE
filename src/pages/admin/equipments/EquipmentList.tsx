@@ -179,14 +179,14 @@ const EquipmentList: React.FC = () => {
                     mode === 'sell'
                         ? 0
                         : values.rentPrice
-                        ? Number(String(values.rentPrice).toString().replace(/,/g, ''))
-                        : 0,
+                          ? Number(String(values.rentPrice).toString().replace(/,/g, ''))
+                          : 0,
                 salePrice:
                     mode === 'rent'
                         ? 0
                         : values.salePrice
-                        ? Number(String(values.salePrice).toString().replace(/,/g, ''))
-                        : 0,
+                          ? Number(String(values.salePrice).toString().replace(/,/g, ''))
+                          : 0,
                 description: values.description?.trim() || '',
             };
 
@@ -546,21 +546,50 @@ const EquipmentList: React.FC = () => {
                             <Form.Item
                                 label='Số lượng (tổng)'
                                 name='totalQuantity'
+                                dependencies={['availableQuantity']}
                                 rules={[
                                     { required: true, message: 'Nhập tổng số lượng' },
                                     { type: 'number', min: 0, message: 'Không được âm' },
+                                    ({ getFieldValue }) => ({
+                                        validator(_, value) {
+                                            const avail = getFieldValue('availableQuantity');
+                                            if (value == null || avail == null)
+                                                return Promise.resolve();
+                                            if (Number(value) < Number(avail)) {
+                                                return Promise.reject(
+                                                    new Error('Tổng phải ≥ Còn lại')
+                                                );
+                                            }
+                                            return Promise.resolve();
+                                        },
+                                    }),
                                 ]}
                             >
                                 <InputNumber min={0} style={{ width: '100%' }} />
                             </Form.Item>
                         </Col>
+
                         <Col span={12}>
                             <Form.Item
                                 label='Còn lại'
                                 name='availableQuantity'
+                                dependencies={['totalQuantity']}
                                 rules={[
                                     { required: true, message: 'Nhập số lượng còn lại' },
                                     { type: 'number', min: 0, message: 'Không được âm' },
+                                    ({ getFieldValue }) => ({
+                                        validator(_, value) {
+                                            const total = getFieldValue('totalQuantity');
+                                            if (value == null || total == null)
+                                                return Promise.resolve();
+                                            if (Number(value) > Number(total)) {
+                                                return Promise.reject(
+                                                    new Error('Còn lại không được > Tổng')
+                                                );
+                                            }
+                                            return Promise.resolve();
+                                        },
+                                    }),
                                 ]}
                             >
                                 <InputNumber min={0} style={{ width: '100%' }} />
