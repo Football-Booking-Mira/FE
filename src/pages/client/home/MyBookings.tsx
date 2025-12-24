@@ -232,10 +232,30 @@ const MyBookings: React.FC = () => {
 
     // groupId -> list bookingId được chọn để thanh toán lại
     const [selectedPayByGroup, setSelectedPayByGroup] = useState<Record<string, string[]>>({});
+    // groupId -> list bookingId được chọn để HOÀN TIỀN
+    const [selectedRefundByGroup, setSelectedRefundByGroup] = useState<Record<string, string[]>>(
+        {}
+    );
+
     // groupId -> list bookingId được chọn để HỦY
     const [selectedCancelByGroup, setSelectedCancelByGroup] = useState<Record<string, string[]>>(
         {}
     );
+    const toggleSelectRefund = (groupId: string, bookingId: string, checked: boolean) => {
+        setSelectedRefundByGroup((prev) => {
+            const cur = new Set(prev[groupId] || []);
+            if (checked) cur.add(bookingId);
+            else cur.delete(bookingId);
+            return { ...prev, [groupId]: Array.from(cur) };
+        });
+    };
+
+    const toggleSelectAllRefund = (groupId: string, eligibleIds: string[], checked: boolean) => {
+        setSelectedRefundByGroup((prev) => ({
+            ...prev,
+            [groupId]: checked ? eligibleIds : [],
+        }));
+    };
 
     const toggleSelectPay = (groupId: string, bookingId: string, checked: boolean) => {
         setSelectedPayByGroup((prev) => {
@@ -533,6 +553,7 @@ const MyBookings: React.FC = () => {
                 // reset selection mỗi lần load lại list
                 setSelectedPayByGroup({});
                 setSelectedCancelByGroup({});
+                setSelectedRefundByGroup({});
 
                 const matchBooking = (tabKey: string, b: any) => {
                     switch (tabKey) {
@@ -972,6 +993,32 @@ const MyBookings: React.FC = () => {
                                 const canRequestRefundGroup =
                                     refundableBookings.length > 0 &&
                                     refundableBookings.length === group.bookings.length;
+                                // refund eligible (theo ca)
+                                const eligibleRefundBookings = refundableBookings;
+                                const eligibleRefundIds = eligibleRefundBookings.map(
+                                    (b: any) => b._id
+                                );
+
+                                // selected refund (only eligible)
+                                const rawSelectedRefundIds = selectedRefundByGroup[group._id] || [];
+                                const selectedRefundIds = rawSelectedRefundIds.filter((id) =>
+                                    eligibleRefundIds.includes(id)
+                                );
+                                const selectedRefundBookings = eligibleRefundBookings.filter(
+                                    (b: any) => selectedRefundIds.includes(b._id)
+                                );
+
+                                // select all refund
+                                const showSelectAllRefund = eligibleRefundIds.length > 1;
+                                const refundAllChecked =
+                                    showSelectAllRefund &&
+                                    eligibleRefundIds.length > 0 &&
+                                    selectedRefundIds.length === eligibleRefundIds.length;
+
+                                const refundIndeterminate =
+                                    showSelectAllRefund &&
+                                    selectedRefundIds.length > 0 &&
+                                    selectedRefundIds.length < eligibleRefundIds.length;
 
                                 const canPayAgainGroup = group.bookings.some((b: any) =>
                                     canRetryPay(b)
@@ -1178,7 +1225,7 @@ const MyBookings: React.FC = () => {
                                                                     booking.paymentStatus ===
                                                                         'partial');
 
-                                                            const canRequestRefundThis =
+                                                            const canRefundThis =
                                                                 booking.status === 'cancelled' &&
                                                                 (booking.paymentStatus === 'paid' ||
                                                                     booking.paymentStatus ===
@@ -1188,16 +1235,21 @@ const MyBookings: React.FC = () => {
 
                                                             const canRetryThis =
                                                                 canRetryPay(booking);
+                                                            const hasAnyCheckbox =
+                                                                canRetryThis ||
+                                                                canCancelThis ||
+                                                                canRefundThis;
 
                                                             return (
                                                                 <div
                                                                     key={booking._id}
                                                                     className='border border-gray-100 rounded-lg p-3 bg-gray-50 w-full relative'
                                                                 >
-                                                                    {/* CHECKBOX góc trái: Pay + Hủy */}
+                                                                    {/* CHECKBOX góc trái: Pay + Hủy + Hoàn */}
                                                                     {(canRetryThis ||
-                                                                        canCancelThis) && (
-                                                                        <div className='absolute top-3 left-3 z-10 flex flex-col gap-1'>
+                                                                        canCancelThis ||
+                                                                        canRefundThis) && (
+                                                                        <div className='absolute top-4 left-4 z-10 flex flex-col gap-2'>
                                                                             {canRetryThis && (
                                                                                 <Checkbox
                                                                                     checked={(
@@ -1239,6 +1291,27 @@ const MyBookings: React.FC = () => {
                                                                                     }
                                                                                 />
                                                                             )}
+
+                                                                            {canRefundThis && (
+                                                                                <Checkbox
+                                                                                    checked={(
+                                                                                        selectedRefundByGroup[
+                                                                                            group
+                                                                                                ._id
+                                                                                        ] || []
+                                                                                    ).includes(
+                                                                                        booking._id
+                                                                                    )}
+                                                                                    onChange={(e) =>
+                                                                                        toggleSelectRefund(
+                                                                                            group._id,
+                                                                                            booking._id,
+                                                                                            e.target
+                                                                                                .checked
+                                                                                        )
+                                                                                    }
+                                                                                />
+                                                                            )}
                                                                         </div>
                                                                     )}
 
@@ -1246,9 +1319,8 @@ const MyBookings: React.FC = () => {
                                                                         {/* LEFT INFO */}
                                                                         <div
                                                                             className={`min-w-0 flex-1 space-y-2 ${
-                                                                                canRetryThis ||
-                                                                                canCancelThis
-                                                                                    ? 'pl-10'
+                                                                                hasAnyCheckbox
+                                                                                    ? 'pl-14'
                                                                                     : ''
                                                                             }`}
                                                                         >
@@ -1637,22 +1709,23 @@ const MyBookings: React.FC = () => {
 
                                                                         {/* RIGHT ACTIONS */}
                                                                         <div className='shrink-0 flex flex-row md:flex-col md:items-end gap-2'>
-                                                                            {canRequestRefundThis && (
-                                                                                <Button
-                                                                                    size='middle'
-                                                                                    className='border-amber-500 text-amber-600 hover:bg-amber-50'
-                                                                                    onClick={() =>
-                                                                                        openRefundModal(
-                                                                                            [
-                                                                                                booking,
-                                                                                            ]
-                                                                                        )
-                                                                                    }
-                                                                                >
-                                                                                    Yêu cầu hoàn
-                                                                                    tiền
-                                                                                </Button>
-                                                                            )}
+                                                                            {canRefundThis &&
+                                                                                !canRequestRefundGroup && (
+                                                                                    <Button
+                                                                                        size='middle'
+                                                                                        className='border-amber-500 text-amber-600 hover:bg-amber-50'
+                                                                                        onClick={() =>
+                                                                                            openRefundModal(
+                                                                                                [
+                                                                                                    booking,
+                                                                                                ]
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        Yêu cầu hoàn
+                                                                                        tiền
+                                                                                    </Button>
+                                                                                )}
 
                                                                             {booking.status ===
                                                                                 'completed' &&
