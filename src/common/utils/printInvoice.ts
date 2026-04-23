@@ -6,7 +6,7 @@ const formatVND = (v: number = 0) =>
 const PAYMENT_METHOD_TEXT: Record<string, string> = {
     cash: 'Tiền mặt',
     transfer: 'Chuyển khoản',
-    momo: 'Momo',
+    zalopay: 'ZaloPay',
     vnpay: 'VNPAY',
     qr: 'Quẹt thẻ / QR',
 };

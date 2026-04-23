@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Form, Input, Button, message } from "antd";
-import { FacebookOutlined } from "@ant-design/icons";
 
 const { TextArea } = Input;
 
@@ -40,43 +39,43 @@ const ContactPages: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 px-4 py-20">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 px-4 py-20 transition-colors">
       <div className="max-w-3xl mx-auto">
 
 {/* ===== THÔNG TIN LIÊN HỆ ===== */}
 <div className="text-center mb-16">
-  <h1 className="text-3xl md:text-4xl font-bold tracking-wide text-green-600 mb-6">
+  <h1 className="text-3xl md:text-4xl font-bold tracking-wide text-green-600 dark:text-green-500 mb-6">
     HÃY LIÊN HỆ VỚI CHÚNG TÔI
   </h1>
 
-  <p className="text-gray-700 text-lg leading-relaxed mb-2">
+  <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-2">
     Nếu bạn có bất kỳ thắc mắc nào,
   </p>
 
-  <p className="text-gray-700 text-lg leading-relaxed mb-2">
+  <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-2">
     hãy liên hệ với chúng tôi qua form điền thông tin bên dưới
     hoặc gọi trực tiếp qua số điện thoại.
   </p>
 
-  <p className="text-gray-700 text-lg leading-relaxed mb-6">
+  <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-6">
     Hoặc gửi email tới{" "}
-    <span className="font-semibold text-green-600">
+    <span className="font-semibold text-green-600 dark:text-green-400">
       MiraFootball@gmail.com
     </span>
   </p>
 
   {/* ===== SỐ ĐIỆN THOẠI NỔI BẬT ===== */}
-  <div className="inline-flex items-center gap-3 px-8 py-4 mb-10 rounded-full bg-white border border-green-900 shadow-sm">
+  <div className="inline-flex items-center gap-3 px-8 py-4 mb-10 rounded-full bg-white dark:bg-gray-800 border border-green-900 dark:border-green-600 shadow-sm transition-colors">
     <span className="text-green-600 text-2xl">📞</span>
     <a
       href="tel:0900000000"
-      className="text-xl font-bold text-green-700 hover:underline"
+      className="text-xl font-bold text-green-700 dark:text-green-400 hover:underline"
     >
       0900 000 000
     </a>
   </div>
 
-  <a href="/" className="text-base text-gray-600 hover:underline block">
+  <a href="/" className="text-base text-gray-600 dark:text-gray-400 hover:text-green-500 dark:hover:text-green-400 hover:underline block transition-colors">
     ← Quay lại trang chủ
   </a>
 </div>
@@ -84,7 +83,7 @@ const ContactPages: React.FC = () => {
 
 
         {/* ===== FORM LIÊN HỆ ===== */}
-        <div className="bg-white rounded-2xl shadow-md px-8 py-10">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 px-8 py-10 transition-colors">
           <Form
             form={form}
             layout="vertical"
@@ -153,13 +152,14 @@ const ContactPages: React.FC = () => {
                 block
                 size="large"
                 style={{
-                  background: "black",
-                  borderColor: "black",
+                  background: "var(--color-green-600)",
+                  borderColor: "var(--color-green-600)",
                   height: 48,
                   fontSize: 14,
                   letterSpacing: "0.12em",
-                  fontWeight: 500,
+                  fontWeight: 600,
                   borderRadius: 12,
+                  color: "#fff"
                 }}
               >
                 GỬI LIÊN HỆ

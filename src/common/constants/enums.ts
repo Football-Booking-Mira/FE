@@ -20,7 +20,7 @@ export const PAYMENT_STATUS = {
 export const PAYMENT_METHOD = {
   CASH: "cash",
   TRANSFER: "transfer",
-  MOMO: "momo",
+  ZALOPAY: "zalopay",
   VNPAY: "vnpay",
   QR: "qr",
 } as const;
@@ -33,7 +33,7 @@ export type BookingStatus =
 export type PaymentStatus =
   (typeof PAYMENT_STATUS)[keyof typeof PAYMENT_STATUS];
 
-// Voucher
+// Mã giảm giá (Voucher)
 export const DISCOUNT_TYPES = {
   PERCENT: "percent",
   AMOUNT: "amount",

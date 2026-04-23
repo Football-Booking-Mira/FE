@@ -11,7 +11,7 @@ interface Props {
 const RoleRoute: React.FC<Props> = ({
   children,
   requiredRoles = [],
-  redirectTo = "/login",
+  redirectTo = "/signin",
 }) => {
   const { isAuthenticated, userRole } = useAuth();
 

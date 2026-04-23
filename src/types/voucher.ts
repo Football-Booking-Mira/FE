@@ -1,4 +1,4 @@
-// Types for voucher statistics and management
+// Khai báo type cho phần thống kê và quản lý mã giảm giá
 
 export interface VoucherSummary {
   _id: string;

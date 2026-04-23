@@ -12,16 +12,18 @@ export type ILoginPayload = {
 // Không quá gò type, vì BE đang đổi shape
 export type ILoginResponseAny = any;
 
+
+
 export const useLogin = (
     setStateOnSuccess: () => void,
     handleErrMessage: (errors: ApiError[]) => string
 ) => {
     const queryClient = useQueryClient();
-    const { setIsAuthenticated, setUserName, setUserRole } = useAuth();
+    const { setIsAuthenticated, setUserName, setUserRole, setUserAvatar } = useAuth();
 
     return useMutation({
         mutationFn: async (values: ILoginPayload) => {
-            const response = await api.post('/auth/login', values);
+            const response = await api.post('/auth/signin', values);
             // response.data chính là body BE trả về (createResponse)
             return response.data as ILoginResponseAny;
         },
@@ -66,18 +68,22 @@ export const useLogin = (
             setIsAuthenticated(true);
             setUserName(user.name);
             setUserRole(user.role);
+            setUserAvatar(user.avatar || '');
 
-            message.success(envelope.message || 'Đăng nhập thành công');
+            message.success('Đăng nhập thành công!');
+
             queryClient.resetQueries();
             setStateOnSuccess();
         },
-        onError(res: any) {
-            if (res?.errors) {
-                const errMsg = handleErrMessage(res.errors as ApiError[]);
+        onError(error: any) {
+            const errData = error.response?.data || error;
+            if (errData?.errors) {
+                const errMsg = handleErrMessage(errData.errors as ApiError[]);
                 message.error(errMsg);
                 return;
             }
-            message.error(res.message || 'Đăng nhập không thành công!');
+            const errorMsg = errData?.message || error.message || 'Đăng nhập không thành công!';
+            message.error(errorMsg);
         },
     });
 };

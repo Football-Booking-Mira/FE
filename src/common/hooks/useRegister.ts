@@ -26,13 +26,15 @@ export const useRegister = (handleErrMessage: (errors: ApiError[]) => string) =>
                     'Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.'
             );
         },
-        onError(err: any) {
-            if (err?.errors) {
-                const errMsg = handleErrMessage(err.errors as ApiError[]);
+        onError(error: any) {
+            const errData = error.response?.data || error;
+            if (errData?.errors) {
+                const errMsg = handleErrMessage(errData.errors as ApiError[]);
                 message.error(errMsg);
                 return;
             }
-            message.error(err?.message || 'Đăng ký không thành công!');
+            const errorMsg = errData?.message || error.message || 'Đăng ký không thành công!';
+            message.error(errorMsg);
         },
     });
 };

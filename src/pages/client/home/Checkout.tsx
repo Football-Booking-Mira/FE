@@ -82,7 +82,7 @@ const Checkout: React.FC = () => {
         amountToPay: number;
     } | null>(null);
 
-    // Voucher state
+    // Trạng thái Mã giảm giá
     const [voucherInput, setVoucherInput] = useState('');
     const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
 
@@ -102,7 +102,7 @@ const Checkout: React.FC = () => {
         const direct = safeNum(bookingData.totalFieldPrice);
         if (direct > 0) return direct;
 
-        // fallback: sum slot.price
+        // fallback: tính tổng slot.price
         const fromSlots =
             Array.isArray(bookingData.slots) && bookingData.slots.length > 0
                 ? bookingData.slots.reduce((sum, s) => sum + safeNum(s.price), 0)
@@ -200,7 +200,7 @@ const Checkout: React.FC = () => {
                 if (!name && userName) setName(userName);
             }
         } catch {
-            // ignore
+            // bỏ qua
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -245,7 +245,7 @@ const Checkout: React.FC = () => {
         }
     }, [voucherResult, finalTotal, baseTotal, bookingData?.isRetryPayment]);
 
-    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'momo'>('vnpay');
+    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'zalopay'>('vnpay');
     const [isPaying, setIsPaying] = useState(false);
 
     const [errors, setErrors] = useState<{
@@ -335,14 +335,14 @@ const Checkout: React.FC = () => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (!user?.token || !user?._id) {
             toast.error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại!');
-            navigate('/login');
+            navigate('/signin');
             return;
         }
 
         try {
             setIsPaying(true);
 
-            // local snapshot
+            // giá trị tạm thời (local snapshot)
             let currentCheckout: CheckoutData = { ...bookingData };
             let bookingId = currentCheckout.bookingId;
             let bookingIds = currentCheckout.bookingIds || [];
@@ -543,18 +543,39 @@ const Checkout: React.FC = () => {
                 return;
             }
 
-            //  MoMo giả lập
-            if (paymentMethod === 'momo') {
-                const payload = {
-                    ...bookingData,
-                    bookingId,
-                    customer: { name: name.trim(), phone: phone.trim(), email: email.trim() },
-                    paymentMethod: 'momo',
-                    amount: safeNum(totalAmount) || baseTotal,
-                };
-                console.log('Dữ liệu gửi thanh toán MoMo:', payload);
-                toast.success('Giả lập thanh toán MoMo thành công!');
-                setIsPaying(false);
+            //  ZaloPay
+            if (paymentMethod === 'zalopay') {
+                const payAmount = safeNum(totalAmount);
+                if (payAmount <= 0) {
+                    toast.error('Số tiền thanh toán không hợp lệ!');
+                    setIsPaying(false);
+                    return;
+                }
+
+                const payload: any = {};
+                const isRetry = currentCheckout.isRetryPayment === true || !!retryInfo;
+                if (isRetry) {
+                    payload.isRetryPayment = true;
+                    payload.amount = payAmount;
+                }
+
+                if (currentCheckout.isMultiBooking && bookingIds.length > 0) {
+                    payload.bookingIds = bookingIds;
+                } else if (bookingId) {
+                    payload.bookingId = bookingId;
+                }
+
+                const res = await api.post('/payment/zalopay/create', payload);
+                const data = res.data;
+
+                if (data.success && data.data?.paymentUrl) {
+                    toast.success('Đang chuyển tới trang thanh toán ZaloPay...');
+                    window.location.href = data.data.paymentUrl;
+                } else {
+                    setIsPaying(false);
+                    toast.error(data.message || 'Không tạo được liên kết thanh toán ZaloPay!');
+                }
+                return;
             }
         } catch (err) {
             console.error('Lỗi khi thanh toán:', err);
@@ -564,27 +585,29 @@ const Checkout: React.FC = () => {
     };
 
     return (
-        <div className='min-h-screen bg-white flex justify-center items-start py-12 px-4'>
-            <Card className='w-full max-w-2xl shadow-2xl rounded-3xl overflow-hidden'>
-                <div className='bg-white text-green-600 text-center py-6 px-4 border-b border-gray-200'>
-                    <h1 className='text-3xl font-extrabold mb-1'>Thanh Toán Đặt Sân</h1>
+        <div className='min-h-screen bg-gray-50 dark:bg-gray-950 flex justify-center items-start py-12 px-4'>
+            <Card className='w-full max-w-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] rounded-3xl overflow-hidden border-none bg-white dark:bg-gray-900'>
+                <div className='bg-linear-to-r from-green-600 to-emerald-500 text-white text-center py-8 px-4'>
+                    <h1 className='text-3xl font-black mb-1 tracking-tight'>Thanh Toán Đặt Sân</h1>
+                    <p className='text-green-100 text-sm font-medium'>Kiểm tra thông tin và hoàn tất thanh toán</p>
                 </div>
 
-                <CardContent className='p-8 space-y-8'>
+                <CardContent className='p-8 space-y-8 bg-white dark:bg-gray-900'>
                     {/* Thông tin đặt sân */}
-                    <div className='bg-green-50 rounded-xl p-6 shadow-inner'>
-                        <h2 className='font-semibold text-lg text-gray-700 mb-4'>
+                    <div className='bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700'>
+                        <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2'>
+                            <span className='w-1.5 h-6 bg-green-500 rounded-full'></span>
                             Thông tin đặt sân
                         </h2>
 
-                        <div className='grid grid-cols-2 gap-2 text-gray-600'>
+                        <div className='grid grid-cols-2 gap-2 text-gray-500 dark:text-gray-400'>
                             <span>Sân:</span>
-                            <span className='font-medium text-gray-800'>
+                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
                                 {bookingData.courtName}
                             </span>
 
                             <span>Ngày:</span>
-                            <span className='font-medium text-gray-800'>
+                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
                                 {formatDate(bookingData.date)}
                             </span>
 
@@ -594,34 +617,34 @@ const Checkout: React.FC = () => {
                                     bookingData.slots.map((s, idx) => (
                                         <span
                                             key={idx}
-                                            className='font-medium text-gray-800 min-w-[140px]'
+                                            className='font-semibold text-gray-900 dark:text-gray-100 min-w-[140px]'
                                         >
                                             {s.startTime} - {s.endTime}
                                         </span>
                                     ))
                                 ) : (
-                                    <span className='font-medium text-gray-800 min-w-[140px]'>
+                                    <span className='font-semibold text-gray-900 dark:text-gray-100 min-w-[140px]'>
                                         {bookingData.startTime} - {bookingData.endTime}
                                     </span>
                                 )}
                             </div>
 
                             <span>Tổng số giờ:</span>
-                            <span className='font-medium text-gray-800'>{totalHours} giờ</span>
+                            <span className='font-semibold text-gray-900 dark:text-gray-100'>{totalHours} giờ</span>
 
                             {/*  breakdown */}
                             <span>Tiền sân:</span>
-                            <span className='font-medium text-gray-800'>
+                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
                                 {formatCurrency(fieldMoney)}
                             </span>
 
                             <span>Tiền thiết bị:</span>
-                            <span className='font-medium text-gray-800'>
+                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
                                 {formatCurrency(equipMoney)}
                             </span>
 
                             <span>Tổng thanh toán:</span>
-                            <span className='font-bold text-green-700 text-lg'>
+                            <span className='font-black text-green-600 dark:text-green-400 text-lg'>
                                 {formatCurrency(baseTotal)}
                             </span>
                         </div>
@@ -629,15 +652,16 @@ const Checkout: React.FC = () => {
 
                     {/* Voucher - chỉ khi tạo booking mới */}
                     {!bookingData.isRetryPayment && (
-                        <div className='bg-blue-50 rounded-xl p-6 shadow-inner border border-blue-200'>
-                            <h2 className='font-semibold text-lg text-gray-700 mb-4'>
+                        <div className='bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700'>
+                            <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2'>
+                                <span className='w-1.5 h-6 bg-blue-500 rounded-full'></span>
                                 Mã giảm giá (Voucher)
                             </h2>
 
                             {!voucherResult ? (
                                 <div className='space-y-4'>
                                     <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
-                                        <p className='text-sm text-gray-600'>
+                                        <p className='text-sm text-gray-500 dark:text-gray-400'>
                                             Nhấn nút bên phải để xem danh sách các voucher đang hoạt
                                             động và còn hạn, sau đó chọn một mã phù hợp.
                                         </p>
@@ -666,7 +690,7 @@ const Checkout: React.FC = () => {
                                                 </DialogHeader>
 
                                                 {loadingPublicVouchers ? (
-                                                    <p className='text-sm text-gray-500'>
+                                                    <p className='text-sm text-gray-500 dark:text-gray-400'>
                                                         Đang tải danh sách voucher...
                                                     </p>
                                                 ) : publicVouchersError ? (
@@ -674,7 +698,7 @@ const Checkout: React.FC = () => {
                                                         {publicVouchersError}
                                                     </p>
                                                 ) : publicVouchers.length === 0 ? (
-                                                    <p className='text-sm text-gray-500'>
+                                                    <p className='text-sm text-gray-500 dark:text-gray-400'>
                                                         Hiện tại chưa có voucher nào khả dụng.
                                                     </p>
                                                 ) : (
@@ -698,16 +722,16 @@ const Checkout: React.FC = () => {
                                                                     disabled={isDisabled}
                                                                     className={`w-full text-left border rounded-lg p-3 transition flex flex-col gap-1 ${
                                                                         isDisabled
-                                                                            ? 'border-gray-300 bg-gray-100 opacity-60 cursor-not-allowed'
-                                                                            : 'border-blue-200 hover:bg-blue-50 hover:border-blue-300 cursor-pointer'
+                                                                            ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 opacity-50 cursor-not-allowed'
+                                                                            : 'border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-600 cursor-pointer'
                                                                     }`}
                                                                 >
                                                                     <div className='flex items-center justify-between'>
                                                                         <span
                                                                             className={`font-semibold ${
                                                                                 isDisabled
-                                                                                    ? 'text-gray-500'
-                                                                                    : 'text-blue-700'
+                                                                                    ? 'text-gray-400 dark:text-gray-500'
+                                                                                    : 'text-blue-700 dark:text-blue-400'
                                                                             }`}
                                                                         >
                                                                             {v.code}
@@ -715,8 +739,8 @@ const Checkout: React.FC = () => {
                                                                         <span
                                                                             className={`text-sm font-semibold ${
                                                                                 isDisabled
-                                                                                    ? 'text-gray-500'
-                                                                                    : 'text-green-700'
+                                                                                    ? 'text-gray-400 dark:text-gray-500'
+                                                                                    : 'text-green-700 dark:text-green-400'
                                                                             }`}
                                                                         >
                                                                             {v.discountDisplay}
@@ -725,16 +749,16 @@ const Checkout: React.FC = () => {
 
                                                                     {v.description && (
                                                                         <p
-                                                                            className={`text-xs ${isDisabled ? 'text-gray-400' : 'text-gray-600'}`}
+                                                                            className={`text-xs ${isDisabled ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}
                                                                         >
                                                                             {v.description}
                                                                         </p>
                                                                     )}
 
-                                                                    <div className='flex flex-wrap gap-3 text-xs text-gray-500 mt-1'>
+                                                                    <div className='flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1'>
                                                                         <span>
                                                                             Còn lại:{' '}
-                                                                            <span className='font-semibold text-green-700'>
+                                                                            <span className='font-semibold text-green-700 dark:text-green-400'>
                                                                                 {
                                                                                     v.remainingQuantity
                                                                                 }
@@ -807,10 +831,10 @@ const Checkout: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className='space-y-3'>
-                                    <div className='bg-green-100 border border-green-300 rounded-lg p-4'>
+                                    <div className='bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4'>
                                         <div className='flex items-center justify-between mb-2'>
                                             <div className='flex items-center gap-2'>
-                                                <span className='font-semibold text-green-800'>
+                                                <span className='font-bold text-green-700 dark:text-green-400'>
                                                     Voucher đã áp dụng: {voucherResult.code}
                                                 </span>
                                             </div>
@@ -818,25 +842,25 @@ const Checkout: React.FC = () => {
                                                 onClick={handleRemoveVoucher}
                                                 variant='outline'
                                                 size='sm'
-                                                className='text-red-600 border-red-300 hover:bg-red-50'
+                                                className='text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20'
                                             >
                                                 Xóa
                                             </Button>
                                         </div>
 
-                                        <div className='grid grid-cols-2 gap-2 text-sm text-gray-700'>
+                                        <div className='grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-300'>
                                             <span>Giảm giá:</span>
-                                            <span className='font-bold text-green-700'>
+                                            <span className='font-bold text-green-700 dark:text-green-400'>
                                                 -{formatCurrency(discountAmount)}
                                             </span>
 
                                             <span>Tổng tiền ban đầu:</span>
-                                            <span className='font-medium text-gray-600 line-through'>
+                                            <span className='font-medium text-gray-400 dark:text-gray-500 line-through'>
                                                 {formatCurrency(baseTotal)}
                                             </span>
 
                                             <span>Tổng tiền sau giảm:</span>
-                                            <span className='font-bold text-green-700 text-lg'>
+                                            <span className='font-black text-green-600 dark:text-green-400 text-lg'>
                                                 {formatCurrency(finalTotal)}
                                             </span>
                                         </div>
@@ -848,7 +872,10 @@ const Checkout: React.FC = () => {
 
                     {/* Thông tin người đặt */}
                     <div className='space-y-4'>
-                        <h2 className='font-semibold text-lg text-gray-700'>Thông tin người đặt</h2>
+                        <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2'>
+                            <span className='w-1.5 h-6 bg-emerald-500 rounded-full'></span>
+                            Thông tin người đặt
+                        </h2>
                         <div className='grid gap-4'>
                             <div>
                                 <Label htmlFor='name'>Họ và tên</Label>
@@ -861,7 +888,7 @@ const Checkout: React.FC = () => {
                                             setErrors((p) => ({ ...p, name: undefined }));
                                     }}
                                     placeholder='Nhập tên'
-                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${
+                                    className={`mt-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-green-500 dark:focus:border-green-400 focus:ring-green-200 dark:focus:ring-green-800 text-gray-900 dark:text-gray-100 ${
                                         errors.name ? 'border-red-500 focus:border-red-500' : ''
                                     }`}
                                 />
@@ -882,7 +909,7 @@ const Checkout: React.FC = () => {
                                             setErrors((p) => ({ ...p, phone: undefined }));
                                     }}
                                     placeholder='Nhập số điện thoại 10 số'
-                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${
+                                    className={`mt-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-green-500 dark:focus:border-green-400 focus:ring-green-200 dark:focus:ring-green-800 text-gray-900 dark:text-gray-100 ${
                                         errors.phone ? 'border-red-500 focus:border-red-500' : ''
                                     }`}
                                 />
@@ -903,7 +930,7 @@ const Checkout: React.FC = () => {
                                             setErrors((p) => ({ ...p, email: undefined }));
                                     }}
                                     placeholder='Nhập email (vd: ten@gmail.com)'
-                                    className={`mt-1 border-green-300 focus:border-green-500 focus:ring-green-200 ${
+                                    className={`mt-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-green-500 dark:focus:border-green-400 focus:ring-green-200 dark:focus:ring-green-800 text-gray-900 dark:text-gray-100 ${
                                         errors.email ? 'border-red-500 focus:border-red-500' : ''
                                     }`}
                                 />
@@ -915,33 +942,53 @@ const Checkout: React.FC = () => {
                     </div>
 
                     {/* Phương thức thanh toán */}
-                    <div className='space-y-3'>
-                        <h2 className='font-semibold text-lg text-gray-700'>
+                    <div className='space-y-4 pt-2'>
+                        <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2'>
+                            <span className='w-1.5 h-6 bg-linear-to-b from-emerald-400 to-green-600 rounded-full'></span>
                             Phương thức thanh toán
                         </h2>
-                        <div className='flex flex-col sm:flex-row gap-4'>
+                        
+                        <div className='flex flex-col gap-3'>
                             {[
-                                { value: 'vnpay', label: 'Thanh toán qua VNPay' },
-                                { value: 'momo', label: 'Thanh toán qua MoMo' },
+                                { value: 'vnpay', label: 'Thanh toán qua VNPay', desc: 'Thẻ nội địa, thẻ quốc tế, quét mã QR', iconImage: 'https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png' },
+                                { value: 'zalopay', label: 'Thanh toán qua ZaloPay', desc: 'Ví ZaloPay, thẻ ATM, thẻ quốc tế', iconImage: 'https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png' },
                             ].map((method) => (
                                 <label
                                     key={method.value}
-                                    className={`flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:shadow transition ${
+                                    className={`flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
                                         paymentMethod === method.value
-                                            ? 'border-green-600 bg-green-50'
-                                            : 'border-gray-300'
+                                            ? 'border-emerald-500 bg-emerald-50/50 dark:border-emerald-500 dark:bg-emerald-900/20 shadow-sm shadow-emerald-500/10'
+                                            : 'border-gray-100 dark:border-gray-700 hover:border-emerald-200 hover:bg-emerald-50/30 dark:hover:border-emerald-800'
                                     }`}
                                 >
-                                    <input
-                                        type='radio'
-                                        value={method.value}
-                                        checked={paymentMethod === method.value}
-                                        onChange={() =>
-                                            setPaymentMethod(method.value as 'vnpay' | 'momo')
-                                        }
-                                        className='accent-green-600'
-                                    />
-                                    <span>{method.label}</span>
+                                    <div className='pt-1'>
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                            paymentMethod === method.value ? 'border-emerald-500' : 'border-gray-300 dark:border-gray-600'
+                                        }`}>
+                                            <div className={`w-2.5 h-2.5 rounded-full transition-transform duration-200 ${
+                                                paymentMethod === method.value ? 'bg-emerald-500 scale-100' : 'bg-transparent scale-0'
+                                            }`}></div>
+                                        </div>
+                                        <input
+                                            type='radio'
+                                            value={method.value}
+                                            checked={paymentMethod === method.value}
+                                            onChange={() => setPaymentMethod(method.value as 'vnpay' | 'zalopay')}
+                                            className='hidden'
+                                            name='paymentMethodGroup'
+                                        />
+                                    </div>
+                                    <div className='flex items-center gap-4 flex-1'>
+                                        <div className='w-14 h-14 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden shadow-xs flex items-center justify-center p-2.5 shrink-0'>
+                                            <img src={method.iconImage} alt={method.label} className='w-full h-full object-contain' />
+                                        </div>
+                                        <div>
+                                            <h4 className={`font-bold transition-colors text-base ${
+                                                paymentMethod === method.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-800 dark:text-gray-200'
+                                            }`}>{method.label}</h4>
+                                            <p className='text-sm text-gray-500 dark:text-gray-400 mt-1'>{method.desc}</p>
+                                        </div>
+                                    </div>
                                 </label>
                             ))}
                         </div>
@@ -950,9 +997,23 @@ const Checkout: React.FC = () => {
                     <Button
                         onClick={handleSubmit}
                         disabled={isPaying}
-                        className='w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-bold text-lg shadow-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed'
+                        className='w-full mt-4 bg-linear-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:-translate-y-0.5 text-white py-6 rounded-xl font-black text-lg transition-all duration-200 active:scale-[0.98] disabled:from-gray-300 disabled:to-gray-400 dark:disabled:from-gray-700 dark:disabled:to-gray-800 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none border-none outline-none flex items-center justify-center gap-2'
                     >
-                        {isPaying ? 'Đang chuyển sang VNPay...' : 'Hoàn tất thanh toán'}
+                        {isPaying 
+                          ? (
+                              <>
+                                  <span className="animate-spin text-xl">⏳</span>
+                                  <span>Đang chuyển sang {paymentMethod === 'zalopay' ? 'ZaloPay' : 'VNPay'}...</span>
+                              </>
+                            )
+                          : (
+                              <>
+                                  <span>Thanh toán ngay</span>
+                                  <span className='inline-block w-1.5 h-1.5 bg-white/70 rounded-full mx-1 shrink-0'></span>
+                                  <span className='text-xl'>👉</span>
+                              </>
+                          )
+                        }
                     </Button>
                 </CardContent>
             </Card>

@@ -183,7 +183,7 @@ const UserEquipmentList: React.FC = () => {
         return (
           <div>
             <Progress percent={percent} size="small" />
-            <div className="text-xs text-gray-600 mt-1">
+            <div className="text-xs text-gray-600 dark:text-gray-300 mt-1">
               Tổng: {e.totalQuantity} | Còn lại: {e.availableQuantity}
             </div>
           </div>
@@ -207,13 +207,13 @@ const UserEquipmentList: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
-      <div className="max-w-5xl mx-auto bg-white shadow-md rounded-xl p-6 border border-gray-200">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-800/80 py-8 px-4">
+      <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 shadow-md rounded-xl p-6 border border-gray-200 dark:border-gray-700">
         <h1 className="text-2xl font-bold text-center mb-6">
           Danh sách thiết bị
         </h1>
 
-        <div className="bg-white p-5 rounded-xl shadow-sm mb-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm mb-6 border border-gray-200 dark:border-gray-700">
           <Space wrap>
             <Input
               allowClear

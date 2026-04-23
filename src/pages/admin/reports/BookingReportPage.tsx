@@ -1,750 +1,650 @@
-import React, {
-  useEffect,
-  useState,
-} from 'react';
-
+import { useEffect, useState } from 'react';
 import {
-  CalendarDays,
-  DollarSign,
+    ChevronLeft,
+    ChevronRight,
+    DollarSign,
+    Users,
+    Trophy,
+    ArrowUpRight,
+    Clock,
+    LayoutDashboard,
+    Calendar,
+    Zap,
+    TrendingUp,
+    PieChart as PieChartIcon,
 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+import { 
+    CartesianGrid, 
+    ResponsiveContainer, 
+    Tooltip, 
+    XAxis, 
+    YAxis,
+    Cell,
+    Pie,
+    PieChart,
+    Area,
+    AreaChart,
 } from 'recharts';
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-
-interface HotHour {
-  fromHour: string; // ví dụ: "18:00"
-  toHour: string;   // ví dụ: "20:00"
-  count: number;
-}
-
-interface TopCustomer {
-  user: {
-    username?: string;
-    name?: string;
-    phone?: string;
-    email?: string;
-  };
-  count: number;
-}
-
-interface TopCourt {
-  court: {
-    name: string;
-  };
-  count: number;
-}
+import { motion } from 'framer-motion';
+import { io } from 'socket.io-client';
 
 interface BookingStats {
-  hotHour?: HotHour | null;
-  topCustomer?: TopCustomer | null;
-  topCourt?: TopCourt | null;
-  hourTrend?: { date: string; count: number }[];
-  // courtRate?: { court: string; value: number }[];
-  revenueTrend?: { date: string; revenue: number }[];
-  topCustomersList?: TopCustomer[];
-
-  courtRate?: number;
-  totalRevenue?: number;
+    revenueOverview: {
+        daily: number;
+        totalPaid: number;
+        totalUnpaid: number;
+    };
+    bookingsOverview: {
+        today: number;
+        week: number;
+        month: number;
+    };
+    courtsStats: { name: string; count: number }[];
+    customerStats: {
+        total: number;
+        newThisMonth: number;
+        topList: { user: any; count: number }[];
+    };
+    peakHours: { time: string; count: number }[];
+    courtStatus: {
+        inUse: number;
+        reserved: number;
+        available: number;
+    };
+    revenueTrend: { date: string; revenue: number }[];
+    totalRevenue: number;
 }
-
 
 const formatCurrency = (value?: number | string) => {
-  if (value === undefined || value === null) return "0";
-  return Number(value).toLocaleString("vi-VN");
+    if (value === undefined || value === null) return '0';
+    return Number(value).toLocaleString('vi-VN');
 };
+
+const COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'];
 
 export default function BookingStatsReportPage() {
-  const [stats, setStats] = useState<BookingStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('week');
-  const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, 1 = next
+    const [stats, setStats] = useState<BookingStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year'>('week');
+    const [periodOffset, setPeriodOffset] = useState(0);
 
-  const fetchStats = async (period?: 'week' | 'month' | 'year', offset: number = 0) => {
-    try {
-      setError("");
-      setLoading(true);
+    const fetchStats = async () => {
+        try {
+            setLoading(true);
+            const params = new URLSearchParams({
+                period: selectedPeriod,
+                offset: periodOffset.toString(),
+            });
+            const res = await fetch(
+                `http://localhost:3000/api/reports/public/booking-stats?${params}`
+            );
+            const json = await res.json();
+            if (!res.ok || !json.success) throw new Error(json.error || 'Lỗi khi lấy báo cáo');
+            setStats(json.data);
+        } catch (e: any) {
+            console.error('Fetch stats error:', e);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      let url = `http://localhost:3000/api/reports/public/booking-stats`;
-      const params = new URLSearchParams();
+    useEffect(() => {
+        fetchStats();
 
-      if (period) {
-        params.append('period', period);
-      }
+        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+        const socketInstance = io(SOCKET_URL, {
+            transports: ['websocket'],
+            withCredentials: true,
+        });
 
-      if (offset !== 0) {
-        params.append('offset', offset.toString());
-      }
+        const handleUpdate = () => {
+            fetchStats();
+        };
 
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+        socketInstance.on('booking_global_updated', handleUpdate);
+        socketInstance.on('booking_updated', handleUpdate);
 
-      const res = await fetch(url);
-      const json = await res.json();
+        return () => {
+            socketInstance.off('booking_global_updated', handleUpdate);
+            socketInstance.off('booking_updated', handleUpdate);
+            socketInstance.disconnect();
+        };
+    }, [selectedPeriod, periodOffset]);
 
-      console.log("📌 API response:", json); // log kiểm tra
+    const handlePeriodChange = (period: 'day' | 'week' | 'month' | 'year') => {
+        setSelectedPeriod(period);
+        setPeriodOffset(0);
+    };
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "Lỗi khi lấy báo cáo");
-      }
+    const handleNavigate = (direction: 'prev' | 'next') => {
+        setPeriodOffset((prev) => (direction === 'prev' ? prev - 1 : prev + 1));
+    };
 
-      const reportData = json.data; // 👈 Đây mới đúng
+    const getPeriodLabel = () => {
+        const now = new Date();
+        if (selectedPeriod === 'year') return `Năm ${now.getFullYear() + periodOffset}`;
+        if (selectedPeriod === 'day') {
+            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset);
+            return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+        }
+        if (selectedPeriod === 'month') {
+            const d = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
+            return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+        }
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset * 7);
+        const day = d.getDay() || 7;
+        const start = new Date(d);
+        start.setDate(d.getDate() - day + 1);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        return `Từ ${start.getDate()}/${start.getMonth() + 1} đến ${end.getDate()}/${end.getMonth() + 1}`;
+    };
 
-      setStats({
-        hotHour: reportData.hotHour ?? null,
-        topCustomer: reportData.topCustomer ?? null,
-        topCourt: reportData.topCourt ?? null,
-        hourTrend: reportData.hourTrend ?? [],
-        revenueTrend: reportData.revenueTrend ?? [],
-        topCustomersList: reportData.topCustomersList ?? [],
-
-        courtRate: reportData.courtRate ?? 0,
-        totalRevenue: reportData.totalRevenue ?? 0, // 👈 đúng field doanh thu
-      });
-
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  const handlePeriodChange = (period: 'week' | 'month' | 'year') => {
-    setSelectedPeriod(period);
-    setPeriodOffset(0); // Reset to current period when changing period type
-    fetchStats(period, 0);
-  };
-
-  const handleNavigate = (direction: 'prev' | 'next') => {
-    const newOffset = direction === 'prev' ? periodOffset - 1 : periodOffset + 1;
-    setPeriodOffset(newOffset);
-    fetchStats(selectedPeriod, newOffset);
-  };
-
-  
-
-  const getPeriodLabel = () => {
-  const now = new Date();
-
-  if (selectedPeriod === 'year') {
-    const year = now.getFullYear() + periodOffset;
-    return `Năm ${year}`;
-  }
-
-  if (selectedPeriod === 'month') {
-    const targetDate = new Date(
-      now.getFullYear(),
-      now.getMonth() + periodOffset,
-      1
-    );
-    return `Tháng ${targetDate.getMonth() + 1}/${targetDate.getFullYear()}`;
-  }
-
-  // week – bắt đầu từ Thứ 2 (sync backend)
-  const targetDate = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() + periodOffset * 7
-  );
-
-  const day = targetDate.getDay() || 7; // CN = 7
-  const startOfWeek = new Date(targetDate);
-  startOfWeek.setDate(targetDate.getDate() - day + 1);
-
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-  return `Tuần ${startOfWeek.getDate()}/${startOfWeek.getMonth() + 1}
-   - ${endOfWeek.getDate()}/${endOfWeek.getMonth() + 1}/${endOfWeek.getFullYear()}`;
-};
-
-
-  useEffect(() => {
-    fetchStats(selectedPeriod, periodOffset);
-  }, [selectedPeriod, periodOffset]);
-
-  if (loading) return <p className="p-6">Đang tải báo cáo...</p>;
-  if (error) return <p className="text-red-500 p-6">{error}</p>;
-
-
-  return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between flex-wrap gap-4 mb-6 items-center">
-        <div className="flex items-center gap-2 font-semibold text-xl">
-          <CalendarDays size={22} /> <span>Tổng quan Booking</span>
-        </div>
-
-        {/* Time Period Filter Tabs for Overview */}
-        <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
-          <button
-            onClick={() => handlePeriodChange('week')}
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${selectedPeriod === 'week'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            Tuần
-          </button>
-          <button
-            onClick={() => handlePeriodChange('month')}
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${selectedPeriod === 'month'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            Tháng
-          </button>
-          <button
-            onClick={() => handlePeriodChange('year')}
-            className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${selectedPeriod === 'year'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            Năm
-          </button>
-        </div>
-      </div>
-
-
-      {/* Card số liệu */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="rounded-2xl shadow-sm bg-white">
-          <CardHeader className="flex justify-between items-center pb-2">
-            <CardTitle>Tổng doanh thu</CardTitle>
-            <DollarSign className="w-5 h-5" />
-          </CardHeader>
-
-          <CardContent>
-            <div className="text-2xl font-semibold">
-              {/* Chuyển totalRevenue sang number trước khi dùng toLocaleString */}
-              {stats?.totalRevenue !== undefined && stats?.totalRevenue !== null
-                ? Number(stats.totalRevenue).toLocaleString("vi-VN")
-                : "0"} ₫
+    if (loading && !stats)
+        return (
+            <div className='flex items-center justify-center min-h-[600px]'>
+                <div className="relative">
+                    <div className='animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-emerald-500'></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-600">MIRA</div>
+                </div>
             </div>
-          </CardContent>
-        </Card>
+        );
 
+    const pieData = [
+        { name: 'Đang dùng', value: stats?.courtStatus.inUse || 0 },
+        { name: 'Đã đặt', value: stats?.courtStatus.reserved || 0 },
+        { name: 'Còn trống', value: stats?.courtStatus.available || 0 },
+    ];
 
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-4">
-            <h2 className="text-sm text-gray-500 mb-1">Khung giờ hot nhất</h2>
+    return (
+        <div className='space-y-8 p-1 md:p-6 animate-in fade-in duration-1000'>
+            {/* 🚀 Premium Header */}
+            <div className='flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white dark:bg-slate-900/50 p-6 rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm relative overflow-hidden'>
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                
+                <div className="relative z-10">
+                    <h1 className='text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-4'>
+                        <div className='p-3.5 bg-linear-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-xl shadow-emerald-200 dark:shadow-none'>
+                            <LayoutDashboard size={28} />
+                        </div>
+                        <div>
+                            <span>Thống kê & Phân tích</span>
+                            <div className="h-1 w-12 bg-emerald-500 rounded-full mt-1"></div>
+                        </div>
+                    </h1>
+                    <p className='text-slate-500 dark:text-slate-400 mt-2 font-medium flex items-center gap-2'>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Hệ thống báo cáo hiệu suất kinh doanh Mira
+                    </p>
+                </div>
 
-            <p className="text-xl font-bold">
-              {Array.isArray(stats?.hotHour) && stats.hotHour.length > 0
-                ? stats.hotHour.map((h, i) =>
-                  <span key={i}>
-                    {h.fromHour} – {h.toHour}
-                  </span>
-                )
-                : stats?.hotHour?.fromHour && stats?.hotHour?.toHour
-                  ? `${stats.hotHour.fromHour} – ${stats.hotHour.toHour}`
-                  : "--"
-              }
-            </p>
+                <div className='flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-2xl border border-slate-100 dark:border-white/5 relative z-10'>
+                    <div className='flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm'>
+                        {(['day', 'week', 'month', 'year'] as const).map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => handlePeriodChange(p)}
+                                className={`px-4 sm:px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                                    selectedPeriod === p
+                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-500/20'
+                                        : 'text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                }`}
+                            >
+                                {p === 'day' ? 'Ngày' : p === 'week' ? 'Tuần' : p === 'month' ? 'Tháng' : 'Năm'}
+                            </button>
+                        ))}
+                    </div>
+                    <div className='hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1'></div>
+                    <div className='flex items-center gap-2 sm:gap-4 px-1 sm:px-2'>
+                        <button
+                            onClick={() => handleNavigate('prev')}
+                            className='p-2 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm transition-all'
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <div className="flex flex-col items-center min-w-[100px] sm:min-w-[140px]">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{selectedPeriod === 'week' ? 'Giai đoạn' : 'Thời gian'}</span>
+                            <span className='text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 truncate'>
+                                {getPeriodLabel()}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => handleNavigate('next')}
+                            className='p-2 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm transition-all'
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-            <p className="text-sm mt-2 text-gray-600">
-              Lượt: {stats?.topCourt?.count || 0}
-
-            </p>
-          </CardContent>
-        </Card>
-
-
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-4">
-            <h2 className="text-sm text-gray-500 mb-1">Khách đặt nhiều nhất</h2>
-            <p className="text-2xl font-bold">{stats?.topCustomer?.user?.name || stats?.topCustomer?.user?.username || "--"}</p>
-            <p className="text-sm mt-2 text-gray-600">Lượt: {stats?.topCustomer?.count || 0}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl shadow-sm">
-          <CardContent className="p-4">
-            <h2 className="text-sm text-gray-500 mb-1">Sân đặt nhiều nhất</h2>
-            <p className="text-2xl font-bold">{stats?.topCourt?.court?.name || "--"}</p>
-            <p className="text-sm mt-2 text-gray-600">Lượt: {stats?.topCourt?.count || 0}</p>
-          </CardContent>
-        </Card>
-
-      </div>
-
-      {/* Biểu đồ trend */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-
-
-        <Card className="lg:col-span-2 rounded-2xl shadow-sm mb-6">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <CardTitle className="text-lg font-semibold">Biểu đồ doanh thu</CardTitle>
-
-            {/* Navigation Controls */}
-            { (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleNavigate('prev')}
-                  className="p-1 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Kỳ trước"
+            {/* 💰 Section 1: KPI Cards */}
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className='group bg-linear-to-br from-emerald-500 to-teal-600 p-6 rounded-4xl text-white shadow-xl shadow-emerald-200 dark:shadow-none relative overflow-hidden cursor-default'
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                        <DollarSign size={80} />
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
+                                <TrendingUp size={16} />
+                            </div>
+                            <span className='text-emerald-50 text-[10px] font-black uppercase tracking-widest'>Doanh thu Hôm nay</span>
+                        </div>
+                        <h3 className='text-3xl font-black mb-1'>
+                            {formatCurrency(stats?.revenueOverview.daily)}{' '}
+                            <span className='text-lg font-bold'>₫</span>
+                        </h3>
+                        <p className="text-emerald-100/70 text-xs font-medium">+12% so với hôm qua</p>
+                    </div>
+                </motion.div>
 
-                <span className="text-sm font-medium text-gray-600 min-w-[120px] text-center">
-                  {getPeriodLabel()}
-                </span>
-
-                <button
-                  onClick={() => handleNavigate('next')}
-                  className="p-1 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Kỳ sau"
-                  disabled={false}
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className='group bg-linear-to-bl from-blue-500 to-indigo-600 border-none p-6 rounded-4xl text-white shadow-xl shadow-blue-200 dark:shadow-none relative overflow-hidden cursor-default'
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </CardHeader>
-          <CardContent>
-            {stats?.revenueTrend && stats.revenueTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={stats.revenueTrend.map(item => ({
-                  date: item.date,
-                  revenue: Number(item.revenue) // ✅ đảm bảo là number
-                }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                <YAxis
-  domain={[0, selectedPeriod === 'year' ? 400000000 : 100000000]}
-  ticks={
-    selectedPeriod === 'year'
-      ? [100000000, 150000000, 200000000, 400000000]
-      : [1000000, 10000000, 50000000, 100000000]
-  }
-  tickFormatter={(value) => {
-    if (value >= 1_000_000) {
-      return `${(value / 1_000_000).toFixed(0)}M`;
-    }
-    return formatCurrency(value);
-  }}
-/>
-                  <Tooltip formatter={(value: any) => [formatCurrency(value) + " ₫","Doanh thu"]} />
-                  <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className='h-48 flex items-center justify-center text-gray-400 text-sm'>
-                Không có dữ liệu
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    <div className="absolute bottom-0 right-0 p-4 opacity-10 group-hover:-translate-y-2 transition-transform">
+                        <Zap size={80} />
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-md">
+                                <Zap size={16} className="text-amber-300" />
+                            </div>
+                            <span className='text-blue-100 text-[10px] font-black uppercase tracking-widest'>Tổng cộng kỳ này</span>
+                        </div>
+                        <h3 className='text-3xl font-black text-white mb-1'>
+                            {formatCurrency(stats?.totalRevenue)} <span className='text-lg text-blue-100 font-bold'>₫</span>
+                        </h3>
+                        <div className="flex items-center gap-2 mt-2">
+                            <span className="text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded shadow-sm">TÍCH CỰC</span>
+                        </div>
+                    </div>
+                </motion.div>
 
-        <Card className="rounded-2xl shadow-sm bg-white">
-          <CardContent className="p-4">
-            <h2 className="text-sm text-gray-500 mb-1">Tỷ lệ sử dụng sân</h2>
-            <p className="text-2xl font-bold">
-              {stats?.courtRate !== undefined ? stats.courtRate + "%" : "--"}
-            </p>
-            <p className="text-sm text-gray-400 mt-1">Tính theo toàn bộ lượt đặt</p>
-          </CardContent>
-        </Card>
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className='bg-white dark:bg-slate-900 p-6 rounded-4xl border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg">
+                            <TrendingUp size={16} />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đã thanh toán</span>
+                    </div>
+                    <h3 className='text-2xl font-black text-slate-900 dark:text-white'>
+                        {formatCurrency(stats?.revenueOverview.totalPaid)} <span className="text-sm font-bold">₫</span>
+                    </h3>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden">
+                        <div 
+                            className="bg-blue-500 h-full rounded-full" 
+                            style={{ width: `${stats ? (stats.revenueOverview.totalPaid / (stats.revenueOverview.totalPaid + stats.revenueOverview.totalUnpaid + 1)) * 100 : 0}%` }}
+                        ></div>
+                    </div>
+                </motion.div>
 
-      </div>
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className='bg-white dark:bg-slate-900 p-6 rounded-4xl border border-rose-100 dark:border-white/5 shadow-xl shadow-rose-100/50 dark:shadow-none'
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="p-2 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg">
+                            <Clock size={16} />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chưa thanh toán</span>
+                    </div>
+                    <h3 className='text-2xl font-black text-rose-500 dark:text-rose-400'>
+                        {formatCurrency(stats?.revenueOverview.totalUnpaid)} <span className="text-sm font-bold">₫</span>
+                    </h3>
+                    <div className="mt-4 flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-400 italic">Cần nhắc nhở thanh toán</span>
+                    </div>
+                </motion.div>
+            </div>
 
-      {/* Table TOP 4 khách đặt nhiều nhất */}
-      <Card className="rounded-2xl shadow-sm bg-white">
-        <CardContent className="p-4">
-          <h2 className="text-xl font-semibold mb-4">Top khách hàng đặt nhiều nhất</h2>
+            {/* 📊 Section 2: Main Charts */}
+            <div className='grid grid-cols-1 lg:grid-cols-12 gap-8'>
+                {/* Biểu đồ xu hướng Doanh thu */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className='lg:col-span-8 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                >
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h3 className='text-xl text-slate-900 dark:text-white font-extrabold flex items-center gap-2'>
+                                <TrendingUp className="text-emerald-500" size={20} />
+                                Phân tích Xu hướng Doanh thu
+                            </h3>
+                            <p className="text-slate-400 text-xs font-medium mt-1">Dữ liệu doanh thu biến động theo thời gian</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                                <span className="text-[10px] font-bold text-slate-500 uppercase">Doanh thu</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className='h-[350px] w-full'>
+                        <ResponsiveContainer width='100%' height='100%'>
+                            <AreaChart data={stats?.revenueTrend}>
+                                <defs>
+                                    <linearGradient id='colorRev' x1='0' y1='0' x2='0' y2='1'>
+                                        <stop offset='5%' stopColor='#10b981' stopOpacity={0.1}/>
+                                        <stop offset='95%' stopColor='#10b981' stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid vertical={false} strokeDasharray='3 3' strokeOpacity={0.05} />
+                                <XAxis 
+                                    dataKey='date' 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                                    dy={10}
+                                />
+                                <YAxis 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                                    tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}Tr` : v.toLocaleString()}
+                                />
+                                <Tooltip 
+                                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', padding: '12px' }}
+                                    itemStyle={{ fontWeight: 800, color: '#0f172a' }}
+                                    labelStyle={{ fontWeight: 900, marginBottom: '4px', color: '#64748b' }}
+                                    formatter={(v: any) => [formatCurrency(v) + ' ₫', 'Doanh thu']}
+                                />
+                                <Area 
+                                    type='monotone' 
+                                    dataKey='revenue' 
+                                    stroke='#10b981' 
+                                    strokeWidth={3} 
+                                    fillOpacity={1} 
+                                    fill='url(#colorRev)' 
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </motion.div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm bg-white rounded-xl">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="text-left p-3">Hạng</th>
-                  <th className="text-left p-3">Tên khách</th>
-                  <th className="text-left p-3">Email</th>
-                  <th className="text-left p-3">Số lượt đặt</th>
-                </tr>
-              </thead>
+                {/* ⚽ Section: Trạng thái Sân bóng */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className='lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden flex flex-col'
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-5 pointer-events-none text-slate-900 dark:text-white">
+                        <PieChartIcon size={220} />
+                    </div>
+                    
+                    <h3 className='text-xl font-extrabold mb-6 relative z-10 flex items-center gap-2 text-slate-900 dark:text-white'>
+                        <span className='w-2 h-2 rounded-full bg-emerald-500 animate-pulse'></span>
+                        Vận hành Sân Hiện tại
+                    </h3>
 
-              <tbody>
-                {stats?.topCustomersList?.slice(0, 4).map((item, i) => (
-                  <tr key={i} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-bold text-gray-400">#{i + 1}</td>
+                    <div className="flex-1 min-h-[220px] relative z-10">
+                        <ResponsiveContainer width='100%' height='100%'>
+                            <PieChart>
+                                <Pie
+                                    data={pieData}
+                                    cx='50%'
+                                    cy='50%'
+                                    innerRadius={70}
+                                    outerRadius={90}
+                                    paddingAngle={8}
+                                    dataKey='value'
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0)" />
+                                    ))}
+                                </Pie>
+                                <Tooltip 
+                                    contentStyle={{ borderRadius: '12px', border: 'none', background: '#0f172a', color: '#fff' }}
+                                    itemStyle={{ color: '#fff' }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Hiệu suất</p>
+                            <p className="text-3xl font-black text-slate-900 dark:text-white">
+                                {stats ? Math.round((stats.courtStatus.inUse / (stats.courtStatus.inUse + stats.courtStatus.available + 0.1)) * 100) || 0 : 0}%
+                            </p>
+                        </div>
+                    </div>
 
-                    <td className="p-3 font-medium">
-                      {item.user?.name || item.user?.username || "--"}
-                    </td>
+                    <div className="space-y-3 mt-6 relative z-10">
+                        {pieData.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 hover:shadow-sm transition-all">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: COLORS[idx] }}></div>
+                                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400">{item.name}</span>
+                                </div>
+                                <span className="text-sm font-black text-slate-900 dark:text-white">{item.value} sân</span>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
+            </div>
 
-                    <td className="p-3 text-gray-500">
-                      {item.user?.email || "--"}
-                    </td>
+            {/* 🏆 Section 3: Rankings & Metrics */}
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
+                {/* 📊 Section: Lượt đặt sân */}
+                <motion.div 
+                    whileHover={{ y: -5 }}
+                    className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                >
+                    <div className="flex justify-between items-center mb-8">
+                        <h3 className='text-lg font-black text-slate-800 dark:text-white flex items-center gap-3'>
+                            <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl"><Calendar size={20} /></div>
+                            Lượt đặt sân bóng
+                        </h3>
+                        <div className="p-2 bg-slate-50 dark:bg-white/5 rounded-full"><ArrowUpRight size={16} className="text-slate-400" /></div>
+                    </div>
+                    
+                    <div className='space-y-4'>
+                        <div className='flex justify-between items-center p-5 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-2xl group cursor-default border border-transparent hover:border-indigo-100 dark:hover:border-indigo-500/20 transition-all'>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center font-black text-indigo-600 dark:text-indigo-400 shadow-sm group-hover:scale-110 transition-transform">1</div>
+                                <span className='font-extrabold text-slate-700 dark:text-slate-200'>Hôm nay</span>
+                            </div>
+                            <span className='text-3xl font-black text-indigo-600 dark:text-indigo-400'>
+                                {stats?.bookingsOverview.today}
+                            </span>
+                        </div>
+                        <div className='flex justify-between items-center p-5 bg-teal-50/50 dark:bg-teal-500/5 rounded-2xl group cursor-default border border-transparent hover:border-teal-100 dark:hover:border-teal-500/20 transition-all'>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center font-black text-teal-600 dark:text-teal-400 shadow-sm group-hover:scale-110 transition-transform">7</div>
+                                <span className='font-extrabold text-slate-700 dark:text-slate-200'>Tuần này</span>
+                            </div>
+                            <span className='text-3xl font-black text-teal-600 dark:text-teal-400'>
+                                {stats?.bookingsOverview.week}
+                            </span>
+                        </div>
+                        <div className='flex justify-between items-center p-5 bg-amber-50/50 dark:bg-amber-500/5 rounded-2xl group cursor-default border border-transparent hover:border-amber-100 dark:hover:border-amber-500/20 transition-all'>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center font-black text-amber-600 dark:text-amber-400 shadow-sm group-hover:scale-110 transition-transform">30</div>
+                                <span className='font-extrabold text-slate-700 dark:text-slate-200'>Tháng này</span>
+                            </div>
+                            <span className='text-3xl font-black text-amber-600 dark:text-amber-400'>
+                                {stats?.bookingsOverview.month}
+                            </span>
+                        </div>
+                    </div>
+                </motion.div>
 
-                    <td className="p-3 font-bold">
-                      {item.count}
-                    </td>
-                  </tr>
-                ))}
+                {/* ⚽ Section: Rankings */}
+                <motion.div 
+                    whileHover={{ y: -5 }}
+                    className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                >
+                    <div className="flex justify-between items-center mb-8">
+                        <h3 className='text-lg font-black text-slate-800 dark:text-white flex items-center gap-3'>
+                            <div className="p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl"><Trophy size={20} /></div>
+                            Bảng xếp hạng Sân
+                        </h3>
+                    </div>
+                    
+                    <div className='space-y-5'>
+                        {stats?.courtsStats.slice(0, 5).map((c, i) => (
+                            <div key={i} className='group'>
+                                <div className='flex justify-between mb-2 items-end'>
+                                    <div className='flex items-center gap-3'>
+                                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-400 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
+                                            {i + 1}
+                                        </div>
+                                        <span className='text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-amber-500 transition-colors'>
+                                            {c.name}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <span className='text-sm font-black text-slate-900 dark:text-white'>{c.count}</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">Lượt</span>
+                                    </div>
+                                </div>
+                                <div className='w-full h-2 bg-slate-50 dark:bg-white/5 rounded-full overflow-hidden'>
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${(c.count / (stats.courtsStats[0]?.count || 1)) * 100}%` }}
+                                        transition={{ duration: 1, ease: 'easeOut' }}
+                                        className={`h-full rounded-full ${i === 0 ? 'bg-amber-400' : 'bg-slate-200 dark:bg-slate-700 group-hover:bg-amber-400/50'}`}
+                                    ></motion.div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
 
-                {/* Fallback nếu không có dữ liệu */}
-                {(!stats?.topCustomersList || stats.topCustomersList.length === 0) && (
-                  <tr>
-                    <td className="p-4 text-center text-gray-500" colSpan={4}>
-                      Không có dữ liệu khách hàng
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                {/* 👤 Section: Customers */}
+                <motion.div 
+                    whileHover={{ y: -5 }}
+                    className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                >
+                    <div className="flex justify-between items-center mb-8">
+                        <h3 className='text-lg font-black text-slate-800 dark:text-white flex items-center gap-3'>
+                            <div className="p-2 bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-xl"><Users size={20} /></div>
+                            Khách hàng thân thiết
+                        </h3>
+                    </div>
 
-        </CardContent>
-      </Card>
+                    <div className='flex items-center justify-between mb-8 p-1 bg-slate-50 dark:bg-white/5 rounded-2xl'>
+                        <div className="flex-1 text-center p-3">
+                            <p className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>Tổng khách</p>
+                            <p className='text-2xl font-black text-slate-900 dark:text-white'>{stats?.customerStats.total}</p>
+                        </div>
+                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                        <div className="flex-1 text-center p-3">
+                            <p className='text-[10px] font-black text-emerald-500 uppercase tracking-widest'>Tháng mới</p>
+                            <p className='text-2xl font-black text-emerald-600 dark:text-emerald-400'>+{stats?.customerStats.newThisMonth}</p>
+                        </div>
+                    </div>
 
+                    <div className='space-y-4'>
+                        {stats?.customerStats.topList.slice(0, 3).map((item, i) => (
+                            <div key={i} className='flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-default'>
+                                <div className='flex items-center gap-4'>
+                                    <div className="relative">
+                                        <div className='w-11 h-11 rounded-2xl bg-linear-to-tr from-violet-500 to-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-violet-500/20'>
+                                            {item.user?.name?.charAt(0) || 'U'}
+                                        </div>
+                                        {i === 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center text-[8px]">👑</div>}
+                                    </div>
+                                    <div>
+                                        <p className='text-sm font-extrabold text-slate-800 dark:text-slate-200 truncate max-w-[120px]'>
+                                            {item.user?.name || 'Khách ẩn danh'}
+                                        </p>
+                                        <p className='text-[10px] text-slate-400 font-bold'>
+                                            {item.user?.phone || 'Chưa cập nhật'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className='text-right'>
+                                    <p className='text-lg font-black text-slate-900 dark:text-white'>
+                                        {item.count}
+                                    </p>
+                                    <p className='text-[10px] font-black text-violet-500 dark:text-violet-400 uppercase'>Đơn</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
+            </div>
 
-    </div>
-  );
+            {/* 🕐 Section 4: Hot Hours Analytics */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+            >
+                <div className="flex justify-between items-center mb-10">
+                    <div>
+                        <h3 className='text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-3'>
+                            <div className="p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl"><Clock size={22} /></div>
+                            Khung giờ Vàng
+                        </h3>
+                        <p className="text-slate-400 text-xs font-medium mt-1">Phân tích hiệu suất đặt sân theo từng khung giờ trong ngày</p>
+                    </div>
+                </div>
+
+                <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+                    {stats?.peakHours.map((p, i) => {
+                        const maxCount = Math.max(...stats.peakHours.map(h => h.count));
+                        // Ngăn chia cho 0 và xử lý cường độ
+                        const validMaxCount = maxCount > 0 ? maxCount : 1;
+                        const intensity = p.count / validMaxCount;
+                        
+                        // Kích hoạt giao diện dark mode cho khung giờ được đặt nhiều nhất
+                        const isHot = intensity > 0.8 && p.count > 0;
+                        
+                        return (
+                            <motion.div
+                                key={i}
+                                whileHover={{ scale: 1.05 }}
+                                className={`p-6 text-center rounded-3xl border transition-all group relative overflow-hidden flex flex-col items-center justify-center ${
+                                    isHot 
+                                        ? 'bg-linear-to-br from-amber-400 to-orange-500 dark:from-emerald-500/10 dark:to-emerald-500/5 text-white border-none shadow-xl shadow-orange-200 dark:shadow-emerald-500/10' 
+                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-white/5 text-slate-900 dark:text-slate-300'
+                                }`}
+                            >
+                                {isHot && <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-50 pointer-events-none"></div>}
+                                {isHot && <div className="absolute top-3 right-3 w-1.5 h-1.5 bg-white rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>}
+                                
+                                <p className={`text-[10px] font-black uppercase tracking-widest mb-4 z-10 ${isHot ? 'text-amber-50 dark:text-emerald-400 group-hover:text-white transition-colors' : 'text-slate-400'}`}>
+                                    {p.time}
+                                </p>
+                                <div className="flex flex-col items-center z-10">
+                                    <p className={`text-4xl font-black mb-1 group-hover:scale-110 transition-transform ${isHot ? 'text-white dark:text-emerald-400 drop-shadow-md' : 'text-slate-800 dark:text-slate-200'}`}>{p.count}</p>
+                                    <span className={`text-[10px] font-black px-2 py-0.5 mt-1 rounded shadow-xs uppercase ${isHot ? 'bg-white/20 dark:bg-emerald-500/20 text-white dark:text-emerald-300' : 'bg-white dark:bg-white/10 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-none'}`}>
+                                        Đặt sân
+                                    </span>
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </div>
+            </motion.div>
+
+            <style>{`
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
+        </div>
+    );
 }
-
-
-
-// import React, { useEffect, useState } from "react";
-//   import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-//   import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-//   import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
-//   import { CalendarDays, DollarSign, Download, FileSpreadsheet } from "lucide-react";
-
-
-//   interface HotHour {
-//     fromHour: string; // ví dụ: "18:00"
-//     toHour: string;   // ví dụ: "20:00"
-//     count: number;
-//   }
-
-//   interface TopCustomer {
-//     user: {
-//       username?: string;
-//       name?: string;
-//       phone?: string;
-//       email?: string;
-//     };
-//     count: number;
-//   }
-
-//   interface TopCourt {
-//     court: {
-//       name: string;
-//     };
-//     count: number;
-//   }
-
-//   interface BookingStats {
-//     hotHour?: HotHour | null;
-//     topCustomer?: TopCustomer | null;
-//     topCourt?: TopCourt | null;
-//     hourTrend?: { date: string; count: number }[];
-//     // courtRate?: { court: string; value: number }[];
-//     revenueTrend?: { date: string; revenue: number }[]; 
-//     topCustomersList?: TopCustomer[];
-    
-//     courtRate?: number;
-//     totalRevenue?: number;
-//   }
-
-
-//   const formatCurrency = (value?: number | string) => {
-//   if (value === undefined || value === null) return "0";
-//   return Number(value).toLocaleString("vi-VN");
-// };
-
-//   export default function BookingStatsReportPage() {
-//     const [stats, setStats] = useState<BookingStats | null>(null);
-//     const [loading, setLoading] = useState(true);
-//     const [error, setError] = useState("");
-
-//     // ✅ Thêm filter khoảng thời gian
-//     const [fromDate, setFromDate] = useState("");
-//     const [toDate, setToDate] = useState("");
-
-
-// const fetchStats = async (from?: string, to?: string) => {
-//   try {
-//     setError("");
-//     setLoading(true);
-
-//     const url = from && to
-//       ? `http://localhost:3000/api/reports/public/booking-stats?from=${from}&to=${to}`
-//       : `http://localhost:3000/api/reports/public/booking-stats`;
-
-//     const res = await fetch(url);
-//     const json = await res.json();
-
-//     console.log("📌 API response:", json); // log kiểm tra
-
-//     if (!res.ok || !json.success) {
-//       throw new Error(json.error || "Lỗi khi lấy báo cáo");
-//     }
-
-//     const reportData = json.data; // 👈 Đây mới đúng
-
-//     setStats({
-//       hotHour: reportData.hotHour ?? null,
-//       topCustomer: reportData.topCustomer ?? null,
-//       topCourt: reportData.topCourt ?? null,
-//       hourTrend: reportData.hourTrend ?? [],
-//       revenueTrend: reportData.revenueTrend ?? [],
-//       topCustomersList: reportData.topCustomersList ?? [],
-
-//       courtRate: reportData.courtRate ?? 0,
-//       totalRevenue: reportData.totalRevenue ?? 0, // 👈 đúng field doanh thu
-//     });
-
-//   } catch (e: any) {
-//     setError(e.message);
-//   } finally {
-//     setLoading(false);
-//   }
-// };
-
-
-//     useEffect(() => {
-//       fetchStats();
-//     }, []);
-
-//     if (loading) return <p className="p-6">Đang tải báo cáo...</p>;
-//     if (error) return <p className="text-red-500 p-6">{error}</p>;
-    
-
-//     return (
-//       <div className="p-6 bg-gray-50 min-h-screen">
-//               {/* Header */}
-//         <div className="flex justify-between flex-wrap gap-4 mb-6 items-center">
-//           <div className="flex items-center gap-2 font-semibold text-xl">
-//             <CalendarDays size={22}/> <span>Tổng quan Booking</span>
-//           </div>
-//         </div>
-
-//         {/* ✅ Thanh Filter có chọn khoảng ngày */}
-//         <div className="flex flex-wrap gap-4 items-center justify-between mb-6">
-
-//           <div className="flex flex-wrap gap-3 items-end">
-            
-
-//             {/* Input Từ ngày */}
-//             <div className="flex flex-col">
-//               <label className="text-xs text-gray-500 mb-1">Từ ngày</label>
-//               <input
-//                 type="date"
-//                 value={fromDate}
-//                 onChange={e => setFromDate(e.target.value)}
-//                 className="border px-3 py-2 rounded-lg text-sm w-[150px]"
-//               />
-//             </div>
-
-//             {/* Input Đến ngày */}
-//             <div className="flex flex-col">
-//               <label className="text-xs text-gray-500 mb-1">Đến ngày</label>
-//               <input
-//                 type="date"
-//                 value={toDate}
-//                 onChange={e => setToDate(e.target.value)}
-//                 className="border px-3 py-2 rounded-lg text-sm w-[150px]"
-//               />
-//             </div>
-
-//             {/* Nút Áp dụng */}
-//             <button
-//               onClick={() => {
-//                 if (!fromDate || !toDate) {
-//                   alert("Vui lòng chọn từ ngày và đến ngày!");
-//                   return;
-//                 }
-//                 fetchStats(fromDate, toDate);
-//               }}
-//               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-//             >
-//               Áp dụng
-//             </button>
-//           </div>
-//         </div>
-
-//         {/* Card số liệu */}
-//         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-//           <Card className="rounded-2xl shadow-sm bg-white">
-//               <CardHeader className="flex justify-between items-center pb-2">
-//                 <CardTitle>Tổng doanh thu</CardTitle>
-//                 <DollarSign className="w-5 h-5" />
-//               </CardHeader>
-
-//               <CardContent>
-//                 <div className="text-2xl font-semibold">
-//                   {/* Chuyển totalRevenue sang number trước khi dùng toLocaleString */}
-//                   {stats?.totalRevenue !== undefined && stats?.totalRevenue !== null
-//                     ? Number(stats.totalRevenue).toLocaleString("vi-VN")
-//                     : "0"} ₫
-//                 </div>
-//                 <p className="text-sm text-gray-500 mt-1">Tính theo 7 ngày gần nhất</p>
-//               </CardContent>
-//           </Card>
-
-
-//           <Card className="rounded-2xl shadow-sm">
-//             <CardContent className="p-4">
-//               <h2 className="text-sm text-gray-500 mb-1">Khung giờ hot nhất</h2>
-
-//               <p className="text-xl font-bold">
-//                 {Array.isArray(stats?.hotHour) && stats.hotHour.length > 0
-//                   ? stats.hotHour.map((h, i) =>
-//                       <span key={i}>
-//                         {h.fromHour} – {h.toHour}
-//                       </span>
-//                     )
-//                   : stats?.hotHour?.fromHour && stats?.hotHour?.toHour
-//                     ? `${stats.hotHour.fromHour} – ${stats.hotHour.toHour}`
-//                     : "--"
-//                 }
-//               </p>
-
-//               <p className="text-sm mt-2 text-gray-600">
-//                   Lượt: {stats?.topCourt?.count || 0} 
-
-//               </p>
-//             </CardContent>
-//           </Card>
-
-
-//           <Card className="rounded-2xl shadow-sm">
-//             <CardContent className="p-4">
-//               <h2 className="text-sm text-gray-500 mb-1">Khách đặt nhiều nhất</h2>
-//               <p className="text-2xl font-bold">{stats?.topCustomer?.user?.name || stats?.topCustomer?.user?.username || "--"}</p>
-//               <p className="text-sm mt-2 text-gray-600">Lượt: {stats?.topCustomer?.count || 0}</p>
-//             </CardContent>
-//           </Card>
-
-//           <Card className="rounded-2xl shadow-sm">
-//             <CardContent className="p-4">
-//               <h2 className="text-sm text-gray-500 mb-1">Sân đặt nhiều nhất</h2>
-//               <p className="text-2xl font-bold">{stats?.topCourt?.court?.name || "--"}</p>
-//               <p className="text-sm mt-2 text-gray-600">Lượt: {stats?.topCourt?.count || 0}</p>
-//             </CardContent>
-//           </Card>
-
-//         </div>
-
-//         {/* Biểu đồ trend */}
-//         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-
-
-//           <Card className="lg:col-span-2 rounded-2xl shadow-sm mb-6">
-//             <CardHeader>
-//               <CardTitle>Biểu đồ doanh thu</CardTitle>
-//             </CardHeader>
-//             <CardContent>
-//               {stats?.revenueTrend && stats.revenueTrend.length > 0 ? (
-//                 <ResponsiveContainer width="100%" height={250}>
-//                   <LineChart data={stats.revenueTrend.map(item => ({
-//                     date: item.date,
-//                     revenue: Number(item.revenue) // ✅ đảm bảo là number
-//                   }))}>
-//                     <CartesianGrid strokeDasharray="3 3" />
-//                     <XAxis dataKey="date" />
-//                     <YAxis 
-//                       tickFormatter={(value) => formatCurrency(value)} 
-//                     />
-//                     <Tooltip formatter={(value: any) => formatCurrency(value) + " ₫"} />
-//                     <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} />
-//                   </LineChart>
-//                 </ResponsiveContainer>
-//               ) : (
-//                 <div className='h-48 flex items-center justify-center text-gray-400 text-sm'>
-//                   Không có dữ liệu
-//                 </div>
-//               )}
-//             </CardContent>
-//           </Card>
-
-//           <Card className="rounded-2xl shadow-sm bg-white">
-//             <CardContent className="p-4">
-//               <h2 className="text-sm text-gray-500 mb-1">Tỷ lệ sử dụng sân</h2>
-//               <p className="text-2xl font-bold">
-//                 {stats?.courtRate !== undefined ? stats.courtRate + "%" : "--"}
-//               </p>
-//               <p className="text-sm text-gray-400 mt-1">Tính theo toàn bộ lượt đặt</p>
-//             </CardContent>
-//           </Card>
-
-//         </div>
-
-//         {/* Table TOP 4 khách đặt nhiều nhất */}
-//           <Card className="rounded-2xl shadow-sm bg-white">
-//             <CardContent className="p-4">
-//               <h2 className="text-xl font-semibold mb-4">Top khách hàng đặt nhiều nhất</h2>
-
-//               <div className="overflow-x-auto">
-//                 <table className="w-full text-sm bg-white rounded-xl">
-//                   <thead className="bg-gray-100">
-//                     <tr>
-//                       <th className="text-left p-3">Hạng</th>
-//                       <th className="text-left p-3">Tên khách</th>
-//                       <th className="text-left p-3">Email</th>
-//                       <th className="text-left p-3">Số lượt đặt</th>
-//                     </tr>
-//                   </thead>
-
-//                   <tbody>
-//                     {stats?.topCustomersList?.slice(0, 4).map((item, i) => (
-//                       <tr key={i} className="border-b hover:bg-gray-50">
-//                         <td className="p-3 font-bold text-gray-400">#{i + 1}</td>
-
-//                         <td className="p-3 font-medium">
-//                           {item.user?.name || item.user?.username || "--"}
-//                         </td>
-
-//                         <td className="p-3 text-gray-500">
-//                           {item.user?.email || "--"}
-//                         </td>
-
-//                         <td className="p-3 font-bold">
-//                           {item.count}
-//                         </td>
-//                       </tr>
-//                     ))}
-
-//                     {/* Fallback nếu không có dữ liệu */}
-//                     {(!stats?.topCustomersList || stats.topCustomersList.length === 0) && (
-//                       <tr>
-//                         <td className="p-4 text-center text-gray-500" colSpan={4}>
-//                           Không có dữ liệu khách hàng
-//                         </td>
-//                       </tr>
-//                     )}
-//                   </tbody>
-//                 </table>
-//               </div>
-
-//             </CardContent>
-//           </Card>
-
-
-//       </div>
-//     );
-//   }

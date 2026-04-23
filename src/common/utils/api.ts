@@ -110,19 +110,20 @@ api.interceptors.response.use(
     console.error(" API RESPONSE STATUS:", status);
     console.error(" API RESPONSE DATA:", data);
 
-    // If unauthorized, clear local auth and redirect to login
+    // Nếu không có quyền, xóa xác thực cục bộ và chuyển hướng đến trang đăng nhập
     if (status === 401) {
       try {
-        toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        const msg = data?.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+        toast.error(msg);
       } catch (e) {
-        // toast may not be available in non-browser envs, ignore
+        // toast có thể không khả dụng trong môi trường ngoài trình duyệt
       }
       localStorage.removeItem('token');
       localStorage.removeItem('user');
 
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/signin') {
         setTimeout(() => {
-          window.location.href = '/login';
+          window.location.href = '/signin';
         }, 700);
       }
     }

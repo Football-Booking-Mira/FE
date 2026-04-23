@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "@/common/utils/api";
 
 export interface PublicVoucher {
@@ -24,6 +24,10 @@ export const usePublicVouchers = (limit: number = 20) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const retryRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_RETRIES = 20;
+
   const fetchVouchers = async () => {
     try {
       setLoading(true);
@@ -38,20 +42,44 @@ export const usePublicVouchers = (limit: number = 20) => {
       }
 
       setVouchers(data);
+      setLoading(false);
+      retryRef.current = 0; // Reset retry counter on success
     } catch (err: any) {
       const errorMessage =
         err?.response?.data?.message ||
         err?.message ||
         "Không thể tải danh sách voucher!";
+
+      // Auto retry khi server chưa sẵn sàng (network error)
+      const isNetworkError =
+        err?.code === "ERR_NETWORK" ||
+        err?.message?.includes("Network Error") ||
+        !err?.response;
+
+      if (isNetworkError && retryRef.current < MAX_RETRIES) {
+        retryRef.current += 1;
+        console.log(
+          `[Voucher] Đang thử kết nối lại... (lần ${retryRef.current})`
+        );
+        // Giữ loading = true, không set error khi đang retry
+        retryTimerRef.current = setTimeout(() => {
+          fetchVouchers();
+        }, 3000);
+        return; // Không tắt loading, không set error
+      }
+
       setError(errorMessage);
       setVouchers([]);
-    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchVouchers();
+
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
   }, [limit]);
 
   return {

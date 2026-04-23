@@ -1,6 +1,6 @@
 import type { RouteObject } from "react-router-dom";
 import AdminLayout from "@/layouts/AdminLayout";
-import DashBoard from "@/pages/admin/dashboard/DashBoard";
+
 import CourtManagement from "@/pages/admin/courts/CourtManagement";
 import BookingCreate from "@/pages/admin/bookings/BookingCreate";
 import EquipmentList from "@/pages/admin/equipments/EquipmentList.tsx";
@@ -16,7 +16,7 @@ import VoucherEdit from "../pages/admin/vouchers/VoucherEdit";
 import Users from "@/pages/admin/users/users.tsx";
 import BookingReportPage from "@/pages/admin/reports/BookingReportPage";
 
-import Reviews from "@/pages/client/home/Reviews";
+
 import ReviewsAdmin from "@/pages/admin/review/ReviewsAdmin";
 import ContactsPage from "@/pages/admin/contacts/ContactsPage";
 
@@ -24,7 +24,7 @@ export const AdminRoutes: RouteObject[] = [
   {
     path: "/admin",
     element: (
-      <RoleRoute requiredRoles={["admin"]} redirectTo="/login">
+      <RoleRoute requiredRoles={["admin"]} redirectTo="/signin">
         <AdminLayout />
       </RoleRoute>
     ),

@@ -7,11 +7,9 @@ import {
     Tag,
     Table,
     Card,
-    Space,
     Input,
     Select,
     DatePicker,
-    Statistic,
     Row,
     Col,
     Modal,
@@ -19,7 +17,6 @@ import {
     Form,
     Spin,
     Upload,
-    Tooltip,
     Checkbox,
 } from 'antd';
 import { toast } from 'sonner';
@@ -39,7 +36,23 @@ import {
     EditOutlined,
     UploadOutlined,
     PlusOutlined,
+    SearchOutlined,
+    ReloadOutlined
 } from '@ant-design/icons';
+import { 
+    PackageCheck, 
+    User, 
+    MapPin, 
+    Clock, 
+    Minus, 
+    Plus, 
+    Info, 
+    ShoppingBag, 
+    CreditCard,
+    ChevronRight,
+    X,
+    Layers
+} from 'lucide-react';
 import { io } from 'socket.io-client';
 
 dayjs.locale('vi');
@@ -57,17 +70,20 @@ interface BookingSlot {
 interface Booking {
     _id: string;
     code: string;
+    orderId?: any;
     customerId?: {
         _id?: string;
         username?: string;
         name?: string;
         phone?: string;
         email?: string;
+        avatar?: string;
     };
     customerInfo?: {
         name?: string;
         phone?: string;
         email?: string;
+        avatar?: string;
     };
     courtId?: { _id: string; name: string };
     date: string;
@@ -164,13 +180,7 @@ const REFUND_LABELS: Record<string, string> = {
     rejected: 'Từ chối hoàn tiền',
 };
 
-const REFUND_COLORS: Record<string, string> = {
-    none: 'default',
-    pending: 'orange',
-    processing: 'blue',
-    refunded: 'green',
-    rejected: 'red',
-};
+
 
 type RefundFilter = 'all' | 'pending' | 'processing' | 'refunded' | 'rejected';
 
@@ -275,7 +285,10 @@ export default function BookingList() {
     const [paymentLoading, setPaymentLoading] = useState(false);
     const [paymentForm] = Form.useForm();
     const [paymentDiscount, setPaymentDiscount] = useState<number>(0);
-    // modal sate ỦY ĐƠN TIỀN MẶT (admin)
+    // modal sate HỦY ĐƠN TIỀN MẶT (admin)
+    const [cancelCashModalOpen, setCancelCashModalOpen] = useState(false);
+    const [cancelCashBooking, setCancelCashBooking] = useState<Booking | null>(null);
+    const [cancelCashLoading, setCancelCashLoading] = useState(false);
     const [cancelRefundDeposit, setCancelRefundDeposit] = useState(false);
     const [cancelAdminReason, setCancelAdminReason] = useState('');
 
@@ -345,7 +358,7 @@ export default function BookingList() {
             const rawEquipments = equipRes.data?.data || equipRes.data || [];
 
             // nếu có bookingId -> lấy BookingItem hiện tại
-            let baseQty: Record<string, number> = {};
+            const baseQty: Record<string, number> = {};
             if (bookingId) {
                 try {
                     const itemsRes = await api.get(`/bookings/${bookingId}/equipments-detail`);
@@ -506,7 +519,7 @@ export default function BookingList() {
 
     const fetchStats = async () => {
         try {
-            const res = await api.get('/bookings/admin/dashboard');
+            const res = await api.get(`/bookings/admin/dashboard?t=${Date.now()}`);
             setStats(res.data.data || {});
         } catch {
             toast.error('Không thể tải thống kê!');
@@ -516,13 +529,11 @@ export default function BookingList() {
     const fetchBookings = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/bookings');
+            const res = await api.get(`/bookings?t=${Date.now()}`);
             const rawList: Booking[] = res.data.data || [];
 
             const list = rawList.map((b) => {
                 const hasDepositPaid = (b.depositAmount || 0) > 0 && b.depositStatus === 'paid';
-                const deposit = Number(b.depositAmount || 0);
-                const total = Number(b.total || 0);
 
                 let paymentStatus: Booking['paymentStatus'] = (b.paymentStatus as any) || 'unpaid';
 
@@ -590,37 +601,69 @@ export default function BookingList() {
         fetchStats();
         fetchCourts();
 
-        const socketInstance = io('http://localhost:3000', {
+        const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+        const socketInstance = io(SOCKET_URL, {
             transports: ['websocket'],
             withCredentials: true,
         });
 
-        socketInstance.on('booking_global_updated', () => {
+        const handleUpdate = () => {
             fetchBookings();
             fetchStats();
-        });
+        };
+
+        socketInstance.on('booking_global_updated', handleUpdate);
+        socketInstance.on('booking_updated', handleUpdate);
 
         return () => {
-            socketInstance.off('booking_global_updated');
+            socketInstance.off('booking_global_updated', handleUpdate);
+            socketInstance.off('booking_updated', handleUpdate);
             socketInstance.disconnect();
         };
     }, []);
 
     const showCancelReason = (b: Booking) => {
+        const customerName = b.customerInfo?.name || b.customerId?.name || b.customerId?.username || 'Ẩn danh';
+        const phone = b.customerInfo?.phone || b.customerId?.phone || '';
+
         Modal.info({
             centered: true,
-            title: `Lý do hủy đơn ${b.code}`,
+            width: 450,
+            icon: null,
+            title: (
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+                    <span className="text-rose-500 text-xl">ℹ️</span>
+                    <span className="font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest text-base">Lý do hủy đơn</span>
+                    <span className="text-rose-600 bg-rose-50 dark:bg-rose-500/10 px-2.5 py-0.5 rounded-full text-xs font-bold ml-auto border border-rose-100 dark:border-rose-500/20">{b.code}</span>
+                </div>
+            ),
             okText: 'Đóng',
+            okButtonProps: {
+                className: "bg-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:hover:bg-white text-white dark:text-slate-900 border-none rounded-lg px-6 font-bold shadow-md active:scale-95 transition-all mt-2"
+            },
             content: (
-                <div>
-                    <p>
-                        <b>Khách hàng:</b> {b.customerInfo?.name || b.customerId?.name || 'Ẩn danh'}
-                    </p>
-                    {b.cancelReason ? (
-                        <p className='mt-2'>{b.cancelReason}</p>
-                    ) : (
-                        <p className='mt-2 text-gray-500'>Không có lý do hủy.</p>
-                    )}
+                <div className="mt-5 space-y-4">
+                    <div className="bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-xs">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Thông tin khách hàng</div>
+                        <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 text-[13px]">{customerName}</span>
+                            {phone && <span className="text-slate-500 dark:text-slate-400 text-xs font-mono font-medium">{phone}</span>}
+                        </div>
+                    </div>
+
+                    <div className="bg-linear-to-br from-rose-50/80 to-rose-100/50 dark:from-rose-900/10 dark:to-rose-800/10 p-4 rounded-xl border border-rose-200/60 dark:border-rose-800/30 shadow-xs relative overflow-hidden">
+                        <div className="absolute top-0 right-0 -mr-4 -mt-4 text-6xl text-rose-500/5 dark:text-rose-400/5 font-serif">&quot;</div>
+                        <div className="text-[10px] font-bold text-rose-400 dark:text-rose-500/80 uppercase tracking-widest mb-2 relative z-10">Chi tiết lý do</div>
+                        {b.cancelReason ? (
+                            <p className="text-[13px] text-rose-900 dark:text-rose-200/90 leading-relaxed m-0 italic font-medium relative z-10">
+                                &quot;{b.cancelReason}&quot;
+                            </p>
+                        ) : (
+                            <p className="text-[13px] text-slate-400 m-0 italic relative z-10">
+                                Không có lý do cụ thể.
+                            </p>
+                        )}
+                    </div>
                 </div>
             ),
         });
@@ -652,68 +695,32 @@ export default function BookingList() {
     };
 
     const handleAdminCancelCash = (record: Booking) => {
-        // reset mỗi lần mở modal
+        setCancelCashBooking(record);
         setCancelRefundDeposit(false);
         setCancelAdminReason('');
+        setCancelCashModalOpen(true);
+    };
 
-        Modal.confirm({
-            centered: true,
-            title: 'Hủy đơn tiền mặt',
-            okText: 'Xác nhận hủy',
-            cancelText: 'Đóng',
-            content: (
-                <>
-                    <p>
-                        Mã đơn: <b>{record.code}</b>
-                    </p>
-                    <p>
-                        Thời gian:{' '}
-                        <b>
-                            {dayjs(record.date).format('DD/MM/YYYY')} {record.startTime} -{' '}
-                            {record.endTime}
-                        </b>
-                    </p>
-                    <p>
-                        Tiền cọc: <b>{formatVND(record.depositAmount || 0)}</b>
-                    </p>
+    const confirmCancelCash = async () => {
+        if (!cancelCashBooking) return;
+        setCancelCashLoading(true);
+        try {
+            await api.post(`/bookings/${cancelCashBooking._id}/admin-cancel-cash`, {
+                refundDeposit: cancelRefundDeposit,
+                adminReason: cancelAdminReason,
+            });
 
-                    <Checkbox
-                        className='mt-2'
-                        checked={cancelRefundDeposit}
-                        onChange={(e) => setCancelRefundDeposit(e.target.checked)}
-                    >
-                        Đã hoàn lại tiền (cọc / toàn bộ) cho khách
-                    </Checkbox>
-
-                    <TextArea
-                        className='mt-2'
-                        rows={3}
-                        value={cancelAdminReason}
-                        onChange={(e) => setCancelAdminReason(e.target.value)}
-                        placeholder='Ghi chú lý do hủy / hoàn tiền (tùy chọn)'
-                    />
-                </>
-            ),
-            onOk: async () => {
-                try {
-                    await api.post(`/bookings/${record._id}/admin-cancel-cash`, {
-                        refundDeposit: cancelRefundDeposit,
-                        adminReason: cancelAdminReason,
-                    });
-
-                    toast.success('Đã hủy đơn tiền mặt và cập nhật trạng thái tiền');
-                    setCancelRefundDeposit(false);
-                    setCancelAdminReason('');
-
-                    fetchBookings();
-                    fetchStats();
-                } catch (err: any) {
-                    const msg = err?.response?.data?.message || 'Lỗi khi hủy đơn tiền mặt!';
-                    toast.error(msg);
-                    // không cần throw cũng được, modal sẽ tự đóng
-                }
-            },
-        });
+            toast.success('Đã hủy đơn tiền mặt và cập nhật trạng thái tiền');
+            setCancelCashModalOpen(false);
+            setCancelCashBooking(null);
+            fetchBookings();
+            fetchStats();
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || 'Lỗi khi hủy đơn tiền mặt!';
+            toast.error(msg);
+        } finally {
+            setCancelCashLoading(false);
+        }
     };
 
     const handleAction = async (
@@ -723,7 +730,7 @@ export default function BookingList() {
         try {
             if (action === 'confirm') {
                 await api.patch(`/bookings/${id}/confirm`);
-                toast.success('✅ Đã xác nhận đặt sân!');
+                toast.success('Đã xác nhận đặt sân!');
             } else if (action === 'cancel') {
                 await api.patch(`/bookings/${id}/cancel`, {
                     reason: 'Admin hủy đơn',
@@ -760,7 +767,6 @@ export default function BookingList() {
             discount: 0,
             discountReason: '',
             method: 'cash',
-            note: '',
         });
 
         setPaymentModalOpen(true);
@@ -815,7 +821,7 @@ export default function BookingList() {
                 },
                 body: JSON.stringify({
                     bookingId: paymentBooking._id,
-                    amount: paymentBaseTotal,
+                    amount: paymentFinalTotal, // Updated from paymentBaseTotal to include discounts
                     customer: {
                         name:
                             paymentBooking.customerInfo?.name ||
@@ -1008,6 +1014,79 @@ export default function BookingList() {
         return matchesSearch && matchesStatus && matchesDate;
     });
 
+    const groupedBookings = useMemo(() => {
+        const map = new Map<string, any>();
+        filteredBookings.forEach((b) => {
+            let key = String(b._id);
+            if (b.orderId) {
+                key = typeof b.orderId === 'object' ? String(b.orderId._id) : String(b.orderId);
+            }
+
+            if (!map.has(key)) {
+                map.set(key, {
+                    ...b,
+                    _id: key,
+                    key,
+                    isGroup: true,
+                    groupedItems: [],
+                });
+            }
+            map.get(key).groupedItems.push(b);
+        });
+
+        const result: any[] = [];
+        map.forEach((g) => {
+            if (g.groupedItems.length === 1) {
+                const child = g.groupedItems[0];
+                result.push({ ...child, key: child._id });
+            } else {
+                g.groupedItems.sort((a: any, b: any) =>
+                    String(a.startTime).localeCompare(String(b.startTime))
+                );
+
+                g.total = g.groupedItems.reduce((sum: number, c: any) => {
+                    if (c.status === 'cancelled') return sum;
+                    return sum + (Number(c.total) || 0);
+                }, 0);
+
+                const firstStatus = g.groupedItems[0].status;
+                const allSameStatus = g.groupedItems.every((c: any) => c.status === firstStatus);
+                g.status = allSameStatus ? firstStatus : 'multiple';
+
+                const firstPayStatus = g.groupedItems[0].paymentStatus;
+                const allSamePayStatus = g.groupedItems.every((c: any) => c.paymentStatus === firstPayStatus);
+                g.paymentStatus = allSamePayStatus ? firstPayStatus : 'multiple';
+
+                if (g.orderId) {
+                    g.code = typeof g.orderId === 'object' ? g.orderId.code : g.code;
+                }
+                result.push(g);
+            }
+        });
+
+        result.sort((a, b) => {
+            const at = new Date(a.createdAt || a.date).getTime();
+            const bt = new Date(b.createdAt || b.date).getTime();
+            if (at !== bt) return bt - at;
+
+            const aDate = dayjs(a.date);
+            const bDate = dayjs(b.date);
+            if (aDate.isValid() && bDate.isValid() && !aDate.isSame(bDate, 'day')) {
+                return aDate.valueOf() - bDate.valueOf();
+            }
+
+            const getStart = (x: any) => {
+                if (Array.isArray(x.groupedItems) && x.groupedItems.length > 0) {
+                    return x.groupedItems[0]?.startTime || '';
+                }
+                return x.startTime || '';
+            };
+            return getStart(a).localeCompare(getStart(b));
+        });
+
+        return result;
+    }, [filteredBookings]);
+
     const refundBase = bookings.filter((b) => b.refundStatus && b.refundStatus !== 'none');
 
     const filteredRefundBookings = refundBase.filter((b) => {
@@ -1028,13 +1107,33 @@ export default function BookingList() {
         return matchesSearch && matchesDate && matchesRefundFilter;
     });
 
-    const bookingColumns = [
+    const bookingColumns: any = [
         {
             title: 'Mã đặt',
             dataIndex: 'code',
             key: 'code',
-            width: 130,
-            render: (v: string) => <b>{v}</b>,
+            width: 150,
+            render: (v: string, b: any) => (
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        {b.isGroup ? (
+                            <div className="flex items-center justify-center w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">
+                                <Layers size={14} />
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center w-6 h-6 rounded bg-slate-50 dark:bg-slate-800 text-slate-500">
+                                <FileTextOutlined style={{ fontSize: 12 }} />
+                            </div>
+                        )}
+                        <span className="font-black text-slate-900 dark:text-slate-100 tracking-tight text-sm">
+                            {v}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-1">
+                        {/* Hidden as requested: ĐƠN GỘP/ĐƠN LẺ */}
+                    </div>
+                </div>
+            ),
         },
         {
             title: 'Khách hàng',
@@ -1050,20 +1149,10 @@ export default function BookingList() {
                 const email = b.customerInfo?.email || b.customerId?.email;
 
                 return (
-                    <div>
-                        <b>{name}</b>
-                        {phone && (
-                            <>
-                                <br />
-                                <span className='text-xs text-gray-500'>{phone}</span>
-                            </>
-                        )}
-                        {email && (
-                            <>
-                                <br />
-                                <span className='text-xs text-gray-400'>{email}</span>
-                            </>
-                        )}
+                    <div className="flex flex-col">
+                        <span className="font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">{name}</span>
+                        {phone && <span className='text-xs text-gray-500 dark:text-gray-400 mt-px'>{phone}</span>}
+                        {email && <span className='text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-[140px]'>{email}</span>}
                     </div>
                 );
             },
@@ -1079,24 +1168,33 @@ export default function BookingList() {
             render: (b: Booking) => dayjs(b.date).format('DD/MM/YYYY'),
         },
         {
-            title: 'Giờ',
+            title: 'Giờ chơi',
             key: 'time',
-            render: (b: Booking & { slots?: { startTime: string; endTime: string }[] }) => {
-                // Nếu API trả về danh sách các ca (slots) thì hiển thị từng ca
-                if (Array.isArray(b.slots) && b.slots.length > 0) {
+            render: (b: any) => {
+                if (b.isGroup) {
                     return (
-                        <div>
-                            {b.slots.map((s, idx) => (
-                                <div key={idx}>
-                                    {s.startTime} - {s.endTime}
+                        <div className="flex flex-col gap-1.5 py-1">
+                            {b.groupedItems.map((s: any, idx: number) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                    <span className="shrink-0 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded leading-none border border-indigo-100 dark:border-indigo-500/20">
+                                        Ca {idx+1}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50/50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 rounded border border-slate-100 dark:border-slate-700/50 text-[11px] font-bold">
+                                        <Clock size={10} className="opacity-70" />
+                                        {s.startTime} - {s.endTime}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     );
                 }
 
-                // Fallback: booking chỉ có startTime / endTime
-                return `${b.startTime} - ${b.endTime}`;
+                return (
+                    <div className="flex items-center gap-2 px-2.5 py-1 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-100 dark:border-slate-700 text-[12px] font-bold">
+                        <Clock size={12} className="opacity-70" />
+                        {b.startTime} - {b.endTime}
+                    </div>
+                );
             },
         },
 
@@ -1109,252 +1207,159 @@ export default function BookingList() {
         {
             title: 'Trạng thái',
             dataIndex: 'status',
-            render: (s: string) => {
-                const color =
-                    s === 'confirmed'
-                        ? 'blue'
-                        : s === 'pending'
-                          ? 'orange'
-                          : s === 'in_use'
-                            ? 'purple'
-                            : s === 'completed'
-                              ? 'green'
-                              : 'gray';
+            render: (s: string, b: any) => {
+                const getStatusStyle = (st: string) => {
+                    const config: Record<string, { bg: string; text: string; bgDark: string; textDark: string; border: string }> = {
+                        confirmed: { bg: 'bg-blue-100/60', text: 'text-blue-700', bgDark: 'dark:bg-blue-500/10', textDark: 'dark:text-blue-300', border: 'border-blue-200 dark:border-blue-500/30' },
+                        pending: { bg: 'bg-orange-100/60', text: 'text-orange-700', bgDark: 'dark:bg-orange-500/10', textDark: 'dark:text-orange-300', border: 'border-orange-200 dark:border-orange-500/30' },
+                        in_use: { bg: 'bg-purple-100/60', text: 'text-purple-700', bgDark: 'dark:bg-purple-500/10', textDark: 'dark:text-purple-300', border: 'border-purple-200 dark:border-purple-500/30' },
+                        completed: { bg: 'bg-emerald-100/60', text: 'text-emerald-700', bgDark: 'dark:bg-emerald-500/10', textDark: 'dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-500/30' },
+                        cancelled: { bg: 'bg-rose-100/60', text: 'text-rose-700', bgDark: 'dark:bg-rose-500/10', textDark: 'dark:text-rose-300', border: 'border-rose-200 dark:border-rose-500/30' },
+                    };
+                    return config[st] || { bg: 'bg-gray-50', text: 'text-gray-700', bgDark: 'dark:bg-gray-800/50', textDark: 'dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
+                };
 
-                return <Tag color={color}>{STATUS_LABELS[s] || s}</Tag>;
+                if (s === 'multiple') {
+                    return (
+                        <div className="flex flex-col gap-1">
+                            {b.groupedItems.map((child: any, idx: number) => {
+                                const childStatus = child.status;
+                                const style = getStatusStyle(childStatus);
+                                return (
+                                    <span key={idx} className={`px-2 py-0.5 text-[11px] font-medium rounded-full border truncate max-w-fit ${style.bg} ${style.text} ${style.bgDark} ${style.textDark} ${style.border}`}>
+                                        {STATUS_LABELS[childStatus] || childStatus}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    );
+                }
+
+                const style = getStatusStyle(s);
+                return (
+                    <span className={`px-2.5 py-1 text-[13px] font-medium rounded-full border ${style.bg} ${style.text} ${style.bgDark} ${style.textDark} ${style.border}`}>
+                        {STATUS_LABELS[s] || s}
+                    </span>
+                );
             },
         },
         {
             title: 'Thao tác',
             key: 'actions',
-            render: (b: Booking) => {
-                const isFutureBooking = dayjs(b.date).isAfter(dayjs(), 'day');
-                // đơn chưa thanh toán hết (dùng cho cả confirmed + completed)
-                const canPayNow = b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial';
+            render: (b: any) => {
+                 const renderRowActions = (child: Booking) => {
+                     const btnBase = "p-2 rounded-lg transition-all active:scale-90 flex items-center justify-center border shadow-xs";
+                     
+                     return (
+                         <div className="flex items-center gap-2 flex-wrap">
+                             {child.status === 'in_use' && (
+                                 <button
+                                     onClick={() => openBookingDetailModal(child._id)}
+                                     className={`${btnBase} bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60`}
+                                     title="Xem chi tiết"
+                                 >
+                                     <EyeOutlined style={{ fontSize: 16 }} />
+                                 </button>
+                             )}
+                             {child.status === 'pending' && (
+                                 <>
+                                     <button 
+                                         onClick={() => handleAction(child._id, 'confirm')} 
+                                         className={`${btnBase} bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20`} 
+                                         title="Xác nhận"
+                                     >
+                                         <CheckOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                     <button 
+                                         onClick={() => openEditModal(child)} 
+                                         className={`${btnBase} bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/20 hover:bg-blue-100 dark:hover:bg-blue-500/20`} 
+                                         title="Sửa"
+                                     >
+                                         <EditOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                     <button 
+                                         onClick={() => child.paymentMethod === 'cash' ? handleAdminCancelCash(child) : handleAction(child._id, 'cancel')} 
+                                         className={`${btnBase} bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20`} 
+                                         title="Hủy"
+                                     >
+                                         <CloseCircleOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                 </>
+                             )}
+                             {child.status === 'confirmed' && (
+                                 <>
+                                     <button 
+                                         onClick={() => handleAction(child._id, 'checkin')} 
+                                         className={`${btnBase} bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/20`} 
+                                         title="Check-in"
+                                     >
+                                         <PlayCircleOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                     <button 
+                                         onClick={() => openEditModal(child)} 
+                                         className={`${btnBase} bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60`} 
+                                         title="Sửa"
+                                     >
+                                         <EditOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                     <button 
+                                         onClick={() => child.paymentMethod === 'cash' ? handleAdminCancelCash(child) : handleAction(child._id, 'cancel')} 
+                                         className={`${btnBase} bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20`} 
+                                         title="Hủy"
+                                     >
+                                         <CloseCircleOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                 </>
+                             )}
+                             {child.status === 'in_use' && (
+                                 <>
+                                     <button 
+                                         onClick={() => openCheckinModal(child, 'add_equipment')} 
+                                         className={`${btnBase} bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-500/20 hover:bg-amber-100 dark:hover:bg-amber-500/20`} 
+                                         title="Thêm thiết bị"
+                                     >
+                                         <PlusOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                     <button 
+                                         onClick={() => handleAction(child._id, 'checkout')} 
+                                         className={`${btnBase} bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20`} 
+                                         title="Check-out"
+                                     >
+                                         <StopOutlined style={{ fontSize: 16 }} />
+                                     </button>
+                                 </>
+                             )}
+                             {child.status === 'completed' && (
+                                 child.hasInvoice ? (
+                                     <button onClick={() => openInvoiceModal(child)} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-[11px] flex gap-1.5 items-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-300 dark:border-slate-600 shadow-xs">
+                                         <FileTextOutlined style={{ fontSize: 14 }} /> HÓA ĐƠN
+                                     </button>
+                                 ) : (
+                                     <button onClick={() => openPaymentModal(child)} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-[11px] flex gap-1.5 items-center hover:bg-emerald-700 transition-all border border-emerald-500">
+                                         <DollarOutlined style={{ fontSize: 14 }} /> THANH TOÁN
+                                     </button>
+                                 )
+                             )}
+                         </div>
+                     );
+                 };
 
-                if (b.status === 'cancelled') {
+                if (b.isGroup) {
                     return (
-                        <Tag color='default'>
-                            <CloseCircleOutlined /> Đã hủy
-                        </Tag>
+                        <div className="flex flex-col gap-1.5">
+                            {b.groupedItems.map((child: Booking, idx: number) => (
+                                 <div key={idx} className="flex items-center gap-2 border-b border-dashed border-slate-100 dark:border-white/5 pb-2.5 last:border-0 last:pb-0">
+                                     <span className="shrink-0 text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded leading-none w-max">
+                                         Ca {idx+1}
+                                     </span>
+                                     {renderRowActions(child)}
+                                 </div>
+                            ))}
+                        </div>
                     );
                 }
-                if (b.status === 'completed') {
-                    const hasInvoice = !!b.hasInvoice;
 
-                    // Nếu đã có hóa đơn => chỉ Xem/In (và disable thanh toán)
-                    if (hasInvoice) {
-                        return (
-                            <Space>
-                                <Tooltip title='Đơn này đã có hóa đơn'>
-                                    <span>
-                                        <Button size='small' icon={<DollarOutlined />} disabled>
-                                            Thanh toán
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-
-                                <Button
-                                    size='small'
-                                    icon={<FileTextOutlined />}
-                                    onClick={() => openInvoiceModal(b)}
-                                >
-                                    Xem hóa đơn
-                                </Button>
-                            </Space>
-                        );
-                    }
-
-                    // Chưa có hóa đơn => luôn cho bấm Thanh toán để tạo hóa đơn
-                    // (dù outstanding = 0 vẫn tạo hóa đơn để in)
-                    return (
-                        <Button
-                            size='small'
-                            icon={<DollarOutlined />}
-                            type='primary'
-                            onClick={() => openPaymentModal(b)}
-                        >
-                            Thanh toán
-                        </Button>
-                    );
-                }
-
-                return (
-                    <Space wrap>
-                        {b.status === 'pending' && (
-                            <>
-                                <Button
-                                    size='small'
-                                    type='primary'
-                                    onClick={() => handleAction(b._id, 'confirm')}
-                                >
-                                    <CheckOutlined /> Xác nhận
-                                </Button>
-                                <Button
-                                    size='small'
-                                    icon={<EditOutlined />}
-                                    onClick={() => openEditModal(b)}
-                                >
-                                    Sửa
-                                </Button>
-                                <Button
-                                    size='small'
-                                    danger
-                                    onClick={() => {
-                                        if (b.paymentMethod === 'cash') {
-                                            // Đơn tiền mặt / COD: dùng luồng admin hủy + hoàn/giữ cọc
-                                            handleAdminCancelCash(b);
-                                        } else {
-                                            //  Đơn online (VNPAY/Momo...): dùng API cancelBooking cũ
-                                            handleAction(b._id, 'cancel');
-                                        }
-                                    }}
-                                >
-                                    <CloseCircleOutlined /> Hủy
-                                </Button>
-                            </>
-                        )}
-
-                        {b.status === 'confirmed' &&
-                            (() => {
-                                const now = dayjs();
-
-                                // ngày đá (theo FE)
-                                const bookingDay = dayjs(b.date).startOf('day');
-
-                                // giờ bắt đầu sớm nhất
-                                const earliestSlot =
-                                    Array.isArray(b.slots) && b.slots.length > 0
-                                        ? [...b.slots].sort((a, c) =>
-                                              a.startTime.localeCompare(c.startTime)
-                                          )[0]
-                                        : null;
-
-                                const earliestStart = earliestSlot?.startTime || b.startTime;
-
-                                let allowFrom: dayjs.Dayjs | null = null;
-                                if (earliestStart) {
-                                    const [h, m] = earliestStart.split(':').map(Number);
-                                    allowFrom = bookingDay
-                                        .hour(h || 0)
-                                        .minute(m || 0)
-                                        .second(0)
-                                        .subtract(15, 'minute'); // cho check-in trước 15p
-                                }
-
-                                let checkinDisabled = false;
-                                let checkinTooltip: string | undefined;
-
-                                // Trước ngày đá
-                                if (now.isBefore(bookingDay, 'day')) {
-                                    checkinDisabled = true;
-                                    checkinTooltip =
-                                        'Chỉ được check-in trong đúng ngày diễn ra lịch đá';
-                                }
-                                // Sau ngày đá (quên check-in)
-                                else if (now.isAfter(bookingDay, 'day')) {
-                                    checkinDisabled = true;
-                                    checkinTooltip = 'Đơn đã quá ngày đá, không thể check-in';
-                                }
-                                // Đúng ngày nhưng chưa tới giờ cho phép
-                                else if (allowFrom && now.isBefore(allowFrom)) {
-                                    checkinDisabled = true;
-                                    checkinTooltip = `Chỉ được check-in trước giờ đá tối đa 15 phút (từ ${allowFrom.format(
-                                        'HH:mm'
-                                    )} trở đi)`;
-                                }
-
-                                return (
-                                    <>
-                                        <Tooltip title={checkinTooltip}>
-                                            <span>
-                                                <Button
-                                                    size='small'
-                                                    icon={<PlayCircleOutlined />}
-                                                    onClick={() => handleAction(b._id, 'checkin')}
-                                                    disabled={checkinDisabled}
-                                                >
-                                                    Check-in
-                                                </Button>
-                                            </span>
-                                        </Tooltip>
-
-                                        {/* Nút Thanh toán – chỉ thanh toán sau checkout */}
-                                        <Tooltip title='Chỉ thanh toán sau khi check-out xong'>
-                                            <span>
-                                                <Button
-                                                    size='small'
-                                                    icon={<DollarOutlined />}
-                                                    disabled
-                                                >
-                                                    Thanh toán
-                                                </Button>
-                                            </span>
-                                        </Tooltip>
-
-                                        <Button
-                                            size='small'
-                                            icon={<EditOutlined />}
-                                            onClick={() => openEditModal(b)}
-                                        >
-                                            Sửa
-                                        </Button>
-
-                                        <Button
-                                            size='small'
-                                            danger
-                                            onClick={() => {
-                                                if (b.paymentMethod === 'cash') {
-                                                    handleAdminCancelCash(b);
-                                                } else {
-                                                    handleAction(b._id, 'cancel');
-                                                }
-                                            }}
-                                        >
-                                            Hủy
-                                        </Button>
-                                    </>
-                                );
-                            })()}
-
-                        {b.status === 'in_use' && (
-                            <Space>
-                                <Button
-                                    size='small'
-                                    icon={<EyeOutlined />}
-                                    onClick={() => openBookingDetailModal(b._id)}
-                                >
-                                    Xem chi tiết
-                                </Button>
-
-                                <Button
-                                    size='small'
-                                    icon={<PlusOutlined />}
-                                    onClick={() => openCheckinModal(b, 'add_equipment')}
-                                >
-                                    Thêm thiết bị
-                                </Button>
-
-                                {/* Thanh toán – chỉ hiển thị, chưa cho bấm cho đến khi Check-out */}
-                                <Tooltip title='Chỉ thanh toán sau khi check-out xong'>
-                                    <span>
-                                        <Button size='small' icon={<DollarOutlined />} disabled>
-                                            Thanh toán
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-
-                                <Button
-                                    size='small'
-                                    icon={<StopOutlined />}
-                                    onClick={() => handleAction(b._id, 'checkout')}
-                                >
-                                    Check-out
-                                </Button>
-                            </Space>
-                        )}
-                    </Space>
-                );
+                return renderRowActions(b);
             },
         },
     ];
@@ -1381,20 +1386,15 @@ export default function BookingList() {
                 const email = b.customerInfo?.email || b.customerId?.email;
 
                 return (
-                    <div>
-                        <b>{name}</b>
-                        {phone && (
-                            <>
-                                <br />
-                                <span className='text-xs text-gray-500'>{phone}</span>
-                            </>
-                        )}
-                        {email && (
-                            <>
-                                <br />
-                                <span className='text-xs text-gray-400'>{email}</span>
-                            </>
-                        )}
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 shrink-0 rounded-full bg-linear-to-br from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40 flex items-center justify-center text-orange-700 dark:text-orange-400 font-bold border border-orange-200 dark:border-orange-800 shadow-sm">
+                            {(name || 'A').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">{name}</span>
+                            {phone && <span className='text-xs text-gray-500 dark:text-gray-400 mt-px'>{phone}</span>}
+                            {email && <span className='text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-[140px]'>{email}</span>}
+                        </div>
                     </div>
                 );
             },
@@ -1428,11 +1428,16 @@ export default function BookingList() {
             render: (_: any, record: Booking) => {
                 const s = record.paymentStatus;
 
-                let color: string = 'red';
-                if (s === 'paid' || s === 'partial') color = 'green';
-                else if (s === 'refunded') color = 'green'; // thì đổi ở đây
+                let style = { bg: 'bg-rose-50', text: 'text-rose-700', bgDark: 'dark:bg-rose-900/40', textDark: 'dark:text-rose-400', border: 'border-rose-200 dark:border-rose-800' };
+                if (s === 'paid' || s === 'partial' || s === 'refunded') {
+                    style = { bg: 'bg-emerald-50', text: 'text-emerald-700', bgDark: 'dark:bg-emerald-900/40', textDark: 'dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' };
+                }
 
-                return <Tag color={color}>{PAYMENT_LABELS[s] || s}</Tag>;
+                return (
+                    <span className={`px-2.5 py-1 text-[13px] font-medium rounded-full border ${style.bg} ${style.text} ${style.bgDark} ${style.textDark} ${style.border}`}>
+                        {PAYMENT_LABELS[s] || s}
+                    </span>
+                );
             },
         },
 
@@ -1442,10 +1447,20 @@ export default function BookingList() {
             key: 'refundStatus',
             render: (rs: Booking['refundStatus']) => {
                 const value = rs || 'none';
+                const config: Record<string, { bg: string; text: string; bgDark: string; textDark: string; border: string }> = {
+                    none: { bg: 'bg-gray-50', text: 'text-gray-600', bgDark: 'dark:bg-gray-800/40', textDark: 'dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' },
+                    pending: { bg: 'bg-orange-50', text: 'text-orange-700', bgDark: 'dark:bg-orange-900/40', textDark: 'dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800' },
+                    processing: { bg: 'bg-blue-50', text: 'text-blue-700', bgDark: 'dark:bg-blue-900/40', textDark: 'dark:text-blue-400', border: 'border-blue-200 dark:border-blue-800' },
+                    refunded: { bg: 'bg-emerald-50', text: 'text-emerald-700', bgDark: 'dark:bg-emerald-900/40', textDark: 'dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
+                    rejected: { bg: 'bg-rose-50', text: 'text-rose-700', bgDark: 'dark:bg-rose-900/40', textDark: 'dark:text-rose-400', border: 'border-rose-200 dark:border-rose-800' },
+                };
+                
+                const style = config[value] || config.none;
+
                 return (
-                    <Tag color={REFUND_COLORS[value] || 'default'}>
+                    <span className={`px-2.5 py-1 text-[13px] font-medium rounded-full border ${style.bg} ${style.text} ${style.bgDark} ${style.textDark} ${style.border}`}>
                         {REFUND_LABELS[value] || 'Không có hoàn tiền'}
-                    </Tag>
+                    </span>
                 );
             },
         },
@@ -1591,73 +1606,131 @@ export default function BookingList() {
     };
 
     return (
-        <div className='space-y-6'>
-            <Card title='📊 Thống kê đặt sân' bordered={false}>
-                <Row gutter={16}>
-                    <Col span={4}>
-                        <Statistic
-                            title='Tổng đơn'
-                            value={stats.total}
-                            prefix={<FileTextOutlined />}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title='Chờ xác nhận'
-                            value={stats.pending}
-                            prefix={<ClockCircleOutlined />}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title='Đã xác nhận'
-                            value={stats.confirmed}
-                            prefix={<CheckCircleOutlined />}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title='Đang sử dụng'
-                            value={stats.inUse}
-                            prefix={<PlaySquareOutlined />}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title='Hoàn thành'
-                            value={stats.completed}
-                            prefix={<CheckOutlined />}
-                        />
-                    </Col>
-                    <Col span={4}>
-                        <Statistic
-                            title='Đã hủy'
-                            value={stats.cancelled}
-                            prefix={<CloseCircleOutlined />}
-                        />
-                    </Col>
-                </Row>
-            </Card>
+        <div className='px-4 pb-12 space-y-8'>
+            {/* Premium Header section */}
+            <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pt-6'>
+                <div className='relative'>
+                    <div className='absolute -left-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-3xl' />
+                    <h1 className='text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-4 italic'>
+                        <div className="p-3.5 bg-linear-to-br from-blue-600 to-indigo-700 rounded-3xl shadow-2xl shadow-blue-500/40 rotate-6 flex items-center justify-center border border-white/20">
+                            <FileTextOutlined className="text-white text-3xl" />
+                        </div>
+                        <span className="relative">
+                            QUẢN LÝ ĐẶT SÂN
+                            <div className="absolute -bottom-2 left-0 w-1/2 h-1.5 bg-blue-500/30 rounded-full" />
+                        </span>
+                    </h1>
+                    <p className='text-slate-500 dark:text-slate-400 mt-6 font-semibold flex items-center gap-2 text-sm md:text-base'>
+                        <span className="flex h-2.5 w-2.5 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+                        </span>
+                        Trang quản lý đơn hàng chuyên nghiệp & tối ưu cho hệ thống
+                    </p>
+                </div>
+            </div>
 
-            <Card bordered={false}>
+            {/* Premium Dashboard Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                {/* Tổng đơn */}
+                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-blue-100 dark:border-blue-500/20 shadow-xl shadow-blue-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] hover:shadow-blue-500/10 cursor-pointer overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-blue-500/10 transition-all" />
+                    <div className="flex items-center justify-between text-blue-500 dark:text-blue-400 mb-4">
+                        <span className="font-bold text-xs uppercase tracking-wider">Tổng đơn</span>
+                        <div className="p-2 bg-blue-50 dark:bg-blue-500/20 rounded-xl group-hover:bg-blue-500 group-hover:text-white transition-all">
+                            <FileTextOutlined className="text-lg" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-black text-slate-800 dark:text-white group-hover:scale-110 origin-left transition-all">{stats.total}</div>
+                </div>
+
+                {/* Chờ xác nhận */}
+                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-orange-100 dark:border-orange-500/20 shadow-xl shadow-orange-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] hover:shadow-orange-500/10 cursor-pointer overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-orange-500/10 transition-all" />
+                    <div className="flex items-center justify-between text-orange-600 dark:text-orange-400 mb-4">
+                        <span className="font-bold text-xs uppercase tracking-wider">Chờ xác nhận</span>
+                        <div className="p-2 bg-orange-50 dark:bg-orange-500/20 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-all">
+                            <ClockCircleOutlined className="text-lg" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-black text-slate-800 dark:text-white group-hover:scale-110 origin-left transition-all">{stats.pending}</div>
+                </div>
+
+                {/* Đã xác nhận */}
+                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-teal-100 dark:border-teal-500/20 shadow-xl shadow-teal-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] hover:shadow-teal-500/10 cursor-pointer overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-teal-500/10 transition-all" />
+                    <div className="flex items-center justify-between text-teal-600 dark:text-teal-400 mb-4">
+                        <span className="font-bold text-xs uppercase tracking-wider">Đã xác nhận</span>
+                        <div className="p-2 bg-teal-50 dark:bg-teal-500/20 rounded-xl group-hover:bg-teal-500 group-hover:text-white transition-all">
+                            <CheckCircleOutlined className="text-lg" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-black text-slate-800 dark:text-white group-hover:scale-110 origin-left transition-all">{stats.confirmed}</div>
+                </div>
+
+                {/* Đang sử dụng */}
+                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-purple-100 dark:border-purple-500/20 shadow-xl shadow-purple-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] hover:shadow-purple-500/10 cursor-pointer overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-purple-500/10 transition-all" />
+                    <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 mb-4">
+                        <span className="font-bold text-xs uppercase tracking-wider">Đang sử dụng</span>
+                        <div className="p-2 bg-purple-50 dark:bg-purple-500/20 rounded-xl group-hover:bg-purple-500 group-hover:text-white transition-all">
+                            <PlaySquareOutlined className="text-lg" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-black text-slate-800 dark:text-white group-hover:scale-110 origin-left transition-all">{stats.inUse}</div>
+                </div>
+
+                {/* Hoàn thành */}
+                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-emerald-100 dark:border-emerald-500/20 shadow-xl shadow-emerald-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] hover:shadow-emerald-500/10 cursor-pointer overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-emerald-500/10 transition-all" />
+                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-4">
+                        <span className="font-bold text-xs uppercase tracking-wider">Hoàn thành</span>
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                            <CheckOutlined className="text-lg" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-black text-slate-800 dark:text-white group-hover:scale-110 origin-left transition-all">{stats.completed}</div>
+                </div>
+
+                {/* Đã hủy */}
+                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-rose-100 dark:border-rose-500/20 shadow-xl shadow-rose-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] hover:shadow-rose-500/10 cursor-pointer overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-rose-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-rose-500/10 transition-all" />
+                    <div className="flex items-center justify-between text-rose-500 dark:text-rose-400 mb-4">
+                        <span className="font-bold text-xs uppercase tracking-wider">Đã hủy</span>
+                        <div className="p-2 bg-rose-50 dark:bg-rose-500/20 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-all">
+                            <CloseCircleOutlined className="text-lg" />
+                        </div>
+                    </div>
+                    <div className="text-3xl font-black text-slate-800 dark:text-white group-hover:scale-110 origin-left transition-all">{stats.cancelled}</div>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-card rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden p-6 transition-all">
                 <Tabs
                     defaultActiveKey='bookings'
+                    className="premium-tabs"
                     items={[
                         {
                             key: 'bookings',
-                            label: 'Đặt sân',
+                            label: (
+                                <div className="flex items-center gap-2 px-4 py-1">
+                                    <FileTextOutlined /> <span>ĐẶT SÂN</span>
+                                </div>
+                            ),
                             children: (
                                 <>
-                                    <div className='flex flex-wrap gap-4 mb-4'>
-                                        <Input.Search
+                                    <div className='flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50/50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5'>
+                                        <Input
                                             placeholder='Tìm mã hoặc tên khách hàng...'
+                                            prefix={<SearchOutlined className="text-slate-400" />}
                                             onChange={(e) =>
                                                 setFilters({
                                                     ...filters,
                                                     search: e.target.value,
                                                 })
                                             }
-                                            style={{ width: 220 }}
+                                            className='premium-input w-full md:w-64'
+                                            allowClear
                                         />
                                         <Select
                                             placeholder='Trạng thái đơn'
@@ -1665,7 +1738,7 @@ export default function BookingList() {
                                             onChange={(v) =>
                                                 setFilters({ ...filters, status: v || '' })
                                             }
-                                            style={{ width: 180 }}
+                                            className='premium-select w-full md:w-48'
                                             options={Object.entries(STATUS_LABELS).map(
                                                 ([value, label]) => ({
                                                     value,
@@ -1678,23 +1751,27 @@ export default function BookingList() {
                                             onChange={(v) =>
                                                 setFilters({ ...filters, date: v || null })
                                             }
+                                            className='premium-input w-full md:w-44'
                                         />
-                                        <Button
+                                        <button
                                             onClick={() => {
                                                 fetchBookings();
                                                 fetchStats();
                                             }}
+                                            className='flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95'
                                         >
-                                            🔄 Làm mới
-                                        </Button>
+                                            <ReloadOutlined size={14} /> LÀM MỚI
+                                        </button>
                                     </div>
 
                                     <Table
                                         rowKey='_id'
                                         columns={bookingColumns}
-                                        dataSource={filteredBookings}
+                                        dataSource={groupedBookings}
                                         loading={loading}
                                         pagination={{ pageSize: 6 }}
+                                        scroll={{ x: 'max-content' }}
+                                        className="premium-table"
                                     />
                                 </>
                             ),
@@ -1769,13 +1846,15 @@ export default function BookingList() {
                                         dataSource={filteredRefundBookings}
                                         loading={loading}
                                         pagination={{ pageSize: 6 }}
+                                        scroll={{ x: 'max-content' }}
+                                        className="premium-table"
                                     />
                                 </>
                             ),
                         },
                     ]}
                 />
-            </Card>
+            </div>
             {/* Modal SỬA giờ / sân */}
             <BookingEditModal
                 open={editModalOpen}
@@ -1793,159 +1872,189 @@ export default function BookingList() {
             <Modal
                 open={checkinModalOpen}
                 onCancel={() => setCheckinModalOpen(false)}
-                footer={[
-                    <Button key='cancel' onClick={() => setCheckinModalOpen(false)}>
-                        Hủy
-                    </Button>,
-                    <Button key='ok' type='primary' onClick={handleConfirmCheckin}>
-                        {checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Xác nhận thêm thiết bị'}
-                    </Button>,
-                ]}
+                footer={null}
+                width={700}
+                centered
+                className="premium-modal-v2"
+                closeIcon={<div className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-all mt-1 mr-1"><X size={18} className="text-slate-400" /></div>}
                 title={
-                    checkinBooking
-                        ? checkinMode === 'checkin'
-                            ? `Check-in và chọn thiết bị - ${checkinBooking.code}`
-                            : `Thêm thiết bị - ${checkinBooking.code}`
-                        : 'Check-in và chọn thiết bị'
+                    <div className="flex items-center gap-4 py-4 px-2">
+                        <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 rotate-3">
+                            <PackageCheck size={24} />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xl font-black text-slate-800 dark:text-white tracking-tight leading-none uppercase italic">
+                                {checkinMode === 'checkin' ? 'Check-in & Dịch vụ' : 'Thêm thiết bị / Phụ trợ'}
+                            </span>
+                            <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 tracking-widest uppercase mt-1">
+                                Đơn hàng: #{checkinBooking?.code}
+                            </span>
+                        </div>
+                    </div>
                 }
             >
                 {checkinBooking && (
-                    <div className='space-y-4'>
-                        <Card size='small' style={{ borderRadius: 8 }}>
-                            <div className='text-sm'>
+                    <div className="p-1 space-y-6">
+                        {/* Booking Context Card */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 dark:bg-white/5 p-5 rounded-3xl border border-slate-100 dark:border-white/5 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                            
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm"><User size={16} className="text-indigo-500" /></div>
                                 <div>
-                                    <span className='text-gray-500'>Khách hàng: </span>
-                                    <b>
-                                        {checkinBooking.customerInfo?.name ||
-                                            checkinBooking.customerId?.name ||
-                                            checkinBooking.customerId?.username ||
-                                            'Ẩn danh'}
-                                    </b>
-                                </div>
-                                <div>
-                                    <span className='text-gray-500'>Sân: </span>
-                                    <b>{checkinBooking.courtId?.name || '-'}</b>
-                                </div>
-                                <div>
-                                    <span className='text-gray-500'>Thời gian: </span>
-                                    <b>
-                                        {dayjs(checkinBooking.date).format('DD/MM/YYYY')} |{' '}
-                                        {Array.isArray(checkinBooking.slots) &&
-                                        checkinBooking.slots.length > 0
-                                            ? checkinBooking.slots
-                                                  .map((s) => `${s.startTime} - ${s.endTime}`)
-                                                  .join(', ')
-                                            : `${checkinBooking.startTime} - ${checkinBooking.endTime}`}
-                                    </b>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Khách hàng</div>
+                                    <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">
+                                        {checkinBooking.customerInfo?.name || checkinBooking.customerId?.name || 'Khách vãng lai'}
+                                    </div>
                                 </div>
                             </div>
-                        </Card>
 
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm"><MapPin size={16} className="text-emerald-500" /></div>
+                                <div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Sân bóng</div>
+                                    <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">{checkinBooking.courtId?.name || '-'}</div>
+                                </div>
+                            </div>
+
+                            <div className="md:col-span-2 flex items-start gap-3 border-t border-slate-200/50 dark:border-white/5 pt-3 mt-1">
+                                <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm"><Clock size={16} className="text-amber-500" /></div>
+                                <div>
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Thời gian đặt</div>
+                                    <div className="font-bold text-slate-700 dark:text-slate-200 text-sm">
+                                        <span className="text-indigo-500">{dayjs(checkinBooking.date).format('DD/MM/YYYY')}</span>
+                                        <span className="mx-2 text-slate-300">|</span>
+                                        {Array.isArray(checkinBooking.slots) && checkinBooking.slots.length > 0
+                                            ? checkinBooking.slots.map((s) => `${s.startTime}-${s.endTime}`).join(', ')
+                                            : `${checkinBooking.startTime}-${checkinBooking.endTime}`}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Equipment Section Header */}
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 ml-1">
+                            <div className="flex items-center gap-2">
+                                <ShoppingBag size={18} className="text-indigo-500" />
+                                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase">Danh sách thiết bị & Dịch vụ</h3>
+                            </div>
+                        </div>
+
+                        {/* Equipment List */}
                         {equipmentList.length === 0 ? (
-                            <div className='text-center text-sm text-gray-500'>
-                                Không có thiết bị nào để cho thuê / bán.
+                            <div className="py-10 flex flex-col items-center justify-center text-slate-400">
+                                <Info size={40} className="mb-2 opacity-20" />
+                                <p className="text-xs font-bold uppercase tracking-widest">Không có thiết bị khả dụng</p>
                             </div>
                         ) : (
-                            <div className='space-y-2 max-h-72 overflow-y-auto pr-1'>
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar pr-2 -mr-2">
                                 {equipmentList.map((item) => {
                                     const qty = equipmentQty[item.key] || 0;
-                                    const lineTotal = qty * item.price;
                                     const base = equipmentBaseQty[item.key] || 0;
                                     const maxTotal = base + item.stock;
+                                    const isRent = item.mode === 'rent';
 
                                     return (
-                                        <Card
-                                            key={item.key}
-                                            size='small'
-                                            style={{ borderRadius: 8 }}
-                                            bodyStyle={{ padding: 8 }}
+                                        <div 
+                                            key={item.key} 
+                                            className={`group p-4 bg-white dark:bg-slate-900 rounded-2xl border transition-all duration-300 ${qty > 0 ? 'border-indigo-400 shadow-md shadow-indigo-500/5' : 'border-slate-100 dark:border-white/5 shadow-sm'}`}
                                         >
-                                            <div className='flex justify-between items-center'>
-                                                <div>
-                                                    <div className='font-medium text-sm'>
-                                                        {item.name}{' '}
-                                                        <Tag
-                                                            color={
-                                                                item.mode === 'rent'
-                                                                    ? 'blue'
-                                                                    : 'green'
-                                                            }
-                                                            style={{ marginLeft: 4 }}
-                                                        >
-                                                            {item.mode === 'rent' ? 'Thuê' : 'Bán'}
-                                                        </Tag>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <span className="font-black text-slate-800 dark:text-white text-sm truncate uppercase tracking-tight">{item.name}</span>
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase ${isRent ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20'}`}>
+                                                            {isRent ? 'Cho thuê' : 'Bán'}
+                                                        </span>
                                                     </div>
-                                                    <div className='text-xs text-gray-500'>
-                                                        Giá: {formatVND(item.price)} /{' '}
-                                                        {item.unit || 'cái'}
-                                                    </div>
-                                                    <div className='text-xs text-gray-500'>
-                                                        Tồn kho: {item.stock} {item.unit || 'cái'}
-                                                    </div>
-                                                    {qty > 0 && (
-                                                        <div className='text-xs text-gray-600 mt-1'>
-                                                            Thành tiền:{' '}
-                                                            <b>{formatVND(lineTotal)}</b>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">
+                                                            Giá: <span className="text-slate-600 dark:text-slate-200">{formatVND(item.price)}/{item.unit || 'cái'}</span>
                                                         </div>
-                                                    )}
+                                                        <div className={`text-[11px] font-bold ${item.stock <= 5 ? 'text-rose-500' : 'text-slate-400'}`}>
+                                                            Kho: {item.stock} {item.unit || 'cái'}
+                                                        </div>
+                                                    </div>
                                                 </div>
 
-                                                <div className='flex items-center gap-2'>
-                                                    <Button
-                                                        size='small'
-                                                        onClick={() =>
-                                                            changeEquipmentQty(
-                                                                item.key,
-                                                                -1,
-                                                                item.stock
-                                                            )
-                                                        }
+                                                <div className="flex items-center bg-slate-50 dark:bg-white/5 p-1 rounded-xl border border-slate-100 dark:border-white/5 scale-95 md:scale-100">
+                                                    <button
+                                                        onClick={() => changeEquipmentQty(item.key, -1, item.stock)}
                                                         disabled={qty <= base}
+                                                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-100 dark:border-white/10 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-30 disabled:pointer-events-none transition-all"
                                                     >
-                                                        -
-                                                    </Button>
-                                                    <div className='min-w-[32px] text-center text-sm'>
+                                                        <Minus size={14} />
+                                                    </button>
+                                                    <div className="min-w-[40px] text-center font-black text-sm text-slate-700 dark:text-white">
                                                         {qty}
                                                     </div>
-                                                    <Button
-                                                        size='small'
-                                                        onClick={() =>
-                                                            changeEquipmentQty(
-                                                                item.key,
-                                                                1,
-                                                                item.stock
-                                                            )
-                                                        }
+                                                    <button
+                                                        onClick={() => changeEquipmentQty(item.key, 1, item.stock)}
                                                         disabled={qty >= maxTotal}
+                                                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm border border-slate-100 dark:border-white/10 hover:bg-indigo-50 hover:text-indigo-500 disabled:opacity-30 disabled:pointer-events-none transition-all"
                                                     >
-                                                        +
-                                                    </Button>
+                                                        <Plus size={14} />
+                                                    </button>
                                                 </div>
                                             </div>
-                                        </Card>
+                                        </div>
                                     );
                                 })}
                             </div>
                         )}
 
-                        <div className='flex justify-between items-center pt-2 border-t text-sm'>
-                            <span className='text-gray-600'>
-                                {checkinMode === 'checkin'
-                                    ? 'Tổng tiền thiết bị:'
-                                    : 'Tiền thiết bị thêm lần này:'}
-                            </span>
-                            <span className='font-semibold text-blue-600'>
-                                {formatVND(addedEquipmentTotal)}
-                            </span>
-                        </div>
-                        {checkinMode === 'add_equipment' && (
-                            <div className='flex justify-between items-center text-xs text-gray-500'>
-                                <span>Tổng tiền thiết bị sau khi thêm:</span>
-                                <span className='font-semibold'>
-                                    {formatVND(newEquipmentTotal)}
-                                </span>
+                        {/* Summary Footer Dashboard */}
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch pt-4">
+                            <div className="md:col-span-7 flex flex-col justify-center">
+                                <div className="p-4 bg-amber-50 dark:bg-amber-500/5 rounded-2xl border border-amber-200 dark:border-amber-500/20 flex gap-3 items-start">
+                                    <div className="p-1.5 bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg shrink-0"><Info size={16} /></div>
+                                    <p className="text-[11px] text-amber-700 dark:text-amber-400/70 font-semibold leading-relaxed">
+                                        {checkinMode === 'checkin' 
+                                            ? 'Tổng tiền thiết bị sẽ được cộng vào hóa đơn cuối cùng khi khách trả sân.' 
+                                            : 'Thiết bị thêm mới sẽ được cập nhật trực tiếp vào đơn đặt sân hiện tại.'}
+                                    </p>
+                                </div>
                             </div>
-                        )}
+                            
+                            <div className="md:col-span-5 bg-slate-900 dark:bg-indigo-950/40 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2 text-slate-400">
+                                        <CreditCard size={14} />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">
+                                            {checkinMode === 'checkin' ? 'Phí dịch vụ' : 'Phí thêm lần này'}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-end">
+                                        <div className="text-2xl font-black font-mono tracking-tighter">{formatVND(addedEquipmentTotal)}</div>
+                                        <ChevronRight size={20} className="text-indigo-500 animate-pulse mb-1" />
+                                    </div>
+                                </div>
+
+                                {checkinMode === 'add_equipment' && (
+                                    <div className="mt-3 pt-3 border-t border-white/10 flex justify-between items-center">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tổng sau khi thêm</span>
+                                        <span className="text-xs font-bold text-emerald-400 font-mono">{formatVND(newEquipmentTotal)}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-end gap-3 pt-4">
+                            <button
+                                onClick={() => setCheckinModalOpen(false)}
+                                className="px-6 py-2.5 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-rose-500 dark:hover:text-rose-400 transition-all active:scale-95"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                onClick={handleConfirmCheckin}
+                                className="flex items-center gap-2 px-8 py-3 bg-linear-to-r from-indigo-600 to-violet-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/30 hover:scale-[1.02] active:scale-95 transition-all"
+                            >
+                                {checkinMode === 'checkin' ? 'Xác nhận Check-in' : 'Cập nhật dịch vụ'} <ChevronRight size={14} />
+                            </button>
+                        </div>
                     </div>
                 )}
             </Modal>
@@ -1969,84 +2078,94 @@ export default function BookingList() {
                 }
             >
                 {selectedRefundBooking ? (
-                    <div className='space-y-4'>
-                        <div className='p-3 rounded-md bg-gray-50 border text-sm'>
-                            <div>
-                                <span className='font-semibold'>Khách hàng: </span>
-                                {refundCustomerName}
+                    <div className='space-y-5'>
+                        {/* Thông tin khách hàng */}
+                        <div className='p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 shadow-xs'>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Thông tin khách hàng</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-4 text-[13px]">
+                                <div className="flex flex-col">
+                                    <span className='text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider font-semibold mb-0.5'>Họ tên</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200">{refundCustomerName}</span>
+                                </div>
+                                {refundCustomerPhone && (
+                                    <div className="flex flex-col">
+                                        <span className='text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider font-semibold mb-0.5'>Số điện thoại</span>
+                                        <span className="font-medium text-slate-800 dark:text-slate-200">{refundCustomerPhone}</span>
+                                    </div>
+                                )}
+                                {refundCustomerEmail && (
+                                    <div className="flex flex-col mt-1 md:mt-0 md:col-span-2">
+                                        <span className='text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider font-semibold mb-0.5'>Email</span>
+                                        <span className="font-medium text-slate-800 dark:text-slate-200 truncate">{refundCustomerEmail}</span>
+                                    </div>
+                                )}
                             </div>
-                            {refundCustomerPhone && (
-                                <div className='mt-1'>
-                                    <span className='text-gray-600'>Số điện thoại: </span>
-                                    {refundCustomerPhone}
-                                </div>
-                            )}
-                            {refundCustomerEmail && (
-                                <div className='mt-1'>
-                                    <span className='text-gray-600'>Email: </span>
-                                    {refundCustomerEmail}
-                                </div>
-                            )}
                         </div>
 
+                        {/* Thông tin nhận tiền hoàn */}
                         {isAccountMode && (
-                            <div className='space-y-3'>
-                                <div>
-                                    <div className='text-xs font-semibold mb-1'>Số tài khoản *</div>
-                                    <Input
-                                        readOnly
-                                        value={selectedRefundBooking.refundAccountNumber || ''}
-                                        placeholder='VD: 0123456789'
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className='text-xs font-semibold mb-1'>
-                                        Tên chủ tài khoản *
+                            <div className='p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 shadow-xs'>
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Thông tin nhận tiền hoàn</h4>
+                                <div className='space-y-4'>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <div className='text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-1.5'>Ngân hàng</div>
+                                            <Input
+                                                readOnly
+                                                className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg hover:border-indigo-400 focus:border-indigo-500 transition-colors cursor-default"
+                                                value={selectedRefundBooking.refundBankName || ''}
+                                            />
+                                        </div>
+                                        <div>
+                                            <div className='text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-1.5'>Số tài khoản</div>
+                                            <Input
+                                                readOnly
+                                                className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-mono rounded-lg hover:border-indigo-400 focus:border-indigo-500 transition-colors cursor-default"
+                                                value={selectedRefundBooking.refundAccountNumber || ''}
+                                            />
+                                        </div>
                                     </div>
-                                    <Input
-                                        readOnly
-                                        value={selectedRefundBooking.refundAccountName || ''}
-                                        placeholder='VD: Nguyen Van A'
-                                    />
-                                </div>
 
-                                <div>
-                                    <div className='text-xs font-semibold mb-1'>Ngân hàng *</div>
-                                    <Input
-                                        readOnly
-                                        value={selectedRefundBooking.refundBankName || ''}
-                                        placeholder='VD: MB BANK'
-                                    />
-                                </div>
-
-                                <div>
-                                    <div className='text-xs font-semibold mb-1'>
-                                        Ghi chú thêm (không bắt buộc)
+                                    <div>
+                                        <div className='text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-1.5'>
+                                            Tên chủ tài khoản
+                                        </div>
+                                        <Input
+                                            readOnly
+                                            className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold uppercase rounded-lg hover:border-indigo-400 focus:border-indigo-500 transition-colors cursor-default"
+                                            value={selectedRefundBooking.refundAccountName || ''}
+                                        />
                                     </div>
-                                    <TextArea
-                                        readOnly
-                                        autoSize={{ minRows: 2, maxRows: 4 }}
-                                        value={selectedRefundBooking.refundNote || ''}
-                                        placeholder='VD: Hoàn tiền qua tài khoản vợ, chuyển lúc 20h30...'
-                                    />
+
+                                    <div>
+                                        <div className='text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-1.5'>
+                                            Ghi chú thêm từ khách
+                                        </div>
+                                        <TextArea
+                                            readOnly
+                                            className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-300 rounded-lg hover:border-indigo-400 focus:border-indigo-500 transition-colors cursor-default"
+                                            autoSize={{ minRows: 2, maxRows: 4 }}
+                                            value={selectedRefundBooking.refundNote || 'Không có ghi chú'}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {isAdminMode && (adminReason || billImage) && (
-                            <div className='border-t pt-3 space-y-3'>
-                                <div className='text-sm font-semibold'>
-                                    Thông tin xử lý hoàn tiền (phía admin)
+                            <div className='p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 space-y-4'>
+                                <div className='text-xs font-bold text-slate-400 uppercase tracking-widest'>
+                                    Thông tin xử lý (Admin)
                                 </div>
 
                                 {adminReason && (
                                     <div>
-                                        <div className='text-xs font-semibold mb-1'>
-                                            Ghi chú / lý do từ admin
+                                        <div className='text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-1.5'>
+                                            Ghi chú / Lý do
                                         </div>
                                         <TextArea
                                             readOnly
+                                            className="bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-300 rounded-lg cursor-default"
                                             autoSize={{ minRows: 2, maxRows: 5 }}
                                             value={adminReason}
                                         />
@@ -2055,22 +2174,22 @@ export default function BookingList() {
 
                                 {billImage && (
                                     <div>
-                                        <div className='text-xs font-semibold mb-1'>
-                                            Ảnh bill / chứng từ hoàn tiền
+                                        <div className='text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold mb-1.5 flex justify-between items-center'>
+                                            <span>Ảnh bill / Chứng từ</span>
+                                            <a
+                                                href={billImage}
+                                                target='_blank'
+                                                rel='noreferrer'
+                                                className='text-[10px] text-indigo-500 hover:text-indigo-400 underline lowercase tracking-normal'
+                                            >
+                                                Mở tab mới
+                                            </a>
                                         </div>
-                                        <a
-                                            href={billImage}
-                                            target='_blank'
-                                            rel='noreferrer'
-                                            className='text-xs text-blue-600 underline'
-                                        >
-                                            Mở ảnh bill trong tab mới
-                                        </a>
-                                        <div className='mt-2'>
+                                        <div className='mt-2 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/5 dark:bg-white/5'>
                                             <img
                                                 src={billImage}
                                                 alt='Bill hoàn tiền'
-                                                className='max-h-60 rounded-md border object-contain'
+                                                className='max-h-60 w-full object-contain'
                                             />
                                         </div>
                                     </div>
@@ -2288,12 +2407,7 @@ export default function BookingList() {
                             </Col>
                         </Row>
 
-                        <Form.Item name='note' label='Ghi chú thêm'>
-                            <Input.TextArea
-                                rows={2}
-                                placeholder='Ghi chú hiển thị trên hóa đơn (nếu có)...'
-                            />
-                        </Form.Item>
+
 
                         <Card
                             size='small'
@@ -2394,298 +2508,183 @@ export default function BookingList() {
                         const alreadyPaidTotal = Number(inv.total || 0) + depositPaidBefore;
 
                         return (
-                            <div ref={invoicePrintRef} className='space-y-4'>
-                                <Card
-                                    size='small'
-                                    bodyStyle={{ padding: 16 }}
-                                    style={{
-                                        borderRadius: 10,
-                                        borderColor: '#22c55e',
-                                        marginBottom: 4,
-                                    }}
-                                >
-                                    <div className='flex justify-between items-center'>
+                            <div ref={invoicePrintRef} className='bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden mb-2 relative'>
+                                {/* Top accent bar */}
+                                <div className="h-2 w-full bg-linear-to-r from-emerald-400 to-teal-500"></div>
+                                
+                                <div className="p-6 md:p-8">
+                                    {/* Header Section */}
+                                    <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8'>
                                         <div>
-                                            <div className='text-sm font-semibold text-green-600'>
-                                                Hóa đơn - {inv.code}
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <h1 className='text-2xl font-black text-slate-800 tracking-tight uppercase'>Hóa đơn</h1>
+                                                <Tag color='green' className="m-0 border-emerald-200 bg-emerald-50 text-emerald-700 rounded-md font-bold">Đã thanh toán</Tag>
                                             </div>
+                                            <p className='text-sm text-slate-500 font-medium'>
+                                                Mã HĐ: <span className="text-slate-700">{inv.code}</span>
+                                            </p>
                                             {booking.code && (
-                                                <div className='text-xs text-gray-500 mt-1'>
-                                                    Đơn đặt sân: {booking.code}
-                                                </div>
+                                                <p className='text-xs text-slate-400 mt-0.5'>
+                                                    Đơn đặt sân: #{booking.code}
+                                                </p>
                                             )}
                                         </div>
-                                        <Tag color='green'>Đã thanh toán</Tag>
+                                        <div className="text-left md:text-right text-sm text-slate-600">
+                                            <p>Ngày lập: <span className="font-semibold text-slate-800">{dayjs(inv.createdAt || inv.paidAt).format('DD/MM/YYYY HH:mm')}</span></p>
+                                            <p className="mt-1">Hình thức: <span className="font-semibold text-slate-800 uppercase text-xs tracking-wider bg-slate-100 px-2 py-0.5 rounded">{methodLabel}</span></p>
+                                        </div>
                                     </div>
-                                </Card>
 
-                                <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
-                                    <Card
-                                        size='small'
-                                        bodyStyle={{ padding: 16 }}
-                                        style={{ borderRadius: 10, borderColor: '#bbf7d0' }}
-                                    >
-                                        <div className='text-sm font-semibold mb-2'>
-                                            Thông tin khách hàng
-                                        </div>
-                                        <div className='text-xs space-y-1'>
-                                            <div className='flex justify-between'>
-                                                <span className='text-gray-500'>Họ tên:</span>
-                                                <span className='font-medium'>
-                                                    {customer.name ||
-                                                        customer.username ||
-                                                        'Khách lẻ'}
-                                                </span>
-                                            </div>
-                                            {customer.phone && (
-                                                <div className='flex justify-between'>
-                                                    <span className='text-gray-500'>
-                                                        Số điện thoại:
-                                                    </span>
-                                                    <span>{customer.phone}</span>
+                                    {/* Customer & Booking Info Grid */}
+                                    <div className='grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-5 rounded-xl border border-slate-100 mb-6'>
+                                        <div>
+                                            <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-3'>Thông tin khách hàng</h3>
+                                            <div className='space-y-2 text-sm'>
+                                                <div className='flex justify-between md:justify-start md:gap-4'>
+                                                    <span className='text-slate-500 w-20'>Họ tên:</span>
+                                                    <span className='font-semibold text-slate-800'>{customer.name || customer.username || 'Khách lẻ'}</span>
                                                 </div>
-                                            )}
-                                            {customer.email && (
-                                                <div className='flex justify-between'>
-                                                    <span className='text-gray-500'>Email:</span>
-                                                    <span>{customer.email}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </Card>
-
-                                    <Card
-                                        size='small'
-                                        bodyStyle={{ padding: 16 }}
-                                        style={{ borderRadius: 10, borderColor: '#bbf7d0' }}
-                                    >
-                                        <div className='text-sm font-semibold mb-2'>
-                                            Thông tin hóa đơn
-                                        </div>
-                                        <div className='text-xs space-y-1'>
-                                            <div className='flex justify-between'>
-                                                <span className='text-gray-500'>Mã hóa đơn:</span>
-                                                <span className='font-medium'>{inv.code}</span>
-                                            </div>
-                                            <div className='flex justify-between'>
-                                                <span className='text-gray-500'>Ngày lập:</span>
-                                                <span>
-                                                    {dayjs(inv.createdAt || inv.paidAt).format(
-                                                        'DD/MM/YYYY HH:mm'
-                                                    )}
-                                                </span>
-                                            </div>
-                                            <div className='flex justify-between'>
-                                                <span className='text-gray-500'>
-                                                    Phương thức thanh toán:
-                                                </span>
-                                                <span>{methodLabel}</span>
-                                            </div>
-                                        </div>
-                                    </Card>
-                                </div>
-
-                                <Card
-                                    size='small'
-                                    bodyStyle={{ padding: 16 }}
-                                    style={{ borderRadius: 10 }}
-                                >
-                                    <div className='text-sm font-semibold mb-2'>
-                                        Chi tiết đặt sân
-                                    </div>
-                                    <div className='grid grid-cols-1 md:grid-cols-2 gap-2 text-xs'>
-                                        <div className='space-y-1'>
-                                            <div className='flex justify-between'>
-                                                <span className='text-gray-500'>Sân:</span>
-                                                <span className='font-medium'>
-                                                    {booking.courtId?.name || '—'}
-                                                </span>
-                                            </div>
-                                            <div className='flex justify-between'>
-                                                <span className='text-gray-500'>Ngày:</span>
-                                                <span>
-                                                    {booking.date
-                                                        ? dayjs(booking.date).format('DD/MM/YYYY')
-                                                        : '—'}
-                                                </span>
-                                            </div>
-                                            <div className='flex justify-between'>
-                                                <span className='text-gray-500'>Giờ:</span>
-                                                <span>
-                                                    {Array.isArray(booking.slots) &&
-                                                    booking.slots.length > 0
-                                                        ? booking.slots
-                                                              .map(
-                                                                  (s: any) =>
-                                                                      `${s.startTime} - ${s.endTime}`
-                                                              )
-                                                              .join(', ')
-                                                        : `${booking.startTime} - ${booking.endTime}`}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        {booking.voucherCode && voucherDiscount > 0 && (
-                                            <div className='space-y-1'>
-                                                <div className='flex justify-between items-center'>
-                                                    <span className='text-gray-500'>
-                                                        Mã giảm giá:
-                                                    </span>
-                                                    <Tag color='green' style={{ margin: 0 }}>
-                                                        {booking.voucherCode}
-                                                    </Tag>
-                                                </div>
-                                                {booking.voucherSnapshot && (
-                                                    <div className='flex justify-between'>
-                                                        <span className='text-gray-500'>
-                                                            Loại giảm:
-                                                        </span>
-                                                        <span>
-                                                            {booking.voucherSnapshot
-                                                                .discountType === 'percent'
-                                                                ? `Giảm ${booking.voucherSnapshot.discountValue}%`
-                                                                : `Giảm ${formatVND(booking.voucherSnapshot.discountValue || 0)}`}
-                                                        </span>
+                                                {customer.phone && (
+                                                    <div className='flex justify-between md:justify-start md:gap-4'>
+                                                        <span className='text-slate-500 w-20'>SĐT:</span>
+                                                        <span className="text-slate-800">{customer.phone}</span>
                                                     </div>
                                                 )}
-                                                <div className='flex justify-between'>
-                                                    <span className='text-gray-500'>
-                                                        Số tiền giảm:
-                                                    </span>
-                                                    <span className='font-medium text-green-600'>
-                                                        - {formatVND(voucherDiscount)}
+                                                {customer.email && (
+                                                    <div className='flex justify-between md:justify-start md:gap-4'>
+                                                        <span className='text-slate-500 w-20'>Email:</span>
+                                                        <span className="text-slate-800 truncate max-w-[150px]" title={customer.email}>{customer.email}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-3'>Chi tiết đặt sân</h3>
+                                            <div className='space-y-2 text-sm'>
+                                                <div className='flex justify-between md:justify-start md:gap-4'>
+                                                    <span className='text-slate-500 w-16'>Sân:</span>
+                                                    <span className='font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md'>{booking.courtId?.name || '—'}</span>
+                                                </div>
+                                                <div className='flex justify-between md:justify-start md:gap-4'>
+                                                    <span className='text-slate-500 w-16'>Ngày:</span>
+                                                    <span className='text-slate-800 font-medium'>{booking.date ? dayjs(booking.date).format('DD/MM/YYYY') : '—'}</span>
+                                                </div>
+                                                <div className='flex justify-between md:justify-start md:gap-4'>
+                                                    <span className='text-slate-500 w-16'>Giờ:</span>
+                                                    <span className='text-slate-800 font-medium'>
+                                                        {Array.isArray(booking.slots) && booking.slots.length > 0
+                                                            ? booking.slots.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ')
+                                                            : `${booking.startTime} - ${booking.endTime}`}
                                                     </span>
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </Card>
-
-                                {mergedItems.length > 0 && (
-                                    <Card
-                                        size='small'
-                                        bodyStyle={{ padding: 16 }}
-                                        style={{ borderRadius: 10 }}
-                                    >
-                                        <div className='text-sm font-semibold mb-2'>
-                                            Thiết bị / hạng mục
                                         </div>
-                                        <div className='space-y-1 text-xs'>
-                                            {mergedItems.map((it: any, idx: number) => {
-                                                const modeText = getModeText(it.mode);
+                                    </div>
 
-                                                return (
-                                                    <div
-                                                        key={`${it._id || it.name || 'item'}_${idx}`}
-                                                        className='flex justify-between'
-                                                    >
-                                                        <div>
-                                                            <div className='font-medium flex items-center gap-2'>
-                                                                <span>{it.name || 'Hạng mục'}</span>
-                                                                {modeText && (
-                                                                    <Tag
-                                                                        color={
-                                                                            it.mode === 'sell'
-                                                                                ? 'green'
-                                                                                : 'blue'
-                                                                        }
-                                                                        style={{ marginLeft: 2 }}
-                                                                    >
-                                                                        {modeText}
-                                                                    </Tag>
-                                                                )}
+                                    {/* Items Table */}
+                                    <div className="mb-6 border border-slate-100 rounded-xl overflow-hidden shadow-xs">
+                                        <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                            <span>Hạng mục / Thiết bị</span>
+                                            <span>Thành tiền</span>
+                                        </div>
+                                        <div className="p-4 space-y-3">
+                                            {mergedItems.length > 0 ? (
+                                                mergedItems.map((it: any, idx: number) => {
+                                                    const modeText = getModeText(it.mode);
+                                                    return (
+                                                        <div key={`${it._id || it.name || 'item'}_${idx}`} className='flex justify-between items-center group'>
+                                                            <div>
+                                                                <div className='font-semibold text-slate-800 flex items-center gap-2'>
+                                                                    <span>{it.name || 'Hạng mục'}</span>
+                                                                    {modeText && (
+                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider ${it.mode === 'sell' ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                                            {modeText}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className='text-xs text-slate-500 mt-0.5'>
+                                                                    {formatVND(it.price)} x {it.qty} {it.unit || ''}
+                                                                </div>
                                                             </div>
-                                                            <div className='text-gray-500'>
-                                                                {modeText && (
-                                                                    <span>{modeText} • </span>
-                                                                )}
-                                                                {formatVND(it.price)} x {it.qty}{' '}
-                                                                {it.unit || ''}
+                                                            <div className='font-bold text-slate-700'>
+                                                                {formatVND(it.subtotal || (it.qty || 0) * (it.price || 0))}
                                                             </div>
                                                         </div>
-                                                        <div className='font-semibold'>
-                                                            {formatVND(
-                                                                it.subtotal ||
-                                                                    (it.qty || 0) * (it.price || 0)
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </Card>
-                                )}
-
-                                <Card
-                                    size='small'
-                                    bodyStyle={{ padding: 16 }}
-                                    style={{ borderRadius: 10, background: '#fafafa' }}
-                                >
-                                    <div className='text-sm font-semibold mb-2'>
-                                        Chi phí thanh toán
-                                    </div>
-                                    <div className='space-y-1 text-sm'>
-                                        <div className='flex justify-between'>
-                                            <span>Tiền sân</span>
-                                            <span className='font-medium'>
-                                                {formatVND(fieldAmount)}
-                                            </span>
-                                        </div>
-                                        <div className='flex justify-between'>
-                                            <span>Tiền thiết bị</span>
-                                            <span className='font-medium'>
-                                                {formatVND(equipmentTotal)}
-                                            </span>
-                                        </div>
-
-                                        {voucherDiscount > 0 && booking.voucherCode && (
-                                            <div className='flex justify-between text-green-600'>
-                                                <span>
-                                                    Giảm giá voucher ({booking.voucherCode})
-                                                </span>
-                                                <span className='font-medium'>
-                                                    - {formatVND(voucherDiscount)}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        <div className='border-t border-dashed mt-2 pt-2 flex justify-between'>
-                                            <span>Tổng cộng</span>
-                                            <span className='font-semibold'>
-                                                {formatVND(bookingTotal)}
-                                            </span>
-                                        </div>
-
-                                        {depositPaidBefore > 0 && (
-                                            <div className='flex justify-between text-xs text-gray-500'>
-                                                <span>Đã thanh toán trước</span>
-                                                <span>- {formatVND(depositPaidBefore)}</span>
-                                            </div>
-                                        )}
-
-                                        {inv.discount > 0 && (
-                                            <div className='flex justify-between text-xs text-gray-500'>
-                                                <span>Giảm giá trên hóa đơn</span>
-                                                <span>- {formatVND(inv.discount)}</span>
-                                            </div>
-                                        )}
-
-                                        <div className='flex justify-between mt-1 text-sm font-semibold'>
-                                            <span>Khách thanh toán hóa đơn này</span>
-                                            <span className='text-blue-600'>
-                                                {formatVND(inv.total)}
-                                            </span>
-                                        </div>
-
-                                        <div className='mt-3 rounded-lg bg-green-50 px-3 py-2 flex justify-between items-center text-sm'>
-                                            <span className='font-medium text-green-700'>
-                                                Đã thanh toán
-                                            </span>
-                                            <span className='font-bold text-green-700'>
-                                                {formatVND(alreadyPaidTotal)}
-                                            </span>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="text-center text-xs text-slate-400 py-2">Không sử dụng thiết bị thêm</div>
+                                            )}
                                         </div>
                                     </div>
-                                </Card>
+
+                                    {/* Cost breakdown */}
+                                    <div className="flex flex-col md:flex-row justify-end text-sm">
+                                        <div className="w-full md:w-2/3 lg:w-[55%] space-y-2">
+                                            <div className='flex justify-between items-center py-1'>
+                                                <span className="text-slate-600">Tiền sân</span>
+                                                <span className='font-medium text-slate-800'>{formatVND(fieldAmount)}</span>
+                                            </div>
+                                            <div className='flex justify-between items-center py-1 border-b border-dashed border-slate-200 pb-3'>
+                                                <span className="text-slate-600">Tiền thiết bị</span>
+                                                <span className='font-medium text-slate-800'>{formatVND(equipmentTotal)}</span>
+                                            </div>
+                                            
+                                            <div className='flex justify-between items-center py-2'>
+                                                <span className="text-slate-800 font-semibold uppercase text-xs tracking-wider">Tổng cộng</span>
+                                                <span className='font-bold text-slate-800 text-base'>
+                                                    {formatVND(subtotalBeforeDiscount)}
+                                                </span>
+                                            </div>
+
+                                            {voucherDiscount > 0 && booking.voucherCode && (
+                                                <div className='flex justify-between items-center text-emerald-600 bg-emerald-50/50 px-2 py-1 rounded'>
+                                                    <span>Mã giảm giá ({booking.voucherCode})</span>
+                                                    <span className='font-medium'>- {formatVND(voucherDiscount)}</span>
+                                                </div>
+                                            )}
+
+                                            {depositPaidBefore > 0 && (
+                                                <div className='flex justify-between items-center text-indigo-600 bg-indigo-50/50 px-2 py-1 rounded'>
+                                                    <span>Đã thanh toán trước (Cọc)</span>
+                                                    <span className='font-medium'>- {formatVND(depositPaidBefore)}</span>
+                                                </div>
+                                            )}
+
+                                            {inv.discount > 0 && (
+                                                <div className='flex justify-between items-center text-rose-600 bg-rose-50/50 px-2 py-1 rounded'>
+                                                    <span>Giảm giá thêm (Admin)</span>
+                                                    <span className='font-medium'>- {formatVND(inv.discount)}</span>
+                                                </div>
+                                            )}
+
+                                            <div className='w-full border-t-2 border-slate-800 my-3'></div>
+
+                                            <div className='flex justify-between items-center bg-slate-800 text-white rounded-xl p-4 shadow-lg relative overflow-hidden'>
+                                                <div className="absolute -right-6 -bottom-6 opacity-10">
+                                                    <FileTextOutlined style={{ fontSize: 80 }} />
+                                                </div>
+                                                <div className="relative z-10">
+                                                    <span className="block text-xs text-slate-300 font-bold uppercase tracking-widest">Khách thanh toán</span>
+                                                    <span className="block text-[10px] text-slate-400 mt-1 opacity-80">(Chỉ tính hóa đơn này)</span>
+                                                </div>
+                                                <span className='text-3xl font-black font-mono tracking-tighter text-emerald-400 relative z-10'>
+                                                    {formatVND(inv.total)}
+                                                </span>
+                                            </div>
+
+                                            <div className="text-right mt-3 text-xs font-semibold text-emerald-600 flex items-center justify-end gap-1.5">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                                                TỔNG ĐÃ THU: {formatVND(alreadyPaidTotal)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Footer / Watermark */}
+                                    <div className="mt-12 text-center text-[10px] text-slate-300 uppercase tracking-[0.2em] font-bold flex items-center justify-between before:flex-1 before:border-t before:border-slate-100 before:mr-4 after:flex-1 after:border-t after:border-slate-100 after:ml-4 pb-2">
+                                        Cảm ơn quý khách
+                                    </div>
+                                </div>
                             </div>
                         );
                     })()
@@ -2882,36 +2881,150 @@ export default function BookingList() {
                 )}
             </Modal>
 
+            <Modal
+                centered
+                width={440}
+                open={cancelCashModalOpen}
+                onCancel={() => setCancelCashModalOpen(false)}
+                footer={[
+                    <Button 
+                        key="back" 
+                        onClick={() => setCancelCashModalOpen(false)}
+                        className="h-10 rounded-xl font-bold px-6 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                    >
+                        Đóng
+                    </Button>,
+                    <Button 
+                        key="submit" 
+                        loading={cancelCashLoading}
+                        onClick={confirmCancelCash}
+                        className="bg-rose-600 hover:bg-rose-700 border-none h-10 rounded-xl font-bold px-6 shadow-lg shadow-rose-500/30 text-white"
+                    >
+                        Xác nhận hủy
+                    </Button>,
+                ]}
+                title={
+                    <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400 font-black italic text-xl">
+                        <StopOutlined className="text-2xl" />
+                        HỦY ĐƠN TIỀN MẶT
+                    </div>
+                }
+            >
+                {cancelCashBooking && (
+                    <div className="py-4 space-y-4">
+                        {/* Booking summary card */}
+                        <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 space-y-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chi tiết đơn</span>
+                                <span className="text-xs font-black text-rose-500 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-full">{cancelCashBooking.code}</span>
+                            </div>
+                            
+                            <div className="space-y-2.5">
+                                <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-200">
+                                    <MapPin size={14} className="text-blue-500" />
+                                    <span className="text-sm font-semibold">{cancelCashBooking.courtId?.name || 'Sân bãi'}</span>
+                                </div>
+                                <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-200">
+                                    <Clock size={14} className="text-amber-500" />
+                                    <span className="text-sm font-bold">
+                                        {dayjs(cancelCashBooking.date).format('DD/MM/YYYY')} 
+                                        <span className="mx-2 text-slate-400">|</span>
+                                        {cancelCashBooking.startTime} - {cancelCashBooking.endTime}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-white/5">
+                                    <span className="text-xs text-slate-500">Tiền cọc cần xử lý</span>
+                                    <span className="text-base font-black text-blue-600 dark:text-blue-400 italic">
+                                        {formatVND(cancelCashBooking.depositAmount || 0)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Checkbox
+                                className="premium-checkbox text-slate-700 dark:text-slate-300 font-semibold text-xs"
+                                checked={cancelRefundDeposit}
+                                onChange={(e) => setCancelRefundDeposit(e.target.checked)}
+                            >
+                                Đã hoàn tiền (cọc / toàn bộ) cho khách
+                            </Checkbox>
+
+                            <div className="relative">
+                                <TextArea
+                                    className="premium-input !rounded-2xl !bg-white dark:!bg-slate-900 !border-slate-200 dark:!border-white/10 text-xs italic"
+                                    rows={3}
+                                    value={cancelAdminReason}
+                                    onChange={(e) => setCancelAdminReason(e.target.value)}
+                                    placeholder="Ghi chú lý do hủy hoặc thông tin hoàn tiền..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
             {showQrModal && qrData && (
                 <div
-                    className='fixed inset-0 bg-black/50 flex items-center justify-center'
-                    style={{ zIndex: 2000 }} // ⬅ đặt z-index cao hơn antd
+                    className='fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4'
+                    style={{ zIndex: 2500 }}
                 >
-                    <div className='bg-white rounded-2xl p-6 w-[380px] text-center space-y-4'>
-                        <h2 className='text-xl font-bold text-green-700'>
-                            Thanh toán bằng QR Code
-                        </h2>
+                    <div className="bg-white rounded-[2rem] overflow-hidden shadow-2xl relative w-full max-w-[400px] animate-in fade-in zoom-in duration-300">
+                        {/* Header */}
+                        <div className="bg-linear-to-br from-emerald-500 to-teal-600 p-6 text-center text-white relative">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -ml-10 -mb-10"></div>
+                            <h2 className="text-xl font-black uppercase tracking-widest relative z-10 drop-shadow-md">Thanh Toán Chuyển Khoản</h2>
+                            <p className="text-emerald-50 text-sm mt-1.5 font-semibold relative z-10 opacity-90">Mã đơn: #{paymentBooking?.code}</p>
+                        </div>
 
-                        <img
-                            src={qrData.image}
-                            alt='VietQR'
-                            className='w-64 h-64 mx-auto border rounded-xl shadow'
-                        />
+                        <div className="p-7 bg-white relative">
+                            {/* Amount Section */}
+                            <div className="text-center mb-6">
+                                <span className="text-xs text-slate-400 font-bold uppercase tracking-widest block mb-2">Số tiền khách cần thanh toán</span>
+                                <div className="text-4xl font-black text-slate-800 font-mono tracking-tighter flex items-center justify-center gap-1">
+                                    {qrData.amount.toLocaleString('vi-VN')} <span className="text-2xl text-emerald-600">₫</span>
+                                </div>
+                            </div>
 
-                        <p className='text-gray-700 font-semibold'>
-                            Số tiền:{' '}
-                            <span className='text-green-700'>
-                                {qrData.amount.toLocaleString()}đ
-                            </span>
-                        </p>
+                            {/* Ticket dashed divider */}
+                            <div className="flex items-center my-6 relative outline-hidden">
+                                <div className="absolute left-[-40px] w-8 h-8 bg-slate-900/60 rounded-full"></div>
+                                <div className="flex-1 border-t-2 border-dashed border-slate-200"></div>
+                                <div className="absolute right-[-40px] w-8 h-8 bg-slate-900/60 rounded-full"></div>
+                            </div>
 
-                        <div className=''>
-                            <Button
+                            {/* QR Code Section */}
+                            <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 flex flex-col items-center justify-center shadow-inner relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl"></div>
+                                <div className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 relative z-10 w-56 h-56 flex items-center justify-center overflow-hidden">
+                                    <img
+                                        src={qrData.image}
+                                        alt='VietQR'
+                                        className='w-full h-full object-contain mix-blend-multiply scale-[1.02]'
+                                    />
+                                </div>
+                                
+                                <div className="mt-5 flex items-center justify-center gap-2">
+                                    <span className="flex h-2.5 w-2.5 relative">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                                    </span>
+                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                                        Mở App Ngân hàng quét để thanh toán
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-5 bg-white border-t border-slate-100 flex flex-col gap-3">
+                            <button
                                 onClick={() => setShowQrModal(false)}
-                                className='w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-xl'
+                                className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-rose-200 active:scale-95 flex items-center justify-center gap-2"
                             >
-                                Đóng
-                            </Button>
+                                ❌ Đóng mã QR & Bỏ qua
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Typography, Checkbox, Button, Divider, message } from 'antd';
+import { Typography, Checkbox, Button, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 const BookingPolicyPage: React.FC = () => {
     const navigate = useNavigate();
@@ -36,155 +36,182 @@ const BookingPolicyPage: React.FC = () => {
     return (
         <div
             className='
-                min-h-screen bg-gray-50 
+                min-h-screen bg-gray-50 dark:bg-gray-950 
                 py-12 px-3 sm:px-6
                 flex justify-center items-start lg:items-center
+                transition-all duration-300
             '
         >
-            <Card className='w-full max-w-6xl shadow-xl rounded-2xl sm:rounded-3xl'>
+            <div className='w-full max-w-6xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-[2.5rem] border-none bg-white dark:bg-gray-900 p-8 sm:p-12 transition-all relative overflow-hidden'>
+                {/* Trang trí nền */}
+                <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-green-500/10 dark:bg-green-500/5 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl"></div>
+
                 {/* HEADER */}
-                <header className='text-center mb-10'>
-                    <Title
-                        level={1}
-                        className='!mb-2 !text-green-600 !text-3xl sm:!text-4xl lg:!text-[40px]'
-                    >
-                        Quy định đặt sân &amp; Nội quy chung
-                    </Title>
-                    <Text type='secondary' className='text-sm sm:text-base'>
-                        Để đảm bảo quyền lợi và trải nghiệm tốt nhất, vui lòng đọc kỹ các quy định
-                        sau trước khi thanh toán.
-                    </Text>
+                <header className='relative text-center mb-16'>
+                    <h1 className='text-4xl sm:text-5xl lg:text-6xl font-black mb-6 tracking-tight bg-linear-to-r from-green-600 to-emerald-500 dark:from-green-400 dark:to-emerald-300 bg-clip-text text-transparent pb-1'>
+                        Quy định & Nội quy
+                    </h1>
+                    <div className='max-w-3xl mx-auto'>
+                        <p className='text-gray-600 dark:text-gray-300 text-base sm:text-xl leading-relaxed font-medium'>
+                            Để sân chơi luôn chuyên nghiệp và đảm bảo quyền lợi tốt nhất cho bạn, 
+                            hãy dành 1 phút điểm qua các quy định cốt lõi tại <span className="text-green-600 dark:text-green-400 font-bold">Sân Bóng Mira</span>.
+                        </p>
+                    </div>
                 </header>
 
-                <div className='grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14'>
-                    <section className='leading-relaxed'>
-                        <Title level={3} className='!mb-4 !text-xl lg:!text-2xl'>
-                            I. THANH TOÁN &amp; GIỮ CHỖ (Tùy hình thức đặt)
-                        </Title>
+                <div className='relative grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20'>
+                    {/* CỘT 1 */}
+                    <section className='space-y-8'>
+                        <div className='flex items-center gap-4'>
+                            <div className='flex items-center justify-center w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 shadow-inner'>
+                                <span className='text-xl font-black'>I</span>
+                            </div>
+                            <h2 className='text-2xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider'>
+                                Thanh toán & Giữ chỗ
+                            </h2>
+                        </div>
 
-                        <Typography className='text-base lg:text-lg space-y-4'>
-                            <Paragraph className='!mb-1'>
-                                <Text strong>1. ĐỐI VỚI KHÁCH ĐẶT ONLINE TRÊN WEBSITE</Text>
-                            </Paragraph>
-                            <ul className='list-disc pl-6 space-y-2'>
-                                <li>
-                                    <Text strong>Yêu cầu:</Text> Bạn cần{' '}
-                                    <Text strong>Thanh toán Online 100%</Text> tổng giá trị tiền sân
-                                    ngay tại bước đặt lịch trên web.
-                                </li>
-                                <li>
-                                    <Text strong>Xác nhận:</Text> Hệ thống chỉ giữ chỗ và gửi xác
-                                    nhận đặt sân thành công sau khi nhận đủ 100% tiền thanh toán.
-                                </li>
-                            </ul>
+                        <div className='space-y-6'>
+                            <div className='group bg-white dark:bg-gray-800/50 p-6 rounded-4xl border border-gray-100 dark:border-gray-700/50 hover:border-green-200 dark:hover:border-green-800 transition-all shadow-sm hover:shadow-xl'>
+                                <h3 className='font-black text-gray-900 dark:text-gray-100 text-lg mb-4 flex items-center gap-3'>
+                                    <span className='w-2 h-2 rounded-full bg-green-500'></span>
+                                    KHÁCH ĐẶT ONLINE
+                                </h3>
+                                <div className='space-y-4 text-gray-700 dark:text-gray-300'>
+                                    <p className='flex items-start gap-3'>
+                                        <span className='p-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'>✓</span>
+                                        <span>Thanh toán <b className='text-green-600 dark:text-green-400 text-lg leading-none'>100%</b> cọc ngay để chốt lịch nhanh nhất.</span>
+                                    </p>
+                                    <p className='flex items-start gap-3'>
+                                        <span className='p-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'>✓</span>
+                                        <span>Hệ thống tự động khóa sân ngay sau khi giao dịch thành công.</span>
+                                    </p>
+                                </div>
+                            </div>
 
-                            <Paragraph className='!mt-6 !mb-1'>
-                                <Text strong>
-                                    2. ĐỐI VỚI KHÁCH ĐẾN ĐẶT TRỰC TIẾP TẠI SÂN (Offline)
-                                </Text>
-                            </Paragraph>
-                            <ul className='list-disc pl-6 space-y-2'>
-                                <li>
-                                    <Text strong>Yêu cầu:</Text> Bạn cần{' '}
-                                    <Text strong>Đặt cọc nóng 50%</Text> giá trị tiền sân ngay tại
-                                    quầy để được giữ lịch cho bạn.
-                                </li>
-                                <li>
-                                    <Text strong>Thanh toán phần còn lại:</Text> 50% số tiền còn lại
-                                    sẽ được thanh toán tại sân trước khi trận đấu bắt đầu.
-                                </li>
-                            </ul>
+                            <div className='group bg-white dark:bg-gray-800/50 p-6 rounded-4xl border border-gray-100 dark:border-gray-700/50 hover:border-blue-200 dark:hover:border-blue-800 transition-all shadow-sm hover:shadow-xl'>
+                                <h3 className='font-black text-gray-900 dark:text-gray-100 text-lg mb-4 flex items-center gap-3'>
+                                    <span className='w-2 h-2 rounded-full bg-blue-500'></span>
+                                    KHÁCH ĐẶT TẠI SÂN
+                                </h3>
+                                <div className='space-y-4 text-gray-700 dark:text-gray-300'>
+                                    <p className='flex items-start gap-3'>
+                                        <span className='p-1 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'>✓</span>
+                                        <span>Yêu cầu đặt cọc trước <b className='text-blue-600 dark:text-blue-400 text-lg leading-none'>50%</b> tại quầy.</span>
+                                    </p>
+                                    <p className='flex items-start gap-3'>
+                                        <span className='p-1 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'>✓</span>
+                                        <span>Phần còn lại hoàn tất trước khi tiếng còi khai cuộc vang lên.</span>
+                                    </p>
+                                </div>
+                            </div>
 
-                            <Paragraph className='!mt-6 !mb-1 italic'>
-                                <Text strong>Lưu ý chung về việc Hủy lịch</Text> (áp dụng cho cả 2
-                                hình thức trên):
-                            </Paragraph>
-                            <ul className='list-disc pl-6 space-y-2 italic'>
-                                <li>
-                                    <Text strong>Hủy sớm (Cách giờ đá trên 6 tiếng):</Text> Được
-                                    hoàn lại toàn bộ số tiền đã đóng (100% hoặc 50% cọc).
-                                </li>
-                                <li>
-                                    <Text strong>
-                                        Hủy gấp (Cách giờ đá dưới 6 tiếng) trước giờ đá:
-                                    </Text>{' '}
-                                    Không được hoàn lại số tiền đã đóng.
-                                </li>
-                            </ul>
-                        </Typography>
+                            <div className='p-6 rounded-4xl bg-linear-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 border border-red-100 dark:border-red-900/30'>
+                                <h3 className='font-black text-red-600 dark:text-red-400 text-lg mb-4 flex items-center gap-2'>
+                                    ⚠️ QUY ĐỊNH HỦY LỊCH
+                                </h3>
+                                <div className='space-y-3'>
+                                    <div className='flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-xl'>
+                                        <span className='text-gray-600 dark:text-gray-200 font-medium'>Trước 6 tiếng</span>
+                                        <span className='text-green-600 dark:text-green-400 font-black'>Hoàn tiền 100%</span>
+                                    </div>
+                                    <div className='flex items-center justify-between p-3 bg-white dark:bg-gray-900/50 rounded-xl'>
+                                        <span className='text-gray-600 dark:text-gray-200 font-medium'>Dưới 6 tiếng</span>
+                                        <span className='text-red-600 dark:text-red-400 font-black italic'>Không hoàn trả</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
-                    <section className='leading-relaxed'>
-                        <Title level={3} className='!mb-4 !text-xl lg:!text-2xl'>
-                            II. QUY ĐỊNH CHUNG TẠI SÂN
-                        </Title>
+                    {/* CỘT 2 */}
+                    <section className='space-y-8'>
+                        <div className='flex items-center gap-4'>
+                            <div className='flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shadow-inner'>
+                                <span className='text-xl font-black'>II</span>
+                            </div>
+                            <h2 className='text-2xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider'>
+                                Văn hóa & Nội quy sân
+                            </h2>
+                        </div>
 
-                        <Typography className='text-base lg:text-lg space-y-4'>
-                            <Paragraph className='!mb-1'>
-                                <Text strong>1. Check-in &amp; Giày thi đấu:</Text>
-                            </Paragraph>
-                            <ul className='list-disc pl-6 space-y-2'>
-                                <li>Vui lòng đến và rời sân đúng khung giờ đã đặt.</li>
-                                <li>
-                                    <Text strong>BẮT BUỘC</Text> sử dụng giày đinh dăm chuyên dụng
-                                    (TF/AG). Nghiêm cấm giày đinh cao gây hỏng mặt cỏ.
-                                </li>
-                            </ul>
+                        <div className='space-y-8'>
+                            <div className='relative pl-10 border-l-2 border-dashed border-gray-200 dark:border-gray-700 space-y-8'>
+                                <div className='relative'>
+                                    <div className='absolute -left-[45px] top-0 w-6 h-6 rounded-full bg-white dark:bg-gray-950 border-4 border-green-500 shadow-sm'></div>
+                                    <h4 className='text-xl font-black text-gray-900 dark:text-gray-100 mb-3 uppercase'>Giày thi đấu</h4>
+                                    <Paragraph className='dark:text-gray-200! text-base!'>
+                                        <span className='text-red-500 font-bold'>NGHIÊM CẤM:</span> Giày đinh cao (FG/SG). 
+                                        <br />
+                                        <span className='text-green-600 dark:text-green-400 font-bold'>YÊU CẦU:</span> Chỉ sử dụng giày đinh dăm (TF) hoặc chuyên dụng sân cỏ nhân tạo để bảo vệ an toàn cho chính bạn và mặt sân.
+                                    </Paragraph>
+                                </div>
 
-                            <Paragraph className='!mt-6 !mb-1'>
-                                <Text strong>2. Tài sản &amp; Dịch vụ thuê đồ:</Text>
-                            </Paragraph>
-                            <ul className='list-disc pl-6 space-y-2'>
-                                <li>
-                                    Khách tự bảo quản tư trang. Giữ vệ sinh và văn hóa thể thao
-                                    (không gây gổ).
-                                </li>
-                                <li>
-                                    Có trách nhiệm bảo quản đồ thuê (bóng, áo bib...) và hoàn trả
-                                    đầy đủ sau trận. Khách hàng bồi thường theo quy định nếu làm mất
-                                    đồ hoặc hư hỏng cơ sở vật chất sân.
-                                </li>
-                            </ul>
+                                <div className='relative'>
+                                    <div className='absolute -left-[45px] top-0 w-6 h-6 rounded-full bg-white dark:bg-gray-950 border-4 border-blue-500 shadow-sm'></div>
+                                    <h4 className='text-xl font-black text-gray-900 dark:text-gray-100 mb-3 uppercase'>Check-in & Thời gian</h4>
+                                    <Paragraph className='dark:text-gray-200! text-base!'>
+                                        Đến sân trước <span className='font-bold text-blue-500'>10-15 phút</span> để chuẩn bị.
+                                        Vui lòng kết thúc trận đấu đúng giờ để bàn giao sân cho ca tiếp theo.
+                                        <br />
+                                        <span className='text-red-500 font-bold mt-1 inline-block'>LƯU Ý:</span> Khách đến muộn quá thời gian quy định (quá 5 phút so với giờ bắt đầu ca) sẽ bị hủy sân và <span className='text-red-500 font-bold'>không được hoàn tiền</span>.
+                                    </Paragraph>
+                                </div>
 
-                            <Paragraph className='!mt-6 !mb-1'>
-                                <Text strong>3. Bảo mật thông tin:</Text>
-                            </Paragraph>
-                            <ul className='list-disc pl-6 space-y-2'>
-                                <li>
-                                    Thông tin cá nhân của bạn chỉ được sử dụng để xác nhận đặt sân
-                                    và liên hệ hỗ trợ, cam kết không chia sẻ cho bên thứ ba.
-                                </li>
-                            </ul>
-                        </Typography>
+                                <div className='relative'>
+                                    <div className='absolute -left-[45px] top-0 w-6 h-6 rounded-full bg-white dark:bg-gray-950 border-4 border-emerald-500 shadow-sm'></div>
+                                    <h4 className='text-xl font-black text-gray-900 dark:text-gray-100 mb-3 uppercase'>An ninh & Văn hóa</h4>
+                                    <Paragraph className='dark:text-gray-200! text-base!'>
+                                        Giữ gìn vệ sinh chung, không hút thuốc và sử dụng chất kích thích tại sân.
+                                        Mọi hành vi làm hư hỏng cơ sở vật chất sẽ phải bồi thường theo quy định.
+                                    </Paragraph>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 dark:bg-gray-800/80 p-6 rounded-3xl border-2 border-transparent dark:border-gray-700/50">
+                                <h5 className="font-black text-gray-900 dark:text-gray-100 mb-2 uppercase text-sm tracking-widest">🔐 Bảo mật 100%</h5>
+                                <p className="text-gray-500 dark:text-gray-200 text-sm italic">
+                                    Mira cam kết bảo mật tuyệt đối thông tin cá nhân. Chúng tôi chỉ sử dụng dữ liệu để xác nhận dịch vụ nhanh chóng nhất.
+                                </p>
+                            </div>
+                        </div>
                     </section>
                 </div>
 
-                <Divider className='!mt-10 !mb-6' />
+                <div className='mt-20 pt-10 border-t dark:border-gray-800'>
+                    <div className='max-w-3xl mx-auto flex flex-col items-center gap-10'>
+                        <div className="bg-green-50 dark:bg-green-900/20 px-8 py-4 rounded-full border border-green-100 dark:border-green-800 transition-all hover:scale-105">
+                            <Checkbox
+                                checked={accepted}
+                                onChange={(e) => setAccepted(e.target.checked)}
+                                className='text-gray-900! dark:text-gray-100! text-lg! sm:text-xl! font-black!'
+                            >
+                                Tôi xin chịu trách nhiệm & chấp hành mọi nội quy trên
+                            </Checkbox>
+                        </div>
 
-                <div className='mt-2 space-y-4'>
-                    <Checkbox
-                        checked={accepted}
-                        onChange={(e) => setAccepted(e.target.checked)}
-                        className='text-base lg:text-lg'
-                    >
-                        Tôi đã đọc và đồng ý với các quy định &amp; nội quy ở trên
-                    </Checkbox>
-
-                    <div className='flex flex-col sm:flex-row gap-4 mt-2'>
-                        <Button onClick={handleBack} block className='!h-11 !text-base lg:!text-lg'>
-                            Quay lại chọn sân
-                        </Button>
-                        <Button
-                            type='primary'
-                            className='!bg-green-600 hover:!bg-green-700 !h-11 !text-base lg:!text-lg'
-                            block
-                            onClick={handleAgree}
-                        >
-                            Tôi đồng ý, tiếp tục thanh toán
-                        </Button>
+                        <div className='flex flex-col sm:flex-row gap-6 w-full'>
+                            <button 
+                                onClick={handleBack} 
+                                className='flex-1 py-5 px-10 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200 transition-all active:scale-95 shadow-sm'
+                            >
+                                Quay lại
+                            </button>
+                            <button
+                                onClick={handleAgree}
+                                className={`flex-1 py-5 px-10 rounded-2xl font-black text-lg transition-all active:scale-95 shadow-2xl ${
+                                    accepted 
+                                    ? 'bg-linear-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white shadow-green-600/30' 
+                                    : 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                }`}
+                            >
+                                Đồng ý & Tiếp tục
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </Card>
+            </div>
         </div>
     );
 };

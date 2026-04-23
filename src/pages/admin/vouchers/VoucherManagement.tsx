@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Button,
   Card,
   Col,
   Empty,
@@ -9,22 +8,36 @@ import {
   Popconfirm,
   Row,
   Select,
-  Space,
   Spin,
   Statistic,
   Table,
-  Tag,
   Tabs,
-  Typography,
   message,
 } from "antd";
 import {
-  EditOutlined,
-  DeleteOutlined,
-  PlusOutlined,
   BarChartOutlined,
   UnorderedListOutlined,
 } from "@ant-design/icons";
+import {
+  Plus,
+  Edit3,
+  Trash2,
+  Ticket,
+  Search,
+  Tag,
+  Percent,
+  DollarSign,
+  Calendar,
+  Users,
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+  Gift,
+  Clock,
+  CheckCircle2,
+  PauseCircle,
+  BarChart3,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
@@ -37,8 +50,6 @@ import type {
   VoucherSummary,
 } from "@/types/voucher";
 
-const { Title, Text } = Typography;
-const { Search } = Input;
 const { Option } = Select;
 
 interface Voucher {
@@ -66,19 +77,16 @@ const VoucherManagement: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("list");
 
-  // ==================== LIST TAB STATE ====================
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
 
-  // ==================== STATS TAB STATE ====================
   const [voucherList, setVoucherList] = useState<VoucherSummary[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [selectedVoucherId, setSelectedVoucherId] = useState<string>();
   const [stats, setStats] = useState<VoucherStatsPayload | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // ==================== LIST TAB FUNCTIONS ====================
   const fetchVouchers = useCallback(async (keyword?: string) => {
     try {
       setLoading(true);
@@ -109,7 +117,6 @@ const VoucherManagement: React.FC = () => {
       toast.success(`Đã xóa voucher "${code}" thành công!`);
       message.success("Xóa voucher thành công!");
       fetchVouchers(searchKeyword);
-      // Refresh stats list too
       fetchVouchersForStats();
     } catch (error: any) {
       const errorMessage =
@@ -121,7 +128,6 @@ const VoucherManagement: React.FC = () => {
     }
   };
 
-  // ==================== STATS TAB FUNCTIONS ====================
   const fetchVouchersForStats = useCallback(
     async (keyword?: string) => {
       try {
@@ -161,7 +167,6 @@ const VoucherManagement: React.FC = () => {
     fetchVouchersForStats(value);
   };
 
-  // ==================== EFFECTS ====================
   useEffect(() => {
     if (activeTab === "list") {
       fetchVouchers();
@@ -176,72 +181,70 @@ const VoucherManagement: React.FC = () => {
     }
   }, [selectedVoucherId, activeTab, fetchStats]);
 
-  // ==================== LIST TAB COLUMNS ====================
+  // ==================== CỘT DANH SÁCH ====================
   const listColumns = [
     {
-      title: "Mã voucher",
-      dataIndex: "code",
-      key: "code",
-      width: 150,
-      render: (code: string) => <Text strong>{code}</Text>,
-    },
-    {
-      title: "Loại giảm",
-      dataIndex: "discountType",
-      key: "discountType",
-      width: 120,
-      render: (type: string, record: Voucher) => {
-        if (type === DISCOUNT_TYPES.PERCENT) {
-          return (
-            <Text>
-              {record.discountValue}%
-              {record.maxDiscountValue
-                ? ` (tối đa ${formatCurrency(record.maxDiscountValue)})`
-                : ""}
-            </Text>
-          );
-        }
-        return <Text>{formatCurrency(record.discountValue)}</Text>;
+      title: "Voucher",
+      key: "voucher_info",
+      render: (_: any, record: Voucher) => {
+        const isPercent = record.discountType === DISCOUNT_TYPES.PERCENT;
+        return (
+          <div className="flex items-center gap-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${isPercent ? 'bg-linear-to-br from-violet-500 to-purple-600 shadow-violet-500/20' : 'bg-linear-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20'}`}>
+              {isPercent ? <Percent size={22} className="text-white" /> : <DollarSign size={22} className="text-white" />}
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="font-black text-[15px] text-slate-800 dark:text-white leading-none tracking-tight">{record.code}</span>
+              <span className="text-xs font-bold text-slate-400">
+                {isPercent ?
+                  `Giảm ${record.discountValue}%${record.maxDiscountValue ? ` (tối đa ${formatCurrency(record.maxDiscountValue)})` : ''}` :
+                  `Giảm ${formatCurrency(record.discountValue)}`
+                }
+              </span>
+            </div>
+          </div>
+        );
       },
     },
     {
       title: "Số lượng",
       key: "quantity",
-      width: 150,
-      render: (_: any, record: Voucher) => (
-        <Space direction="vertical" size={0}>
-          <Text>
-            Đã dùng:{" "}
-            <Text strong>{record.totalIssued - record.remainingQuantity}</Text>
-          </Text>
-          <Text>
-            Còn lại:{" "}
-            <Text strong type="success">
-              {record.remainingQuantity}
-            </Text>
-          </Text>
-          <Text type="secondary">Tổng: {record.totalIssued}</Text>
-        </Space>
-      ),
+      width: 180,
+      render: (_: any, record: Voucher) => {
+        const used = record.totalIssued - record.remainingQuantity;
+        const pct = record.totalIssued > 0 ? Math.round((used / record.totalIssued) * 100) : 0;
+        return (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-400">Đã dùng <span className="text-slate-700 dark:text-white">{used}</span> / {record.totalIssued}</span>
+            </div>
+            <div className="w-full h-2 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
+              <div className="h-full bg-linear-to-r from-emerald-400 to-emerald-600 rounded-full transition-all" style={{ width: `${pct}%` }}></div>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-500">Còn {record.remainingQuantity} lượt</span>
+          </div>
+        );
+      },
     },
     {
-      title: "Thời gian",
+      title: "Thời hạn",
       key: "timeRange",
       width: 220,
       render: (_: any, record: Voucher) => {
-        const startDate = record.startDate ? dayjs(record.startDate) : null;
-        const endDate = record.endDate ? dayjs(record.endDate) : null;
-        const createdAt = record.createdAt ? dayjs(record.createdAt) : null;
-
+        const start = record.startDate ? dayjs(record.startDate) : null;
+        const end = record.endDate ? dayjs(record.endDate) : null;
+        const isExpired = end && end.isBefore(dayjs());
         return (
-          <Space direction="vertical" size={0}>
-            <Text>
-              Bắt đầu: {startDate ? startDate.format("DD/MM/YYYY HH:mm") : "—"}
-            </Text>
-            <Text>
-              Kết thúc: {endDate ? endDate.format("DD/MM/YYYY HH:mm") : "—"}
-            </Text>
-          </Space>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <Calendar size={12} className="text-blue-400 shrink-0" />
+              <span className="font-semibold">{start ? start.format("DD/MM/YYYY HH:mm") : "—"}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <Clock size={12} className={`shrink-0 ${isExpired ? 'text-rose-400' : 'text-amber-400'}`} />
+              <span className={`font-semibold ${isExpired ? 'text-rose-400' : ''}`}>{end ? end.format("DD/MM/YYYY HH:mm") : "—"}</span>
+            </div>
+          </div>
         );
       },
     },
@@ -249,28 +252,32 @@ const VoucherManagement: React.FC = () => {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
-      width: 120,
+      width: 130,
       render: (status: string) => (
-        <Tag color={status === VOUCHER_STATUS.ACTIVE ? "green" : "default"}>
+        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase w-fit ${
+          status === VOUCHER_STATUS.ACTIVE
+            ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
+            : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
+        }`}>
+          {status === VOUCHER_STATUS.ACTIVE ? <CheckCircle2 size={12} /> : <PauseCircle size={12} />}
           {status === VOUCHER_STATUS.ACTIVE ? "Hoạt động" : "Tạm dừng"}
-        </Tag>
+        </div>
       ),
     },
     {
       title: "Thao tác",
       key: "actions",
-      width: 150,
-      fixed: "right" as const,
+      width: 120,
+      align: 'right' as const,
       render: (_: any, record: Voucher) => (
-        <Space>
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            size="small"
+        <div className="flex items-center justify-end gap-2">
+          <button
             onClick={() => navigate(`/admin/vouchers/edit/${record._id}`)}
+            className="p-2.5 bg-slate-50 dark:bg-white/5 text-slate-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/20 dark:text-slate-300 dark:hover:text-blue-400 rounded-xl transition-all active:scale-90 border border-transparent hover:border-blue-100 dark:border-white/5 dark:hover:border-blue-500/30 shadow-sm"
+            title="Chỉnh sửa"
           >
-            Sửa
-          </Button>
+            <Edit3 size={16} />
+          </button>
           <Popconfirm
             title="Xóa voucher"
             description={`Bạn có chắc chắn muốn xóa voucher "${record.code}"?`}
@@ -279,16 +286,19 @@ const VoucherManagement: React.FC = () => {
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
           >
-            <Button danger icon={<DeleteOutlined />} size="small">
-              Xóa
-            </Button>
+            <button
+              className="p-2.5 bg-slate-50 dark:bg-white/5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/20 dark:text-slate-300 dark:hover:text-rose-400 rounded-xl transition-all active:scale-90 border border-transparent hover:border-rose-100 dark:border-white/5 dark:hover:border-rose-500/30 shadow-sm"
+              title="Xóa"
+            >
+              <Trash2 size={16} />
+            </button>
           </Popconfirm>
-        </Space>
+        </div>
       ),
     },
   ];
 
-  // ==================== STATS TAB MEMO ====================
+  // ==================== THỐNG KÊ (MEMO) ====================
   const selectedVoucher = useMemo(
     () => voucherList.find((v) => v._id === selectedVoucherId),
     [voucherList, selectedVoucherId]
@@ -297,38 +307,30 @@ const VoucherManagement: React.FC = () => {
   const statsCards = useMemo(() => {
     if (!stats) return null;
     const items = [
-      {
-        title: "Tổng phát hành",
-        value: stats.totals.issued,
-      },
-      {
-        title: "Đã dùng",
-        value: stats.totals.used,
-      },
-      {
-        title: "Đã hoàn lượt",
-        value: stats.totals.restored,
-      },
-      {
-        title: "Còn lại",
-        value: stats.totals.remaining,
-      },
-      {
-        title: "Doanh thu giảm bởi voucher",
-        value: formatCurrency(stats.totals.discountGiven),
-      },
+      { title: "Tổng phát hành", value: stats.totals.issued, icon: <Gift size={20} />, gradient: 'from-blue-500 to-indigo-600', shadow: 'shadow-blue-500/20' },
+      { title: "Đã sử dụng", value: stats.totals.used, icon: <CheckCircle2 size={20} />, gradient: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
+      { title: "Đã hoàn lượt", value: stats.totals.restored, icon: <TrendingUp size={20} />, gradient: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20' },
+      { title: "Còn lại", value: stats.totals.remaining, icon: <Ticket size={20} />, gradient: 'from-violet-500 to-purple-600', shadow: 'shadow-violet-500/20' },
     ];
 
     return (
-      <Row gutter={16}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {items.map((item) => (
-          <Col key={item.title} xs={24} md={12} lg={6}>
-            <Card>
-              <Statistic title={item.title} value={item.value} />
-            </Card>
-          </Col>
+          <div key={item.title} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className={`p-2.5 bg-linear-to-br ${item.gradient} rounded-xl text-white shadow-lg ${item.shadow}`}>
+                {item.icon}
+              </div>
+            </div>
+            <div className="text-3xl font-black text-slate-800 dark:text-white">{item.value}</div>
+            <div className="text-[11px] font-bold text-slate-400 uppercase mt-1">{item.title}</div>
+          </div>
         ))}
-      </Row>
+        <div className="col-span-2 lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-6 shadow-sm">
+          <div className="text-[11px] font-bold text-slate-400 uppercase mb-1">Tổng giảm giá bởi voucher</div>
+          <div className="text-2xl font-black text-rose-500">{formatCurrency(stats.totals.discountGiven)}</div>
+        </div>
+      </div>
     );
   }, [stats]);
 
@@ -339,282 +341,283 @@ const VoucherManagement: React.FC = () => {
       key: "user",
       render: (user: VoucherStatsUser["user"]) =>
         user ? (
-          <Space direction="vertical" size={0}>
-            <Text strong>{user.name || "—"}</Text>
-            <Text type="secondary">{user.email || "—"}</Text>
-            <Text type="secondary">{user.phone || "—"}</Text>
-          </Space>
-        ) : (
-          "—"
-        ),
+          <div className="flex flex-col">
+            <span className="font-bold text-sm text-slate-800 dark:text-white">{user.name || "—"}</span>
+            <span className="text-xs text-slate-400">{user.email || "—"}</span>
+          </div>
+        ) : "—",
     },
-    {
-      title: "Số lượt dùng",
-      dataIndex: "count",
-      key: "count",
-      width: 140,
-    },
-    {
-      title: "Tổng tiền giảm",
-      dataIndex: "totalDiscount",
-      key: "totalDiscount",
-      width: 180,
-      render: (value: number) => formatCurrency(value),
-    },
+    { title: "Số lượt dùng", dataIndex: "count", key: "count", width: 140 },
+    { title: "Tổng tiền giảm", dataIndex: "totalDiscount", key: "totalDiscount", width: 180, render: (value: number) => <span className="font-bold text-emerald-500">{formatCurrency(value)}</span> },
   ];
 
   const bookingColumns = [
+    { title: "Mã đơn", dataIndex: ["bookingId", "code"], key: "bookingCode", render: (_: string, record: VoucherStatsBooking) => <span className="font-bold">{record.bookingId?.code || "—"}</span>, width: 140 },
     {
-      title: "Mã đơn",
-      dataIndex: ["bookingId", "code"],
-      key: "bookingCode",
-      render: (_: string, record: VoucherStatsBooking) =>
-        record.bookingId?.code || "—",
-      width: 140,
-    },
-    {
-      title: "Khách hàng",
-      dataIndex: ["userId", "name"],
-      key: "user",
+      title: "Khách hàng", dataIndex: ["userId", "name"], key: "user",
       render: (_: string, record: VoucherStatsBooking) => (
-        <Space direction="vertical" size={0}>
-          <Text strong>{record.userId?.name || "—"}</Text>
-          <Text type="secondary">{record.userId?.phone || "—"}</Text>
-        </Space>
+        <div className="flex flex-col">
+          <span className="font-bold text-sm text-slate-800 dark:text-white">{record.userId?.name || "—"}</span>
+          <span className="text-xs text-slate-400">{record.userId?.phone || "—"}</span>
+        </div>
       ),
     },
+    { title: "Tổng đơn", dataIndex: "orderTotal", key: "orderTotal", width: 160, render: (value: number) => formatCurrency(value) },
+    { title: "Voucher giảm", dataIndex: "discountAmount", key: "discountAmount", width: 160, render: (value: number) => <span className="font-bold text-emerald-500">{formatCurrency(value)}</span> },
     {
-      title: "Tổng đơn",
-      dataIndex: "orderTotal",
-      key: "orderTotal",
-      width: 160,
-      render: (value: number) => formatCurrency(value),
-    },
-    {
-      title: "Voucher giảm",
-      dataIndex: "discountAmount",
-      key: "discountAmount",
-      width: 160,
-      render: (value: number) => formatCurrency(value),
-    },
-    {
-      title: "Trạng thái đơn",
-      dataIndex: ["bookingId", "status"],
-      key: "bookingStatus",
-      width: 160,
-      render: (status?: string) => <Tag>{status || "—"}</Tag>,
-    },
-    {
-      title: "Voucher",
-      dataIndex: "status",
-      key: "voucherStatus",
-      width: 180,
+      title: "Trạng thái", dataIndex: "status", key: "voucherStatus", width: 180,
       render: (value: "applied" | "restored", record: VoucherStatsBooking) =>
         value === "restored" ? (
-          <Tag color="green">
-            Đã hoàn lượt •{" "}
-            {record.restoredAt
-              ? dayjs(record.restoredAt).format("DD/MM HH:mm")
-              : ""}
-          </Tag>
+          <span className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-lg uppercase">Hoàn lượt • {record.restoredAt ? dayjs(record.restoredAt).format("DD/MM HH:mm") : ""}</span>
         ) : (
-          <Tag color="blue">Đã sử dụng</Tag>
+          <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-black rounded-lg uppercase">Đã sử dụng</span>
         ),
     },
   ];
 
   return (
-    <Space direction="vertical" size={24} style={{ width: "100%" }}>
-      <Row justify="space-between" align="middle">
-        <Col>
-          <Title level={3}>Quản lý voucher</Title>
-          <Text type="secondary">
-            Danh sách và quản lý các voucher khuyến mãi
-          </Text>
-        </Col>
-        <Col>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate("/admin/vouchers/create")}
-          >
-            Tạo voucher mới
-          </Button>
-        </Col>
-      </Row>
+    <div className="px-4 pb-12 space-y-8 animate-in fade-in duration-700">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-6">
+        <div className="relative">
+          <div className="absolute -left-4 -top-4 w-24 h-24 bg-violet-500/10 rounded-full blur-3xl" />
+          <h1 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-4 italic">
+            <div className="p-3.5 bg-linear-to-br from-violet-600 to-purple-700 rounded-[20px] shadow-2xl shadow-violet-500/40 rotate-6 flex items-center justify-center border border-white/20">
+              <Ticket size={28} className="text-white" />
+            </div>
+            <span className="relative">
+              QUẢN LÝ VOUCHER
+              <div className="absolute -bottom-2 left-0 w-1/2 h-1.5 bg-violet-500/30 rounded-full" />
+            </span>
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-6 font-semibold flex items-center gap-2 text-sm">
+            <span className="flex h-2.5 w-2.5 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-violet-500"></span>
+            </span>
+            Quản lý mã khuyến mãi và theo dõi hiệu suất sử dụng
+          </p>
+        </div>
 
-      <Card>
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={[
-            {
-              key: "list",
-              label: (
-                <span>
-                  <UnorderedListOutlined />
-                  Danh sách
-                </span>
-              ),
-              children: (
-                <>
-                  <Row gutter={16} style={{ marginBottom: 16 }}>
-                    <Col span={8}>
-                      <Search
-                        placeholder="Tìm kiếm theo mã voucher"
-                        allowClear
-                        onSearch={handleSearch}
-                        loading={loading}
-                        enterButton
-                      />
-                    </Col>
-                  </Row>
+        <button
+          onClick={() => navigate("/admin/vouchers/create")}
+          className="flex items-center gap-2 px-6 py-3.5 bg-linear-to-r from-violet-600 to-purple-700 text-white rounded-[18px] font-bold text-sm shadow-xl shadow-violet-500/30 dark:shadow-violet-500/20 border border-white/20 hover:scale-[1.02] active:scale-95 transition-all"
+        >
+          <Plus size={20} /> TẠO VOUCHER MỚI
+        </button>
+      </div>
 
-                  <Table
-                    rowKey="_id"
-                    columns={listColumns}
-                    dataSource={vouchers}
-                    loading={loading}
-                    scroll={{ x: 1200 }}
-                    pagination={{
-                      pageSize: 10,
-                      showSizeChanger: true,
-                      showTotal: (total) => `Tổng ${total} voucher`,
-                    }}
-                  />
-                </>
-              ),
-            },
-            {
-              key: "stats",
-              label: (
-                <span>
-                  <BarChartOutlined />
-                  Thống kê
-                </span>
-              ),
-              children: (
-                <Space direction="vertical" size={24} style={{ width: "100%" }}>
-                  <Card>
-                    <Row gutter={16} align="middle">
-                      <Col xs={24} md={12}>
-                        <Input.Search
-                          placeholder="Tìm mã voucher"
-                          allowClear
-                          onSearch={handleStatsSearch}
-                          loading={listLoading}
-                        />
-                      </Col>
-                      <Col xs={24} md={12}>
-                        <Select
-                          showSearch
-                          style={{ width: "100%" }}
-                          placeholder="Chọn voucher"
-                          loading={listLoading}
-                          value={selectedVoucherId}
-                          onChange={setSelectedVoucherId}
-                          filterOption={false}
-                          notFoundContent={
-                            listLoading ? <Spin size="small" /> : <Empty />
-                          }
-                        >
-                          {voucherList.map((voucher) => (
-                            <Option key={voucher._id} value={voucher._id}>
-                              <Space>
-                                <Text strong>{voucher.code}</Text>
-                                <Tag
-                                  color={
-                                    voucher.status === VOUCHER_STATUS.ACTIVE
-                                      ? "green"
-                                      : "default"
-                                  }
-                                >
-                                  {voucher.status}
-                                </Tag>
-                              </Space>
-                            </Option>
-                          ))}
-                        </Select>
-                      </Col>
-                    </Row>
-                  </Card>
+      {/* Tabs */}
+      <div className="flex gap-2 bg-white/50 dark:bg-white/5 p-1.5 rounded-2xl border border-slate-100 dark:border-white/10 w-fit backdrop-blur-sm">
+        <button
+          onClick={() => setActiveTab("list")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "list" ? "bg-violet-500 text-white shadow-lg shadow-violet-500/30" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"}`}
+        >
+          <Tag size={16} /> Danh sách
+        </button>
+        <button
+          onClick={() => setActiveTab("stats")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "stats" ? "bg-violet-500 text-white shadow-lg shadow-violet-500/30" : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"}`}
+        >
+          <BarChart3 size={16} /> Thống kê
+        </button>
+      </div>
 
-                  {statsLoading ? (
-                    <div style={{ textAlign: "center", padding: "50px" }}>
-                      <Spin size="large" />
+      {activeTab === "list" && (
+        <div className="space-y-6">
+          {/* Search */}
+          <div className="flex items-center gap-3 max-w-md">
+            <div className="flex-1 relative">
+              <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-500 pointer-events-none z-10" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm mã voucher..."
+                value={searchKeyword}
+                onChange={(e) => {
+                  setSearchKeyword(e.target.value);
+                  if (!e.target.value) fetchVouchers();
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchKeyword)}
+                className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-white/10 rounded-2xl font-semibold text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:border-violet-400 dark:focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 outline-none transition-all"
+              />
+            </div>
+            <button
+              onClick={() => handleSearch(searchKeyword)}
+              className="p-3 bg-violet-500 text-white rounded-2xl hover:bg-violet-600 transition-all active:scale-95 shadow-lg shadow-violet-500/30"
+            >
+              <Search size={20} />
+            </button>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white dark:bg-card rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden p-6 transition-colors">
+            <Table
+              rowKey="_id"
+              columns={listColumns as any}
+              dataSource={vouchers}
+              loading={loading}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: false,
+                showTotal: undefined,
+                itemRender: (_page, type, originalElement) => {
+                  if (type === 'prev') return <button className="p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors text-slate-400"><ChevronLeft size={16} /></button>;
+                  if (type === 'next') return <button className="p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors text-slate-400"><ChevronRight size={16} /></button>;
+                  return originalElement;
+                }
+              }}
+              className="voucher-table"
+            />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "stats" && (
+        <div className="space-y-8">
+          {/* Stats Search */}
+          <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-6 shadow-sm flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <Input.Search
+                placeholder="Tìm mã voucher"
+                allowClear
+                onSearch={handleStatsSearch}
+                loading={listLoading}
+                className="voucher-search"
+              />
+            </div>
+            <div className="flex-1">
+              <Select
+                showSearch
+                style={{ width: "100%" }}
+                placeholder="Chọn voucher để xem thống kê"
+                loading={listLoading}
+                value={selectedVoucherId}
+                onChange={setSelectedVoucherId}
+                filterOption={false}
+                className="voucher-select"
+                notFoundContent={listLoading ? <Spin size="small" /> : <Empty />}
+              >
+                {voucherList.map((voucher) => (
+                  <Option key={voucher._id} value={voucher._id}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold">{voucher.code}</span>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase ${voucher.status === VOUCHER_STATUS.ACTIVE ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-slate-100 text-slate-500'}`}>
+                        {voucher.status === VOUCHER_STATUS.ACTIVE ? "Active" : "Paused"}
+                      </span>
                     </div>
-                  ) : !stats ? (
-                    <Empty description="Chọn voucher để xem thống kê" />
-                  ) : (
-                    <>
-                      {selectedVoucher && (
-                        <Card>
-                          <Space direction="vertical" size={8}>
-                            <Text strong>{selectedVoucher.code}</Text>
-                            <Text>
-                              Loại giảm:{" "}
-                              {selectedVoucher.discountType ===
-                              DISCOUNT_TYPES.PERCENT
-                                ? `Giảm ${selectedVoucher.discountValue}%`
-                                : `Giảm ${formatCurrency(
-                                    selectedVoucher.discountValue
-                                  )}`}
-                            </Text>
-                            <Text>
-                              Thời gian:{` `}
-                              {selectedVoucher.startDate
-                                ? dayjs(selectedVoucher.startDate).format(
-                                    "DD/MM/YYYY HH:mm"
-                                  )
-                                : "—"}{" "}
-                              -{" "}
-                              {selectedVoucher.endDate
-                                ? dayjs(selectedVoucher.endDate).format(
-                                    "DD/MM/YYYY HH:mm"
-                                  )
-                                : "—"}
-                            </Text>
-                          </Space>
-                        </Card>
-                      )}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          </div>
 
-                      {statsCards}
+          {statsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Spin size="large" />
+            </div>
+          ) : !stats ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+              <BarChart3 size={48} className="mb-4 opacity-30" />
+              <p className="font-bold">Chọn voucher để xem thống kê</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {selectedVoucher && (
+                <div className="bg-linear-to-r from-violet-500 to-purple-600 rounded-4xl p-6 text-white relative overflow-hidden shadow-xl shadow-violet-500/20">
+                  <div className="absolute top-0 right-0 p-6 opacity-10"><Ticket size={120} /></div>
+                  <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="flex-1">
+                      <div className="text-[10px] font-black uppercase opacity-60 mb-1">Voucher đang xem</div>
+                      <div className="text-2xl font-black">{selectedVoucher.code}</div>
+                      <div className="text-sm opacity-80 mt-1">
+                        {selectedVoucher.discountType === DISCOUNT_TYPES.PERCENT ? `Giảm ${selectedVoucher.discountValue}%` : `Giảm ${formatCurrency(selectedVoucher.discountValue)}`}
+                        {" • "}
+                        {selectedVoucher.startDate ? dayjs(selectedVoucher.startDate).format("DD/MM/YYYY") : "—"} → {selectedVoucher.endDate ? dayjs(selectedVoucher.endDate).format("DD/MM/YYYY") : "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                      <Card title="Khách hàng sử dụng nhiều nhất">
-                        <Table
-                          rowKey={(row: VoucherStatsUser) => row._id}
-                          dataSource={stats.users}
-                          columns={userColumns}
-                          pagination={false}
-                          locale={{ emptyText: "Chưa có lượt sử dụng" }}
-                        />
-                      </Card>
+              {statsCards}
 
-                      <Card
-                        title="Đơn hàng đã áp dụng voucher"
-                        extra={
-                          <Alert
-                            type="info"
-                            message="Đơn bị hủy trước khi sử dụng sẽ được hoàn lượt và đánh dấu 'voucher restored'. Nếu đơn đã sử dụng dịch vụ, voucher không được hoàn lại."
-                          />
-                        }
-                      >
-                        <Table
-                          rowKey={(row: VoucherStatsBooking) => row._id}
-                          dataSource={stats.bookings}
-                          columns={bookingColumns}
-                          scroll={{ x: 900 }}
-                        />
-                      </Card>
-                    </>
-                  )}
-                </Space>
-              ),
-            },
-          ]}
-        />
-      </Card>
-    </Space>
+              <div className="bg-white dark:bg-card rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden transition-colors">
+                <div className="p-6 border-b border-slate-100 dark:border-white/5">
+                  <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3">
+                    <div className="w-1.5 h-7 bg-blue-500 rounded-full"></div>
+                    <Users size={16} /> Khách hàng sử dụng nhiều nhất
+                  </h3>
+                </div>
+                <div className="p-6">
+                  <Table
+                    rowKey={(row: VoucherStatsUser) => row._id}
+                    dataSource={stats.users}
+                    columns={userColumns}
+                    pagination={false}
+                    locale={{ emptyText: "Chưa có lượt sử dụng" }}
+                    className="voucher-table"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-card rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden transition-colors">
+                <div className="p-6 border-b border-slate-100 dark:border-white/5 flex flex-col md:flex-row md:items-center gap-4">
+                  <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3">
+                    <div className="w-1.5 h-7 bg-amber-500 rounded-full"></div>
+                    Đơn hàng đã áp dụng
+                  </h3>
+                  <p className="text-[11px] font-medium text-slate-400 bg-slate-50 dark:bg-white/5 px-3 py-1.5 rounded-xl">
+                    ℹ️ Đơn bị hủy trước khi sử dụng sẽ được hoàn lượt voucher
+                  </p>
+                </div>
+                <div className="p-6">
+                  <Table
+                    rowKey={(row: VoucherStatsBooking) => row._id}
+                    dataSource={stats.bookings}
+                    columns={bookingColumns}
+                    scroll={{ x: 900 }}
+                    className="voucher-table"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <style>{`
+        .voucher-table .ant-table { background: transparent !important; }
+        .voucher-table .ant-table-thead > tr > th {
+          background: transparent !important; color: #64748b !important;
+          font-size: 11px !important; font-weight: 800 !important;
+          text-transform: uppercase !important; letter-spacing: 0.05em !important;
+          border-bottom: 2px solid #f1f5f9 !important; padding: 12px 20px 16px !important;
+        }
+        .dark .voucher-table .ant-table-thead > tr > th {
+          color: #64748b !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important;
+        }
+        .voucher-table .ant-table-tbody > tr > td {
+          padding: 16px 20px !important; border-bottom: 1px dotted #e2e8f0 !important;
+          transition: all 0.3s; color: inherit; background: transparent !important;
+        }
+        .dark .voucher-table .ant-table-tbody > tr > td { border-bottom: 1px dashed rgba(255,255,255,0.05) !important; }
+        .voucher-table .ant-table-tbody > tr { transition: all 0.3s !important; }
+        .voucher-table .ant-table-tbody > tr:hover > td { background: #faf5ff !important; }
+        .dark .voucher-table .ant-table-tbody > tr:hover > td { background: rgba(139,92,246,0.03) !important; }
+        .voucher-table .ant-table-tbody > tr:hover > td:first-child {
+          border-top-left-radius: 16px !important; border-bottom-left-radius: 16px !important;
+          box-shadow: inset 3px 0 0 0 #8b5cf6 !important;
+        }
+        .voucher-table .ant-table-tbody > tr:hover > td:last-child {
+          border-top-right-radius: 16px !important; border-bottom-right-radius: 16px !important;
+        }
+        .ant-table-placeholder { background: transparent !important; }
+        
+        .voucher-search .ant-input-group-addon button,
+        .voucher-search .ant-btn { border-radius: 12px !important; }
+        .voucher-select .ant-select-selector { border-radius: 12px !important; height: 40px !important; align-items: center !important; }
+      `}</style>
+    </div>
   );
 };
 

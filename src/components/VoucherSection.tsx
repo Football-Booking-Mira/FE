@@ -27,12 +27,15 @@ const VoucherSection: React.FC = () => {
 
   if (loading) {
     return (
-      <section className="py-12 bg-gradient-to-br from-green-50 to-blue-50">
+      <section className="py-12 bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">
-            Mã Giảm Giá Đang Hot
+          <h2 className="text-3xl font-bold text-center mb-8 text-gray-800 dark:text-gray-100">
+            🎁 Mã Giảm Giá Đang Hot
           </h2>
-          <div className="text-center text-gray-600">Đang tải voucher...</div>
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 dark:border-gray-600 border-t-green-500"></div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Đang tải voucher...</p>
+          </div>
         </div>
       </section>
     );

@@ -20,7 +20,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(): void {
-    // Intentionally left blank; override/logging can be added later.
+    // Cố ý để trống; có thể thêm override/logging sau.
   }
 
   render() {

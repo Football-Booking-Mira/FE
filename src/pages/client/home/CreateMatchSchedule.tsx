@@ -31,7 +31,7 @@ const CreateMatchSchedule: React.FC = () => {
     e.preventDefault();
     try {
       await axios.post("/api/matches/create", form);
-      setMsg("✅ Tạo lịch thi đấu thành công!");
+      setMsg("Tạo lịch thi đấu thành công!");
       setForm({
         date: "",
         time: "",

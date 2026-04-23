@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { User, Edit2, Trash2, X, Save, Mail, Phone, Shield, CheckCircle, XCircle, Calendar } from 'lucide-react';
+import { User, Edit2, Trash2, X, Save, Mail, Phone, Shield, CheckCircle, XCircle, Calendar, Upload as UploadIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { message, Upload, Avatar } from 'antd';
+import type { RcFile } from "antd/es/upload/interface";
+import api from "@/common/utils/api";
+import { useAuth } from '@/common/contexts';
 
 interface ApiResponse {
     success: boolean;
@@ -26,6 +30,7 @@ interface FormData {
     name: string;
     phone: string;
     email: string;
+    avatar: string;
 }
 
 interface Toast {
@@ -34,6 +39,7 @@ interface Toast {
 }
 
 const Profile: React.FC = () => {
+    const { setUserAvatar } = useAuth();
     const [user, setUser] = useState<UserData | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
@@ -42,7 +48,8 @@ const Profile: React.FC = () => {
     const [formData, setFormData] = useState<FormData>({
         name: '',
         phone: '',
-        email: ''
+        email: '',
+        avatar: ''
     });
     const [updating, setUpdating] = useState<boolean>(false);
 
@@ -87,7 +94,8 @@ const Profile: React.FC = () => {
             setFormData({
                 name: result.data.name || '',
                 phone: result.data.phone || '',
-                email: result.data.email || ''
+                email: result.data.email || '',
+                avatar: result.data.avatar || ''
             });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Có lỗi xảy ra');
@@ -106,7 +114,8 @@ const Profile: React.FC = () => {
             setFormData({
                 name: user.name || '',
                 phone: user.phone || '',
-                email: user.email || ''
+                email: user.email || '',
+                avatar: user.avatar || ''
             });
         }
     };
@@ -159,8 +168,20 @@ const Profile: React.FC = () => {
                 setFormData({
                     name: updatedUser.name || '',
                     phone: updatedUser.phone || '',
-                    email: updatedUser.email || ''
+                    email: updatedUser.email || '',
+                    avatar: updatedUser.avatar || ''
                 });
+
+                // Cập nhật local storage để Header thay đổi avatar ngay lập tức
+                const updatedLocalStorageUser = { ...userData, ...updatedUser };
+                localStorage.setItem('user', JSON.stringify(updatedLocalStorageUser));
+                
+                // Cập nhật Context lập tức để UI thay đổi thay vì reload trang
+                if (updatedUser.avatar) {
+                    setUserAvatar(updatedUser.avatar);
+                }
+                window.dispatchEvent(new Event('storage'));
+
                 setShowEditForm(false);
                 setToast({
                     type: 'success',
@@ -234,7 +255,7 @@ const Profile: React.FC = () => {
             case 'user':
                 return 'bg-blue-100 text-blue-800 border-blue-200';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-100 dark:bg-gray-800/80 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700';
         }
     };
 
@@ -245,13 +266,13 @@ const Profile: React.FC = () => {
             case 'inactive':
                 return 'bg-red-100 text-red-800 border-red-200';
             default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
+                return 'bg-gray-100 dark:bg-gray-800/80 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700';
         }
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
                 <div className="text-center">
                     <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-slate-200 border-t-blue-600"></div>
                     <p className="mt-4 text-slate-600 font-medium">Đang tải thông tin...</p>
@@ -262,7 +283,7 @@ const Profile: React.FC = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
                 <Alert className="max-w-md border-red-200 bg-red-50">
                     <XCircle className="h-5 w-5 text-red-600" />
                     <AlertDescription className="text-red-800 ml-2">
@@ -274,7 +295,7 @@ const Profile: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
+        <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 py-8 px-4">
             <div className="max-w-4xl mx-auto">
                 {/* Toast Notification */}
                 {toast && (
@@ -292,13 +313,13 @@ const Profile: React.FC = () => {
                 )}
 
                 {/* Main Card */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                <div className="bg-white dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-slate-200">
                     {/* Header with gradient */}
-                    <div className="relative bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-12">
+                    <div className="relative bg-linear-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-12">
                         <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-6">
+                            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
                                 <div className="relative">
-                                    <div className="bg-white rounded-2xl p-5 shadow-lg">
+                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg">
                                         {user?.avatar ? (
                                             <img src={user.avatar} alt={user.name} className="w-20 h-20 rounded-xl object-cover" />
                                         ) : (
@@ -406,17 +427,17 @@ const Profile: React.FC = () => {
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex gap-4">
+                        <div className="flex flex-col md:flex-row gap-4">
                             <button
                                 onClick={handleEdit}
-                                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
+                                className="flex-1 flex items-center justify-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
                             >
                                 <Edit2 className="w-5 h-5 text-white" />
                                 <span className='text-white'>Chỉnh sửa thông tin</span>
                             </button>
                             <button
                                 onClick={handleDelete}
-                                className="flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40"
+                                className="flex items-center justify-center gap-2 bg-linear-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40"
                             >
                                 <Trash2 className="w-5 h-5 text-white" />
                                 <span className='text-white'>Xóa tài khoản</span>
@@ -428,7 +449,7 @@ const Profile: React.FC = () => {
                 {/* Edit Form Modal */}
                 {showEditForm && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-                        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
                             <div className="flex items-center justify-between p-6 border-b border-slate-200">
                                 <h2 className="text-2xl font-bold text-slate-900">Chỉnh sửa thông tin</h2>
                                 <button
@@ -440,6 +461,51 @@ const Profile: React.FC = () => {
                             </div>
 
                             <div className="p-6 space-y-5">
+                                {/* Upload Avatar Section */}
+                                <div className="flex flex-col items-center justify-center mb-6">
+                                    <Upload
+                                        maxCount={1}
+                                        showUploadList={false}
+                                        beforeUpload={async (file) => {
+                                            try {
+                                                const uploadData = new FormData();
+                                                uploadData.append("avatar", file as RcFile);
+
+                                                const res = await api.post("/upload/avatar", uploadData, {
+                                                    headers: { "Content-Type": "multipart/form-data" },
+                                                });
+
+                                                const envelope: any = res.data || {};
+                                                const url = envelope.data?.url;
+
+                                                if (!url) {
+                                                    throw new Error("Không nhận được URL ảnh từ server");
+                                                }
+
+                                                setFormData((prev) => ({ ...prev, avatar: url }));
+                                                message.success("Tải ảnh thành công!");
+                                            } catch (err: any) {
+                                                console.error(err);
+                                                message.error(err?.message || "Tải ảnh thất bại!");
+                                            }
+                                            return false;
+                                        }}
+                                    >
+                                        <div className="relative group cursor-pointer transition-transform hover:scale-105 duration-300">
+                                            <Avatar
+                                                src={formData.avatar}
+                                                size={100}
+                                                icon={!formData.avatar && <User className="w-10 h-10 text-gray-400 dark:text-gray-500 mt-6 mx-auto" />}
+                                                className="bg-gray-100 dark:bg-gray-800/80 border-4 border-white shadow-md shadow-gray-200"
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <UploadIcon className="text-white w-6 h-6" />
+                                            </div>
+                                        </div>
+                                    </Upload>
+                                    <span className="text-sm font-medium text-slate-500 mt-2">Đổi Ảnh Đại Diện</span>
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">
                                         Họ và tên
@@ -496,7 +562,7 @@ const Profile: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={handleUpdate}
-                                        className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
+                                        className="flex-1 flex items-center justify-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
                                         disabled={updating}
                                     >
                                         {updating ? (

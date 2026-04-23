@@ -14,6 +14,8 @@ import Profile from "@/pages/client/home/Profile";
 import BookingPolicyPage from "@/pages/client/home/BookingPolicyPage.tsx";
 import Equipment from "@/pages/client/home/Equipment";
 import Reviews from "@/pages/client/home/Reviews";
+import SigninPage from "@/pages/auth/SigninPage";
+import SignupPage from "@/pages/auth/SignupPage";
 
 export const PublicRoutes: RouteObject[] = [
   {
@@ -27,6 +29,8 @@ export const PublicRoutes: RouteObject[] = [
       { path: "verify", element: <VerifyPage /> },
       { path: "verify-email", element: <VerifyEmailPage /> },
       { path: "reset-password", element: <ResetPasswordPage /> },
+      { path: "signin", element: <SigninPage /> },
+      { path: "signup", element: <SignupPage /> },
       { path: "payment-return", element: <PaymentSuccessPage /> },
       { path: "contact", element: <ContactPages /> },
       { path: "lich-thi-dau", element: <CreateMatchSchedule /> },

@@ -81,7 +81,10 @@ const PitchDetail: React.FC = () => {
 
     const socketRef = useRef<Socket | null>(null);
 
-    //  FETCH COURT
+    //  FETCH COURT (with auto-retry when server is not ready)
+    const retryRef = useRef(0);
+    const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const fetchCourt = useCallback(async () => {
         if (!id) return;
         setLoading(true);
@@ -92,21 +95,34 @@ const PitchDetail: React.FC = () => {
             if (data?.success && data.data) {
                 setCourt(data.data);
                 setCurrentImage(0);
+                retryRef.current = 0; // Reset retry counter on success
             } else {
                 toast.error(data?.message || 'Không tìm thấy sân!');
                 setCourt(null);
             }
+            setLoading(false);
         } catch (err) {
             console.error('Lỗi tải sân:', err);
-            toast.error('Lỗi tải thông tin sân!');
-            setCourt(null);
-        } finally {
-            setLoading(false);
+            // Auto retry khi server chưa sẵn sàng (network error)
+            if (retryRef.current < 20) {
+                retryRef.current += 1;
+                console.log(`[PitchDetail] Đang thử kết nối lại... (lần ${retryRef.current})`);
+                retryTimerRef.current = setTimeout(() => {
+                    fetchCourt();
+                }, 3000);
+            } else {
+                toast.error('Không thể kết nối tới máy chủ. Vui lòng thử lại sau!');
+                setCourt(null);
+                setLoading(false);
+            }
         }
     }, [id]);
 
     useEffect(() => {
         fetchCourt();
+        return () => {
+            if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        };
     }, [fetchCourt]);
 
     //  SOCKET
@@ -147,7 +163,7 @@ const PitchDetail: React.FC = () => {
         });
     }, [selectedSlots]);
 
-    // review
+    // Đánh giá (Review)
     useEffect(() => {
         if (!id) return;
 
@@ -257,8 +273,8 @@ const PitchDetail: React.FC = () => {
 
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (!user?._id || !user?.token) {
-            toast.error('Vui lòng đăng nhập trước khi đặt sân!');
-            navigate('/login');
+            toast.error('Vui lòng đăng nhập để đặt sân');
+            navigate('/signin');
             return;
         }
 
@@ -284,21 +300,21 @@ const PitchDetail: React.FC = () => {
         navigate('/booking-policy');
     };
 
-    if (loading) return <p className='text-center mt-10 text-gray-600'>Đang tải dữ liệu...</p>;
-    if (!court) return <p className='text-center mt-10 text-gray-600'>Không tìm thấy sân.</p>;
+    if (loading) return <p className='text-center mt-10 text-gray-600 dark:text-gray-300'>Đang tải dữ liệu...</p>;
+    if (!court) return <p className='text-center mt-10 text-gray-600 dark:text-gray-300'>Không tìm thấy sân.</p>;
 
     return (
-        <div className='min-h-screen bg-gray-50 py-10'>
-            <ToastContainer newestOnTop />
+        <div className='min-h-screen bg-gray-50 dark:bg-gray-900 py-10'>
+            <ToastContainer newestOnTop style={{ zIndex: 10001 }} />
 
             <div className='max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-10'>
                 {/* CỘT TRÁI */}
-                <div className='bg-white shadow-sm rounded-2xl p-8 space-y-10'>
-                    <h1 className='text-3xl font-bold text-gray-800 mb-4'>{court.name}</h1>
+                <div className='bg-white dark:bg-gray-800 shadow-sm rounded-2xl p-8 space-y-10'>
+                    <h1 className='text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4'>{court.name}</h1>
 
                     {/* Ảnh sân */}
                     <div className='space-y-4'>
-                        <div className='rounded-xl overflow-hidden border border-gray-100 shadow'>
+                        <div className='rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700/50 shadow'>
                             <img
                                 src={
                                     court.images?.[currentImage] ||
@@ -317,7 +333,7 @@ const PitchDetail: React.FC = () => {
                                     src={img}
                                     className={`w-28 h-20 object-cover rounded-lg cursor-pointer border-2 ${currentImage === idx
                                         ? 'border-green-600'
-                                        : 'border-gray-300 hover:border-green-400'
+                                        : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
                                         }`}
                                     onClick={() => setCurrentImage(idx)}
                                     alt={`thumb-${idx}`}
@@ -338,10 +354,10 @@ const PitchDetail: React.FC = () => {
                 </div>
 
                 {/* CỘT PHẢI */}
-                <div className='bg-white shadow rounded-2xl p-8 border border-gray-200 h-fit'>
-                    <h3 className='text-2xl font-bold text-gray-900 mb-6'>Tóm tắt đặt sân</h3>
+                <div className='bg-white dark:bg-gray-800 shadow rounded-2xl p-8 border border-gray-200 dark:border-gray-700 h-fit'>
+                    <h3 className='text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6'>Tóm tắt đặt sân</h3>
 
-                    <div className='space-y-3 text-[15px] text-gray-700'>
+                    <div className='space-y-3 text-[15px] text-gray-700 dark:text-gray-300'>
                         <div className='flex justify-between border-b pb-1'>
                             <span>Ngày đặt sân:</span>
                             <span className='font-semibold'>{dateDisplay}</span>
@@ -349,7 +365,7 @@ const PitchDetail: React.FC = () => {
 
                         <div className='flex justify-between border-b pb-1'>
                             <span>Tên sân:</span>
-                            <span className='font-semibold text-gray-800'>
+                            <span className='font-semibold text-gray-800 dark:text-gray-200'>
                                 {court.name || '--'}
                             </span>
                         </div>
@@ -395,7 +411,7 @@ const PitchDetail: React.FC = () => {
                                     <span>{totalDuration / 60} giờ</span>
                                 </div>
                                 {/* VỊ TRÍ */}
-                                <div className='flex justify-between border-b pb-1'>
+                                <div className='flex justify-between border-b dark:border-gray-700 pb-2'>
                                     <span>Vị trí:</span>
                                     <span className='font-semibold text-right'>
                                         {court.location || 'Chưa có thông tin'}
@@ -403,7 +419,7 @@ const PitchDetail: React.FC = () => {
                                 </div>
 
                                 {/* GIỜ MỞ CỬA */}
-                                <div className='flex justify-between border-b pb-1'>
+                                <div className='flex justify-between border-b dark:border-gray-700 pb-2'>
                                     <span>Giờ mở cửa:</span>
                                     <span className='font-semibold text-right'>
                                         {court.openHours || '06:00 - 22:00'}
@@ -411,21 +427,21 @@ const PitchDetail: React.FC = () => {
                                 </div>
 
                                 {/* TIỆN ÍCH */}
-                                <div className='border-b pb-2'>
+                                <div className='border-b dark:border-gray-700 pb-2'>
                                     <span className='block font-medium mb-1'>Tiện ích:</span>
                                     {court.amenities && court.amenities.length > 0 ? (
                                         <div className='flex flex-wrap gap-2'>
                                             {court.amenities.map((a, idx) => (
                                                 <span
                                                     key={idx}
-                                                    className='bg-green-50 text-green-700 text-xs px-2 py-1 rounded-md border border-green-200'
+                                                    className='bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs px-2 py-1 rounded-md border border-green-200 dark:border-green-800'
                                                 >
                                                     {a}
                                                 </span>
                                             ))}
                                         </div>
                                     ) : (
-                                        <span className='text-gray-500 text-sm italic'>
+                                        <span className='text-gray-500 dark:text-gray-400 text-sm italic'>
                                             Chưa có tiện ích
                                         </span>
                                     )}
@@ -435,23 +451,23 @@ const PitchDetail: React.FC = () => {
 
                         {/* THIẾT BỊ THEO SLOT */}
                         {selectedSlots.length > 0 && (
-                            <div className='border-b pb-3'>
-                                <span className='block font-medium mb-2'>
+                            <div className='border-b dark:border-gray-700 pb-3'>
+                                <span className='block font-medium mb-3'>
                                     Thiết bị theo khung giờ:
                                 </span>
-                                <div className='space-y-2'>
+                                <div className='space-y-3'>
                                     {selectedSlots.map((s) => {
                                         const k = slotKeyOf(s);
                                         const picked = equipmentBySlot[k] || [];
                                         return (
                                             <div
                                                 key={k}
-                                                className='flex items-center justify-between gap-2'
+                                                className='flex items-center justify-between gap-4 bg-gray-50 dark:bg-gray-900/40 p-2.5 rounded-xl border border-transparent dark:border-gray-700/50'
                                             >
-                                                <span className='text-sm text-gray-700'>
+                                                <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
                                                     {s.startTime} - {s.endTime}
                                                     {picked.length > 0 && (
-                                                        <span className='ml-2 text-xs text-green-700 font-semibold'>
+                                                        <span className='ml-2 text-xs text-green-600 dark:text-green-400 font-bold'>
                                                             ({picked.length} món)
                                                         </span>
                                                     )}
@@ -459,9 +475,9 @@ const PitchDetail: React.FC = () => {
                                                 <button
                                                     type='button'
                                                     onClick={() => openEquipForSlot(s)}
-                                                    className='text-xs px-3 py-1 rounded-md border border-green-300 text-green-700 hover:bg-green-50'
+                                                    className='text-[9px] px-1.5 py-0.5 rounded border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all font-black shadow-sm'
                                                 >
-                                                    Chọn thiết bị
+                                                    {picked.length > 0 ? 'Sửa' : 'Thêm'} thiết bị
                                                 </button>
                                             </div>
                                         );
@@ -471,21 +487,21 @@ const PitchDetail: React.FC = () => {
                         )}
 
                         {/*  tiền sân + tiền thiết bị */}
-                        <div className='flex justify-between border-b pb-1'>
+                        <div className='flex justify-between border-b dark:border-gray-700 pb-2'>
                             <span>Tiền sân:</span>
                             <span className='font-semibold'>
                                 {courtTotal.toLocaleString('vi-VN')} VNĐ
                             </span>
                         </div>
 
-                        <div className='flex justify-between border-b pb-1'>
+                        <div className='flex justify-between border-b dark:border-gray-700 pb-2'>
                             <span>Tiền thiết bị:</span>
                             <span className='font-semibold'>
                                 {equipmentTotal.toLocaleString('vi-VN')} VNĐ
                             </span>
                         </div>
 
-                        <div className='flex justify-between items-center text-green-700 font-extrabold text-xl border-t pt-3'>
+                        <div className='flex justify-between items-center text-green-600 dark:text-green-400 font-black text-xl border-t dark:border-gray-700 pt-5'>
                             <span>Tổng thanh toán:</span>
                             <span>{grandTotal.toLocaleString('vi-VN')} VNĐ</span>
                         </div>
@@ -494,15 +510,15 @@ const PitchDetail: React.FC = () => {
                     <button
                         onClick={handleBooking}
                         disabled={!selectedSlots.length}
-                        className={`w-full mt-6 font-bold py-3 rounded-lg transition ${selectedSlots.length
-                            ? 'bg-green-600 hover:bg-green-700 text-white'
-                            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                        className={`w-full mt-6 font-bold py-3 rounded-xl transition-all shadow-lg ${selectedSlots.length
+                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-500/20 hover:shadow-green-500/40 hover:-translate-y-0.5'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                             }`}
                         type='button'
                     >
-                        Đặt sân
+                        Đặt sân ngay
                     </button>
-                    <div className="bg-white shadow-md rounded-2xl p-6 border border-gray-200 h-fit mt-5">
+                    <div className="bg-white dark:bg-gray-800 shadow-md rounded-2xl p-6 border border-gray-200 dark:border-gray-700 h-fit mt-5">
                         {/* Header */}
                         <div
                             className="flex items-center justify-between cursor-pointer select-none"
@@ -510,12 +526,12 @@ const PitchDetail: React.FC = () => {
                         >
                             <div className="flex items-center gap-2">
                                 <span className="text-yellow-500 text-xl">⭐</span>
-                                <h3 className="text-xl font-semibold text-gray-900 !mb-0">
+                                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 !mb-0">
                                     Đánh giá & nhận xét sân
                                 </h3>
                             </div>
 
-                            <span className="text-gray-500 text-lg transition-transform duration-200">
+                            <span className="text-gray-500 dark:text-gray-300 text-lg transition-transform duration-200">
                                 {open ? "▾" : "▸"}
                             </span>
                         </div>
@@ -525,14 +541,14 @@ const PitchDetail: React.FC = () => {
                             <div className="mt-5 space-y-5">
                                 {/* Loading */}
                                 {loading && (
-                                    <div className="text-gray-500 text-sm italic">
+                                    <div className="text-gray-500 dark:text-gray-300 text-sm italic">
                                         Đang tải đánh giá...
                                     </div>
                                 )}
 
                                 {/* Empty */}
                                 {!loading && reviews.length === 0 && (
-                                    <div className="text-gray-500 italic text-sm">
+                                    <div className="text-gray-500 dark:text-gray-300 italic text-sm">
                                         Sân này chưa có đánh giá nào
                                     </div>
                                 )}
@@ -542,24 +558,24 @@ const PitchDetail: React.FC = () => {
                                     reviews.map((review) => (
                                         <div
                                             key={review._id}
-                                            className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-sm transition"
+                                            className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-sm transition"
                                         >
                                             {/* User */}
                                             <div className="flex items-center gap-4 mb-3">
                                                 <img
                                                     src={
-                                                        review.userId.avatar ||
-                                                        `https://ui-avatars.com/api/?name=${review.userId.name}&background=random`
+                                                        review.userId?.avatar ||
+                                                        `https://ui-avatars.com/api/?name=${review.userId?.name || 'Khách'}&background=random`
                                                     }
-                                                    alt={review.userId.name}
+                                                    alt={review.userId?.name || 'Người dùng'}
                                                     className="w-11 h-11 rounded-full object-cover border"
                                                 />
 
                                                 <div className="flex-1">
-                                                    <p className="font-medium text-gray-800">
-                                                        {review.userId.name}
+                                                    <p className="font-medium text-gray-800 dark:text-gray-200">
+                                                        {review.userId?.name || 'Người dùng ẩn danh'}
                                                     </p>
-                                                    <p className="text-xs text-gray-500">
+                                                    <p className="text-xs text-gray-500 dark:text-gray-300">
                                                         {new Date(review.createdAt).toLocaleDateString("vi-VN")}
                                                     </p>
                                                 </div>
@@ -577,8 +593,8 @@ const PitchDetail: React.FC = () => {
                                                         key={i}
                                                         className={
                                                             i < review.rating
-                                                                ? "text-yellow-400"
-                                                                : "text-gray-300"
+                                                                ? "text-yellow-500"
+                                                                : "text-gray-300 dark:text-gray-600"
                                                         }
                                                     >
                                                         ★
@@ -587,7 +603,7 @@ const PitchDetail: React.FC = () => {
                                             </div>
 
                                             {/* Comment */}
-                                            <p className="text-gray-700 text-sm leading-relaxed">
+                                            <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
                                                 {review.comment}
                                             </p>
                                         </div>
@@ -605,9 +621,12 @@ const PitchDetail: React.FC = () => {
                 open={equipModalOpen}
                 onClose={() => setEquipModalOpen(false)}
                 slotLabel={activeSlotLabel}
-                slotKey={activeSlotLabel.replace(' - ', '-')}
+                slotKey={activeSlotKey}
                 token={JSON.parse(localStorage.getItem('user') || '{}')?.token}
                 initialItems={activeSlotKey ? equipmentBySlot[activeSlotKey] || [] : []}
+                otherSlotsPicked={Object.keys(equipmentBySlot)
+                    .filter(k => k !== activeSlotKey)
+                    .flatMap(k => equipmentBySlot[k])}
                 onSave={handleSaveEquip}
             />
         </div >
