@@ -306,6 +306,10 @@ const MyBookings: React.FC = () => {
     const [retryMethod, setRetryMethod] = useState<'vnpay' | 'zalopay'>('vnpay');
     const [retryBody, setRetryBody] = useState<any>(null);
 
+    // --- QR THỦ CÔNG ---
+    const [showQrModal, setShowQrModal] = useState(false);
+    const [qrData, setQrData] = useState<{image: string, amount: number, accountNo?: string, accountName?: string, bankName?: string, addInfo?: string} | null>(null);
+
     // groupId -> list bookingId được chọn để thanh toán lại
     const [selectedPayByGroup, setSelectedPayByGroup] = useState<Record<string, string[]>>({});
     // groupId -> list bookingId được chọn để HOÀN TIỀN
@@ -391,9 +395,29 @@ const MyBookings: React.FC = () => {
     const confirmRetryPayment = async () => {
         try {
             setIsRetryMethodModalOpen(false);
-            const endpoint = retryMethod === 'zalopay' ? '/payment/zalopay/create' : '/payment/vnpay/create';
+            
+            if (retryMethod === 'zalopay') {
+                try {
+                    const ids = retryBody.bookingIds || [retryBody.bookingId];
+                    const res = await api.post('/payment/zalopay/create', {
+                        amount: retryBody.amount,
+                        bookingIds: ids,
+                    });
+                    
+                    if (res.data?.paymentUrl) {
+                        toast.success('Đang chuyển tới trang thanh toán ZaloPay...');
+                        window.location.href = res.data.paymentUrl;
+                    } else {
+                        toast.error('Không tạo được liên kết thanh toán ZaloPay!');
+                    }
+                } catch(err) {
+                    toast.error('Lỗi khi tạo mã thanh toán!');
+                }
+                setPayingBookingId(null);
+                return;
+            }
 
-            const payRes = await api.post(endpoint, retryBody);
+            const endpoint = '/payment/vnpay/create';
 
             const paymentUrl =
                 payRes.data?.paymentUrl || payRes.data?.data?.paymentUrl || payRes.data?.data?.url;
@@ -2714,6 +2738,88 @@ const MyBookings: React.FC = () => {
                             <span>{retryMethod === 'vnpay' ? 'VNPay' : 'ZaloPay'}</span>
                         </Button>
                     </div>
+                </div>
+            </Modal>
+            {/* MODAL QR THANH TOÁN THỦ CÔNG */}
+            <Modal
+                title={
+                    <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-400 font-black text-lg">
+                        <span>📲 Quét mã bằng ứng dụng ZaloPay / Ngân hàng</span>
+                    </div>
+                }
+                open={showQrModal}
+                onCancel={() => setShowQrModal(false)}
+                footer={[
+                    <Button key="close" type="primary" onClick={() => setShowQrModal(false)} className="bg-blue-600 hover:bg-blue-500 font-bold px-8">
+                        Đã thanh toán xong
+                    </Button>
+                ]}
+                centered
+                width={400}
+            >
+                <div className="flex flex-col items-center justify-center p-2">
+                    {qrData ? (
+                        <>
+                            <div className="bg-white p-2 rounded-xl shadow-md border border-gray-100">
+                                <img src={qrData.image} alt="QR Code" className="w-60 h-60 object-contain" />
+                            </div>
+                            
+                            <div className="mt-4 w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Ngân hàng:</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200">{qrData.bankName}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Chủ tài khoản:</span>
+                                        <span className="font-bold text-slate-800 dark:text-slate-200">{qrData.accountName}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Số tài khoản:</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-black text-blue-600 dark:text-blue-400 tracking-wider">{qrData.accountNo}</span>
+                                            <Button 
+                                                type="text" 
+                                                size="small" 
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(qrData.accountNo || '');
+                                                    toast.success('Đã copy số tài khoản!');
+                                                }}
+                                                className="text-blue-600 hover:bg-blue-50"
+                                            >
+                                                Copy
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Nội dung:</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono font-medium text-slate-800 dark:text-slate-200 text-xs max-w-[150px] truncate">{qrData.addInfo}</span>
+                                            <Button 
+                                                type="text" 
+                                                size="small" 
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(qrData.addInfo || '');
+                                                    toast.success('Đã copy nội dung!');
+                                                }}
+                                                className="text-blue-600 hover:bg-blue-50"
+                                            >
+                                                Copy
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Số tiền:</span>
+                                        <span className="text-xl font-black text-rose-600 dark:text-rose-400">
+                                            {qrData.amount.toLocaleString('vi-VN')} đ
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <Spin />
+                    )}
                 </div>
             </Modal>
         </div>
