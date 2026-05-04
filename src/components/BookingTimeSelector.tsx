@@ -393,8 +393,8 @@ const BookingTimeSelector: React.FC<Props> = ({
 
                                 {/*  NÚT THÊM THIẾT BỊ TRONG Ô CA (chỉ khi selected) */}
                                 {selected && !past && !booked && onPickEquipment && (
-                                    <button
-                                        type='button'
+                                    <div
+                                        role="button"
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();
@@ -403,7 +403,7 @@ const BookingTimeSelector: React.FC<Props> = ({
                                         className='mt-1 text-[9px] px-1.5 py-0.5 rounded bg-white/90 dark:bg-gray-100/10 text-green-800 dark:text-green-300 font-black border border-white/60 dark:border-gray-500/30 hover:bg-white dark:hover:bg-gray-100/20 transition-all shadow-sm'
                                     >
                                         {eqCount > 0 ? `Thiết bị (${eqCount})` : 'Thêm thiết bị'}
-                                    </button>
+                                    </div>
                                 )}
                             </button>
                         );
