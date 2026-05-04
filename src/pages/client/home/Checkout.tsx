@@ -543,38 +543,13 @@ const Checkout: React.FC = () => {
                 return;
             }
 
-            //  ZaloPay
+            //  ZaloPay (Xử lý như thanh toán thủ công)
             if (paymentMethod === 'zalopay') {
-                const payAmount = safeNum(totalAmount);
-                if (payAmount <= 0) {
-                    toast.error('Số tiền thanh toán không hợp lệ!');
-                    setIsPaying(false);
-                    return;
-                }
-
-                const payload: any = {};
-                const isRetry = currentCheckout.isRetryPayment === true || !!retryInfo;
-                if (isRetry) {
-                    payload.isRetryPayment = true;
-                    payload.amount = payAmount;
-                }
-
-                if (currentCheckout.isMultiBooking && bookingIds.length > 0) {
-                    payload.bookingIds = bookingIds;
-                } else if (bookingId) {
-                    payload.bookingId = bookingId;
-                }
-
-                const res = await api.post('/payment/zalopay/create', payload);
-                const data = res.data;
-
-                if (data.success && data.data?.paymentUrl) {
-                    toast.success('Đang chuyển tới trang thanh toán ZaloPay...');
-                    window.location.href = data.data.paymentUrl;
-                } else {
-                    setIsPaying(false);
-                    toast.error(data.message || 'Không tạo được liên kết thanh toán ZaloPay!');
-                }
+                toast.success('Đặt sân thành công! Bạn có thể dùng ZaloPay quét mã Chuyển khoản trong chi tiết đơn.');
+                // Vì không có cổng ZaloPay tự động, ta coi như thanh toán thủ công.
+                // Xóa localStorage và điều hướng về trang quản lý đơn để khách xem mã QR ngân hàng.
+                localStorage.removeItem('checkout-data');
+                navigate('/my-bookings');
                 return;
             }
         } catch (err) {
