@@ -418,6 +418,7 @@ const MyBookings: React.FC = () => {
             }
 
             const endpoint = '/payment/vnpay/create';
+            const payRes = await api.post(endpoint, retryBody);
 
             const paymentUrl =
                 payRes.data?.paymentUrl || payRes.data?.data?.paymentUrl || payRes.data?.data?.url;
