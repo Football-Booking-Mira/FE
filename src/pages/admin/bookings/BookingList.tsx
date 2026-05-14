@@ -37,7 +37,12 @@ import {
     UploadOutlined,
     PlusOutlined,
     SearchOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    EnvironmentOutlined,
+    ToolOutlined,
+    UserOutlined,
+    CalendarOutlined,
+    CloseOutlined,
 } from '@ant-design/icons';
 import { 
     PackageCheck, 
@@ -313,6 +318,18 @@ export default function BookingList() {
             unit?: string;
         }[];
     } | null>(null);
+
+    // dark mode detection cho detail modal
+    const [isDarkMode, setIsDarkMode] = useState(() =>
+        document.documentElement.classList.contains('dark')
+    );
+    useEffect(() => {
+        const obs = new MutationObserver(() =>
+            setIsDarkMode(document.documentElement.classList.contains('dark'))
+        );
+        obs.observe(document.documentElement, { attributeFilter: ['class'] });
+        return () => obs.disconnect();
+    }, []);
 
     // modal từ chối hoàn tiền
     const [rejectModal, setRejectModal] = useState<{
@@ -2766,116 +2783,186 @@ export default function BookingList() {
                     setDetailData(null);
                 }}
                 footer={null}
-                width={700}
-                title={
-                    detailData?.booking
-                        ? `Chi tiết đơn ${detailData.booking.code}`
-                        : 'Chi tiết đơn đặt sân'
-                }
+                width={680}
+                styles={{
+                    content: { padding: 0, borderRadius: 20, overflow: 'hidden' },
+                    header: { display: 'none' },
+                    body: { padding: 0 },
+                }}
             >
                 {detailLoading ? (
-                    <div className='flex justify-center py-8'>
-                        <Spin />
+                    <div className='flex justify-center items-center py-20'>
+                        <Spin size='large' />
                     </div>
-                ) : detailData?.booking ? (
-                    <div className='space-y-4'>
-                        <Card size='small' bodyStyle={{ padding: 12 }}>
-                            <div className='grid grid-cols-1 md:grid-cols-2 gap-2 text-sm'>
-                                <div>
+                ) : detailData?.booking ? (() => {
+                    const bk = detailData.booking;
+                    const customerName = bk.customerInfo?.name || bk.customerId?.name || bk.customerId?.username || 'Khách lẻ';
+                    const customerPhone = bk.customerInfo?.phone || bk.customerId?.phone || null;
+                    const customerEmail = bk.customerInfo?.email || bk.customerId?.email || null;
+                    const courtName = bk.courtId?.name || '—';
+                    const bookingDate = dayjs(bk.date).format('DD/MM/YYYY');
+                    const timeRange = `${bk.startTime} – ${bk.endTime}`;
+                    const totalAmount = bk.total || 0;
+                    const equipTotal = bk.equipmentTotal || 0;
+                    const fieldTotal = bk.fieldAmount ?? (totalAmount - equipTotal);
+
+                    // ── Theme tokens ──
+                    const T = isDarkMode ? {
+                        headerBg: 'linear-gradient(135deg, #0f172a 0%, #1a2e4a 60%, #0a3328 100%)',
+                        bodyBg: '#111827',
+                        cardBg: '#1e293b',
+                        cardBorder: '#334155',
+                        tableHeaderBg: '#0f172a',
+                        tableRowBg: '#1e293b',
+                        tableRowAlt: '#263344',
+                        tableRowBorder: '#334155',
+                        textPrimary: '#f1f5f9',
+                        textMuted: '#94a3b8',
+                        footerBg: 'linear-gradient(135deg, #0f172a, #1a3a5c)',
+                        sumCards: [
+                            { label: 'Tiền sân',     color: '#60a5fa', bg: '#1e3a5f', border: '#2563eb44' },
+                            { label: 'Tiền thiết bị',color: '#c084fc', bg: '#2d1b4e', border: '#7c3aed44' },
+                            { label: 'Tổng cộng',    color: '#34d399', bg: '#0a3328', border: '#05966944', bold: true },
+                        ],
+                        badgeRent: { bg: '#1e3a5f', color: '#60a5fa' },
+                        badgeSell: { bg: '#2d1b4e', color: '#c084fc' },
+                        emptyBg: '#1e293b',
+                    } : {
+                        headerBg: 'linear-gradient(135deg, #1e40af 0%, #1d4ed8 50%, #065f46 100%)',
+                        bodyBg: '#f8fafc',
+                        cardBg: '#ffffff',
+                        cardBorder: '#e2e8f0',
+                        tableHeaderBg: '#f1f5f9',
+                        tableRowBg: '#ffffff',
+                        tableRowAlt: '#f8fafc',
+                        tableRowBorder: '#f1f5f9',
+                        textPrimary: '#1e293b',
+                        textMuted: '#64748b',
+                        footerBg: 'linear-gradient(135deg, #1e40af, #065f46)',
+                        sumCards: [
+                            { label: 'Tiền sân',     color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+                            { label: 'Tiền thiết bị',color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+                            { label: 'Tổng cộng',    color: '#059669', bg: '#ecfdf5', border: '#6ee7b7', bold: true },
+                        ],
+                        badgeRent: { bg: '#eff6ff', color: '#2563eb' },
+                        badgeSell: { bg: '#f5f3ff', color: '#7c3aed' },
+                        emptyBg: '#f8fafc',
+                    };
+
+                    const sumValues = [formatVND(fieldTotal), formatVND(equipTotal), formatVND(totalAmount)];
+
+                    return (
+                        <div>
+                            {/* ── HEADER ── */}
+                            <div style={{ background: T.headerBg, padding: '28px 28px 72px' }}>
+                                <div className='flex justify-between items-start mb-6'>
                                     <div>
-                                        <span className='text-gray-500'>Khách hàng: </span>
-                                        <b>
-                                            {detailData.booking.customerInfo?.name ||
-                                                detailData.booking.customerId?.name ||
-                                                detailData.booking.customerId?.username ||
-                                                'Khách lẻ'}
-                                        </b>
+                                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>Mã đặt sân</div>
+                                        <div style={{ fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'monospace', letterSpacing: '-0.03em' }}>{bk.code}</div>
                                     </div>
-                                    {detailData.booking.customerInfo?.phone ||
-                                    detailData.booking.customerId?.phone ? (
-                                        <div>
-                                            <span className='text-gray-500'>SĐT: </span>
-                                            {detailData.booking.customerInfo?.phone ||
-                                                detailData.booking.customerId?.phone}
-                                        </div>
-                                    ) : null}
+                                    <button
+                                        onClick={() => { setDetailModalOpen(false); setDetailData(null); }}
+                                        style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)' }}
+                                    >
+                                        <CloseOutlined style={{ fontSize: 13 }} />
+                                    </button>
                                 </div>
-                                <div>
-                                    <div>
-                                        <span className='text-gray-500'>Sân: </span>
-                                        <b>{detailData.booking.courtId?.name || '-'}</b>
-                                    </div>
-                                    <div>
-                                        <span className='text-gray-500'>Ngày: </span>
-                                        {dayjs(detailData.booking.date).format('DD/MM/YYYY')}
-                                    </div>
-                                    <div>
-                                        <span className='text-gray-500'>Giờ: </span>
-                                        {detailData.booking.startTime} -{' '}
-                                        {detailData.booking.endTime}
-                                    </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+                                    {[
+                                        { icon: <UserOutlined style={{ color: '#34d399', fontSize: 16 }} />, iconBg: 'rgba(52,211,153,0.15)', primary: customerName, secondary: customerPhone || customerEmail || '' },
+                                        { icon: <CalendarOutlined style={{ color: '#60a5fa', fontSize: 16 }} />, iconBg: 'rgba(96,165,250,0.15)', primary: bookingDate, secondary: timeRange },
+                                        { icon: <EnvironmentOutlined style={{ color: '#a78bfa', fontSize: 16 }} />, iconBg: 'rgba(167,139,250,0.15)', primary: courtName, secondary: 'Sân bóng' },
+                                    ].map((info, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={{ width: 38, height: 38, borderRadius: '50%', background: info.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                {info.icon}
+                                            </div>
+                                            <div>
+                                                <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{info.primary}</div>
+                                                <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{info.secondary}</div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        </Card>
 
-                        <Card size='small' title='Thiết bị đã thêm' bodyStyle={{ padding: 12 }}>
-                            {detailData.items && detailData.items.length > 0 ? (
-                                <Table
-                                    size='small'
-                                    rowKey={(record) => `${record.name}_${record.mode}`}
-                                    pagination={false}
-                                    dataSource={mergedDetailItems}
-                                    columns={[
-                                        {
-                                            title: 'Thiết bị',
-                                            dataIndex: 'name',
-                                            key: 'name',
-                                        },
-                                        {
-                                            title: 'Loại',
-                                            dataIndex: 'mode',
-                                            key: 'mode',
-                                            render: (m: 'rent' | 'sell') =>
-                                                m === 'rent' ? 'Thuê' : 'Bán',
-                                        },
-                                        {
-                                            title: 'SL',
-                                            dataIndex: 'qty',
-                                            key: 'qty',
-                                            width: 70,
-                                        },
-                                        {
-                                            title: 'Đơn giá',
-                                            dataIndex: 'price',
-                                            key: 'price',
-                                            render: (v: number) => formatVND(v),
-                                        },
-                                        {
-                                            title: 'Thành tiền',
-                                            dataIndex: 'subtotal',
-                                            key: 'subtotal',
-                                            render: (v: number) => formatVND(v),
-                                        },
-                                    ]}
-                                />
-                            ) : (
-                                <div className='text-sm text-gray-500'>
-                                    Đơn này chưa có thiết bị nào.
+                            {/* ── BODY ── */}
+                            <div style={{ background: T.bodyBg, marginTop: -44, borderRadius: '20px 20px 0 0', padding: '22px 22px 18px' }}>
+
+                                {/* Summary cards */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+                                    {T.sumCards.map((card, i) => (
+                                        <div key={card.label} style={{ background: card.bg, border: `1px solid ${card.border}`, borderRadius: 12, padding: '12px 14px' }}>
+                                            <div style={{ fontSize: 10, fontWeight: 700, color: card.color, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.75, marginBottom: 4 }}>{card.label}</div>
+                                            <div style={{ fontSize: (card as any).bold ? 16 : 14, fontWeight: 800, color: card.color, fontFamily: 'monospace' }}>{sumValues[i]}</div>
+                                        </div>
+                                    ))}
                                 </div>
-                            )}
-                        </Card>
 
-                        <div className='flex justify-end'>
-                            <div className='text-right text-sm'>
-                                <div className='text-gray-500'>Tổng tiền đơn</div>
-                                <div className='text-lg font-semibold text-blue-600'>
-                                    {formatVND(detailData.booking.total || 0)}
+                                {/* Equipment table */}
+                                <div style={{ border: `1px solid ${T.cardBorder}`, borderRadius: 12, overflow: 'hidden' }}>
+                                    {/* Table header bar */}
+                                    <div style={{ background: T.tableHeaderBg, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <ToolOutlined style={{ color: '#94a3b8', fontSize: 12 }} />
+                                        <span style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Thiết bị đã sử dụng</span>
+                                        {mergedDetailItems.length > 0 && (
+                                            <span style={{ marginLeft: 'auto', background: isDarkMode ? '#334155' : '#e2e8f0', color: '#94a3b8', fontSize: 10, fontWeight: 700, padding: '1px 8px', borderRadius: 20 }}>
+                                                {mergedDetailItems.length} loại
+                                            </span>
+                                        )}
+                                    </div>
+                                    {/* Column headers */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 76px 52px 100px 100px', padding: '8px 16px', background: isDarkMode ? '#1a2535' : '#f8fafc', borderBottom: `1px solid ${T.cardBorder}` }}>
+                                        {['Thiết bị', 'Loại', 'SL', 'Đơn giá', 'Thành tiền'].map(h => (
+                                            <div key={h} style={{ fontSize: 10, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{h}</div>
+                                        ))}
+                                    </div>
+                                    {/* Rows */}
+                                    {mergedDetailItems.length > 0 ? mergedDetailItems.map((item: any, idx: number) => (
+                                        <div
+                                            key={`${item.name}_${item.mode}_${idx}`}
+                                            style={{
+                                                display: 'grid', gridTemplateColumns: '1fr 76px 52px 100px 100px',
+                                                padding: '11px 16px',
+                                                background: idx % 2 === 0 ? T.tableRowBg : T.tableRowAlt,
+                                                borderBottom: idx < mergedDetailItems.length - 1 ? `1px solid ${T.tableRowBorder}` : 'none',
+                                                alignItems: 'center',
+                                            }}
+                                        >
+                                            <div style={{ fontWeight: 600, color: T.textPrimary, fontSize: 13 }}>{item.name || 'Thiết bị'}</div>
+                                            <div>
+                                                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: item.mode === 'rent' ? T.badgeRent.bg : T.badgeSell.bg, color: item.mode === 'rent' ? T.badgeRent.color : T.badgeSell.color }}>
+                                                    {item.mode === 'rent' ? 'Thuê' : 'Bán'}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontWeight: 700, color: T.textPrimary, fontSize: 13 }}>{item.qty}</div>
+                                            <div style={{ color: T.textMuted, fontSize: 12 }}>{formatVND(item.price)}</div>
+                                            <div style={{ fontWeight: 700, color: T.textPrimary, fontSize: 13 }}>{formatVND(item.subtotal || (item.qty || 0) * (item.price || 0))}</div>
+                                        </div>
+                                    )) : (
+                                        <div style={{ background: T.emptyBg, padding: '28px 16px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: 26, marginBottom: 6 }}>📭</div>
+                                            <div style={{ color: T.textMuted, fontSize: 13 }}>Đơn này chưa có thiết bị nào</div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Footer total */}
+                                <div style={{ marginTop: 14, background: T.footerBg, borderRadius: 12, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Tổng tiền đơn</div>
+                                        <div style={{ color: '#6ee7b7', fontSize: 22, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>{formatVND(totalAmount)}</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>Sân + thiết bị</div>
+                                        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 2 }}>{bookingDate} · {timeRange}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className='text-center text-sm text-gray-500'>
+                    );
+                })() : (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 13 }}>
                         Không có dữ liệu chi tiết.
                     </div>
                 )}

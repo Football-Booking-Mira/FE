@@ -5,6 +5,7 @@ import { message, Upload, Avatar } from 'antd';
 import type { RcFile } from "antd/es/upload/interface";
 import api from "@/common/utils/api";
 import { useAuth } from '@/common/contexts';
+import LoadingScreen from '@/components/LoadingScreen';
 
 interface ApiResponse {
     success: boolean;
@@ -271,14 +272,7 @@ const Profile: React.FC = () => {
     };
 
     if (loading) {
-        return (
-            <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-slate-200 border-t-blue-600"></div>
-                    <p className="mt-4 text-slate-600 font-medium">Đang tải thông tin...</p>
-                </div>
-            </div>
-        );
+        return <LoadingScreen fullScreen text="Đang tải thông tin cá nhân..." />;
     }
 
     if (error) {

@@ -11,6 +11,7 @@ import { printInvoiceMira } from '@/common/utils/printInvoice';
 import { useNavigate } from 'react-router';
 import { ExclamationCircleFilled } from '@ant-design/icons';
 import { Layers } from 'lucide-react';
+import LoadingScreen from '@/components/LoadingScreen';
 
 dayjs.locale('vi');
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
@@ -973,13 +974,7 @@ const MyBookings: React.FC = () => {
     };
 
     if (loading) {
-        return (
-            <div className='flex justify-center items-center h-screen'>
-                <Spin size='large' tip='Đang tải dữ liệu...'>
-                    <div />
-                </Spin>
-            </div>
-        );
+        return <LoadingScreen fullScreen text="Đang tải dữ liệu đơn đặt sân..." />;
     }
 
     return (

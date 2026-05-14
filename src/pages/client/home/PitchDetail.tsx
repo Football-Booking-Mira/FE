@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import BookingTimeSelector from '@/components/BookingTimeSelector';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import LoadingScreen from '@/components/LoadingScreen';
 
 import EquipmentPickerModal, { type EquipmentPickItem } from '@/components/EquipmentPickerModal';
 
@@ -300,7 +301,9 @@ const PitchDetail: React.FC = () => {
         navigate('/booking-policy');
     };
 
-    if (loading) return <p className='text-center mt-10 text-gray-600 dark:text-gray-300'>Đang tải dữ liệu...</p>;
+    if (loading) {
+        return <LoadingScreen fullScreen text="Đang tải thông tin sân..." />;
+    }
     if (!court) return <p className='text-center mt-10 text-gray-600 dark:text-gray-300'>Không tìm thấy sân.</p>;
 
     return (

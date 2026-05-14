@@ -1,6 +1,7 @@
 // pages/Reviews.tsx
 import { getNeedReview, getReviewDetail } from "@/common/services/review.service";
 import ReviewDetailModal from "@/components/ReviewDetailModal";
+import LoadingScreen from "@/components/LoadingScreen";
 import {
     Card,
     Tabs,
@@ -163,11 +164,7 @@ const Reviews = ({ }: any) => {
 
 
     if (loading) {
-        return (
-            <div style={{ textAlign: "center", marginTop: 100 }}>
-                <Spin size="large" />
-            </div>
-        );
+        return <LoadingScreen text="Đang tải đánh giá..." />;
     }
 
     return (
