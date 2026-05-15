@@ -2221,229 +2221,194 @@ export default function BookingList() {
             <Modal
                 open={paymentModalOpen}
                 onCancel={() => setPaymentModalOpen(false)}
-                title={
-                    paymentBooking
-                        ? `Tạo hóa đơn thanh toán cho đơn ${paymentBooking.code}`
-                        : 'Tạo hóa đơn thanh toán'
-                }
-                okText='Xác nhận thanh toán'
-                cancelText='Hủy'
-                onOk={handleConfirmPayment}
-                okButtonProps={{ loading: paymentLoading }}
-                width={720}
+                footer={null}
+                closable={false}
+                width={680}
                 centered
-                bodyStyle={{ padding: 24 }}
+                styles={{
+                    content: { padding: 0, borderRadius: 20, overflow: 'hidden' },
+                    body: { padding: 0 },
+                }}
             >
                 {paymentBooking && (
-                    <Form
-                        form={paymentForm}
-                        layout='vertical'
-                        onValuesChange={(_, all) =>
-                            setPaymentDiscount(Number(all.discount || 0) || 0)
-                        }
-                    >
-                        <Card
-                            size='small'
-                            style={{ marginBottom: 16, borderRadius: 10 }}
-                            bodyStyle={{ padding: 16 }}
-                        >
-                            <div className='flex justify-between gap-4'>
-                                <div className='flex-1'>
-                                    <div className='text-xs text-gray-500 mb-1'>Khách hàng</div>
-                                    <div className='font-semibold text-base'>
-                                        {paymentBooking.customerInfo?.name ||
-                                            paymentBooking.customerId?.name ||
-                                            paymentBooking.customerId?.username ||
-                                            'Khách lẻ'}
-                                    </div>
-                                    {(paymentBooking.customerInfo?.phone ||
-                                        paymentBooking.customerId?.phone) && (
-                                        <div className='text-xs text-gray-500'>
-                                            SĐT:{' '}
-                                            {paymentBooking.customerInfo?.phone ||
-                                                paymentBooking.customerId?.phone}
-                                        </div>
-                                    )}
-                                    {(paymentBooking.customerInfo?.email ||
-                                        paymentBooking.customerId?.email) && (
-                                        <div className='text-xs text-gray-500'>
-                                            Email:{' '}
-                                            {paymentBooking.customerInfo?.email ||
-                                                paymentBooking.customerId?.email}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className='w-px bg-gray-200 mx-2' />
-
-                                <div className='flex-1 text-right text-xs'>
-                                    <div className='text-gray-500 mb-1'>
-                                        Mã đặt sân:{' '}
-                                        <span className='font-semibold text-black'>
-                                            {paymentBooking.code}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className='text-gray-500'>Sân: </span>
-                                        <span className='font-medium'>
-                                            {paymentBooking.courtId?.name || '—'}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className='text-gray-500'>Ngày chơi: </span>
-                                        <span className='font-medium'>
-                                            {dayjs(paymentBooking.date).format('DD/MM/YYYY')}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span className='text-gray-500'>Khung giờ: </span>
-                                        <span className='font-medium'>
-                                            {paymentBooking.startTime} - {paymentBooking.endTime}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-
-                        <Card
-                            size='small'
-                            style={{
-                                marginBottom: 16,
-                                borderRadius: 10,
-                                background: '#fafafa',
-                            }}
-                            bodyStyle={{ padding: 16 }}
-                        >
-                            <div className='flex justify-between items-center mb-2'>
-                                <div className='font-semibold text-sm'>Chi tiết thanh toán</div>
-                                <div className='text-xs text-gray-400'>
-                                    Số liệu tính theo thời điểm thanh toán
-                                </div>
-                            </div>
-
-                            <div className='flex justify-between text-sm mb-1'>
-                                <span>Tiền sân</span>
-                                <span className='font-medium'>
-                                    {formatVND(
-                                        paymentBooking.fieldAmount ?? paymentBooking.total ?? 0
-                                    )}
-                                </span>
-                            </div>
-
-                            <div className='flex justify-between text-sm mb-1'>
-                                <span>Tiền thiết bị</span>
-                                <span className='font-medium'>
-                                    {formatVND(paymentBooking.equipmentTotal ?? 0)}
-                                </span>
-                            </div>
-
-                            {voucherDiscount > 0 && (
-                                <div className='flex justify-between text-sm mb-1'>
-                                    <span className='text-emerald-600'>
-                                        Giảm giá voucher{voucherCode ? ` (${voucherCode})` : ''}
-                                    </span>
-                                    <span className='text-emerald-600 font-medium'>
-                                        - {formatVND(voucherDiscount)}
-                                    </span>
-                                </div>
-                            )}
-
-                            <div className='border-t border-dashed border-gray-300 mt-3 pt-2 flex justify-between text-sm'>
-                                <span>Tổng cộng</span>
-                                <span className='font-semibold'>{formatVND(originalTotal)}</span>
-                            </div>
-
-                            {depositPaid > 0 && (
-                                <div className='flex justify-between text-xs mt-1 text-gray-500'>
-                                    <span>
-                                        Đã thanh toán trước (
-                                        {(paymentBooking.depositMethod || 'vnpay').toUpperCase()} )
-                                    </span>
-                                    <span>- {formatVND(depositPaid)}</span>
-                                </div>
-                            )}
-
-                            <div className='flex justify-between text-sm font-semibold mt-1'>
-                                <span>Còn phải thu (trước giảm giá)</span>
-                                <span className='text-blue-600'>{formatVND(paymentBaseTotal)}</span>
-                            </div>
-                        </Card>
-
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item
-                                    name='discount'
-                                    label='Giảm giá (VND)'
-                                    rules={[
-                                        {
-                                            type: 'number',
-                                            transform: (v) => Number(v),
-                                            min: 0,
-                                            message: 'Giảm giá phải ≥ 0',
-                                        },
-                                    ]}
-                                >
-                                    <Input
-                                        type='number'
-                                        min={0}
-                                        placeholder='0'
-                                        onFocus={(e) => e.target.select()}
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={16}>
-                                <Form.Item name='discountReason' label='Lý do giảm giá'>
-                                    <Input placeholder='VD: Khách VIP, khuyến mãi...' />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item
-                                    name='method'
-                                    label='Phương thức thanh toán'
-                                    rules={[
-                                        { required: true, message: 'Vui lòng chọn phương thức!' },
-                                    ]}
-                                >
-                                    <Select
-                                        placeholder='Chọn phương thức'
-                                        options={[
-                                            { value: 'cash', label: 'Tiền mặt' },
-                                            { value: 'transfer', label: 'Chuyển khoản' },
-                                        ]}
-                                        onChange={handleMethodChange}
-                                    />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name='receivedAmount' label='Tiền khách đưa (VND)'>
-                                    <Input type='number' min={0} placeholder='VD: 250000' />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-
-
-                        <Card
-                            size='small'
-                            style={{ marginTop: 8, borderRadius: 10 }}
-                            bodyStyle={{ padding: 16 }}
-                        >
-                            <div className='flex justify-between items-center'>
+                    <div>
+                        {/* ── HEADER ── */}
+                        <div style={{
+                            background: isDarkMode
+                                ? 'linear-gradient(135deg, #0f172a 0%, #1a2e4a 60%, #0a3328 100%)'
+                                : 'linear-gradient(135deg, #1e40af 0%, #1d4ed8 55%, #065f46 100%)',
+                            padding: '24px 24px 64px',
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                                 <div>
-                                    <div className='text-xs text-gray-500'>Tổng thanh toán</div>
-                                    <div className='text-[22px] font-bold text-blue-600 leading-tight'>
-                                        {formatVND(paymentFinalTotal)}
+                                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>
+                                        Tạo hóa đơn thanh toán
+                                    </div>
+                                    <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
+                                        {paymentBooking.code}
                                     </div>
                                 </div>
-                                <div className='text-xs text-gray-500 text-right'>
-                                    Số tiền sau khi trừ giảm giá trên hóa đơn (nếu có)
+                                <button
+                                    onClick={() => setPaymentModalOpen(false)}
+                                    style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}
+                                >
+                                    <CloseOutlined style={{ fontSize: 13 }} />
+                                </button>
+                            </div>
+                            {/* Info pills */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(52,211,153,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <UserOutlined style={{ color: '#34d399', fontSize: 15 }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>
+                                            {paymentBooking.customerInfo?.name || paymentBooking.customerId?.name || paymentBooking.customerId?.username || 'Khách lẻ'}
+                                        </div>
+                                        <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
+                                            {paymentBooking.customerInfo?.phone || paymentBooking.customerId?.phone || paymentBooking.customerInfo?.email || paymentBooking.customerId?.email || ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(96,165,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <CalendarOutlined style={{ color: '#60a5fa', fontSize: 15 }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{dayjs(paymentBooking.date).format('DD/MM/YYYY')}</div>
+                                        <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{paymentBooking.startTime} – {paymentBooking.endTime}</div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(167,139,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <EnvironmentOutlined style={{ color: '#a78bfa', fontSize: 15 }} />
+                                    </div>
+                                    <div>
+                                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{paymentBooking.courtId?.name || '—'}</div>
+                                        <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>Sân bóng</div>
+                                    </div>
                                 </div>
                             </div>
-                        </Card>
-                    </Form>
+                        </div>
+
+                        {/* ── BODY ── */}
+                        <div style={{ background: isDarkMode ? '#111827' : '#f8fafc', marginTop: -40, borderRadius: '20px 20px 0 0', padding: '20px 20px 16px' }}>
+                            <Form
+                                form={paymentForm}
+                                layout='vertical'
+                                onValuesChange={(_, all) => setPaymentDiscount(Number(all.discount || 0) || 0)}
+                            >
+                                {/* Cost breakdown */}
+                                <div style={{ border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, borderRadius: 14, overflow: 'hidden', marginBottom: 14 }}>
+                                    {/* Header row */}
+                                    <div style={{ background: isDarkMode ? '#0f172a' : '#1e293b', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Chi tiết thanh toán</span>
+                                        <span style={{ color: '#64748b', fontSize: 10 }}>Tính theo thời điểm thanh toán</span>
+                                    </div>
+                                    {/* Rows */}
+                                    {[
+                                        { label: 'Tiền sân', value: formatVND(paymentBooking.fieldAmount ?? paymentBooking.total ?? 0), accent: false },
+                                        { label: 'Tiền thiết bị', value: formatVND(paymentBooking.equipmentTotal ?? 0), accent: false },
+                                        ...(voucherDiscount > 0 ? [{ label: `Voucher${voucherCode ? ` (${voucherCode})` : ''}`, value: `- ${formatVND(voucherDiscount)}`, accent: true, color: '#34d399' }] : []),
+                                    ].map((row, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: isDarkMode ? (i % 2 === 0 ? '#1e293b' : '#263344') : (i % 2 === 0 ? '#fff' : '#f8fafc'), borderBottom: `1px solid ${isDarkMode ? '#334155' : '#f1f5f9'}` }}>
+                                            <span style={{ color: row.accent ? (row.color || '#34d399') : (isDarkMode ? '#cbd5e1' : '#475569'), fontSize: 13 }}>{row.label}</span>
+                                            <span style={{ fontWeight: 600, color: row.accent ? (row.color || '#34d399') : (isDarkMode ? '#f1f5f9' : '#1e293b'), fontSize: 13 }}>{row.value}</span>
+                                        </div>
+                                    ))}
+                                    {/* Subtotal */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', background: isDarkMode ? '#1a2535' : '#f0f9ff', borderBottom: `1px solid ${isDarkMode ? '#334155' : '#bae6fd'}` }}>
+                                        <span style={{ fontWeight: 700, fontSize: 13, color: isDarkMode ? '#f1f5f9' : '#1e293b' }}>Tổng cộng</span>
+                                        <span style={{ fontWeight: 800, fontSize: 14, color: isDarkMode ? '#f1f5f9' : '#1e293b' }}>{formatVND(originalTotal)}</span>
+                                    </div>
+                                    {/* Deposit paid */}
+                                    {depositPaid > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: isDarkMode ? '#1e293b' : '#fff', borderBottom: `1px solid ${isDarkMode ? '#334155' : '#f1f5f9'}` }}>
+                                            <span style={{ color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 12 }}>
+                                                Đã thanh toán trước ({(paymentBooking.depositMethod || 'vnpay').toUpperCase()})
+                                            </span>
+                                            <span style={{ color: isDarkMode ? '#94a3b8' : '#64748b', fontSize: 12 }}>- {formatVND(depositPaid)}</span>
+                                        </div>
+                                    )}
+                                    {/* Remaining */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: isDarkMode ? '#1e3a5f' : '#eff6ff' }}>
+                                        <span style={{ fontWeight: 700, fontSize: 13, color: isDarkMode ? '#93c5fd' : '#1d4ed8' }}>Còn phải thu</span>
+                                        <span style={{ fontWeight: 800, fontSize: 15, color: isDarkMode ? '#60a5fa' : '#2563eb' }}>{formatVND(paymentBaseTotal)}</span>
+                                    </div>
+                                </div>
+
+                                {/* Form fields */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12, marginBottom: 12 }}>
+                                    <Form.Item
+                                        name='discount'
+                                        label={<span style={{ fontSize: 12, fontWeight: 600, color: isDarkMode ? '#94a3b8' : '#475569' }}>Giảm giá (VND)</span>}
+                                        rules={[{ type: 'number', transform: (v) => Number(v), min: 0, message: 'Giảm giá phải ≥ 0' }]}
+                                        style={{ marginBottom: 0 }}
+                                    >
+                                        <Input type='number' min={0} placeholder='0' onFocus={(e) => e.target.select()} />
+                                    </Form.Item>
+                                    <Form.Item
+                                        name='discountReason'
+                                        label={<span style={{ fontSize: 12, fontWeight: 600, color: isDarkMode ? '#94a3b8' : '#475569' }}>Lý do giảm giá</span>}
+                                        style={{ marginBottom: 0 }}
+                                    >
+                                        <Input placeholder='VD: Khách VIP, khuyến mãi...' />
+                                    </Form.Item>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                                    <Form.Item
+                                        name='method'
+                                        label={<span style={{ fontSize: 12, fontWeight: 600, color: isDarkMode ? '#94a3b8' : '#475569' }}>Phương thức thanh toán <span style={{ color: '#ef4444' }}>*</span></span>}
+                                        rules={[{ required: true, message: 'Vui lòng chọn phương thức!' }]}
+                                        style={{ marginBottom: 0 }}
+                                    >
+                                        <Select
+                                            placeholder='Chọn phương thức'
+                                            options={[
+                                                { value: 'cash', label: '💵 Tiền mặt' },
+                                                { value: 'transfer', label: '🏦 Chuyển khoản' },
+                                            ]}
+                                            onChange={handleMethodChange}
+                                        />
+                                    </Form.Item>
+                                    <Form.Item
+                                        name='receivedAmount'
+                                        label={<span style={{ fontSize: 12, fontWeight: 600, color: isDarkMode ? '#94a3b8' : '#475569' }}>Tiền khách đưa (VND)</span>}
+                                        style={{ marginBottom: 0 }}
+                                    >
+                                        <Input type='number' min={0} placeholder='VD: 250000' />
+                                    </Form.Item>
+                                </div>
+
+                                {/* Total footer + actions */}
+                                <div style={{ background: isDarkMode ? 'linear-gradient(135deg, #0f172a, #1a3a5c)' : 'linear-gradient(135deg, #1e40af, #065f46)', borderRadius: 14, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Tổng thanh toán</div>
+                                        <div style={{ color: '#6ee7b7', fontSize: 24, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>{formatVND(paymentFinalTotal)}</div>
+                                        <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 2 }}>Sau khi trừ giảm giá (nếu có)</div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 10 }}>
+                                        <button
+                                            type='button'
+                                            onClick={() => setPaymentModalOpen(false)}
+                                            style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button
+                                            type='button'
+                                            onClick={handleConfirmPayment}
+                                            disabled={paymentLoading}
+                                            style={{ padding: '10px 22px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(16,185,129,0.35)', opacity: paymentLoading ? 0.7 : 1 }}
+                                        >
+                                            {paymentLoading ? '⏳ Đang xử lý...' : '✓ Xác nhận thanh toán'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </Form>
+                        </div>
+                    </div>
                 )}
             </Modal>
 
@@ -2456,26 +2421,12 @@ export default function BookingList() {
                 }}
                 width={720}
                 centered
-                title={
-                    invoiceDetail?.invoice
-                        ? `Hóa đơn - ${invoiceDetail.invoice.code}`
-                        : 'Chi tiết hóa đơn'
-                }
-                bodyStyle={{ padding: 24, maxHeight: '70vh', overflowY: 'auto' }}
-                footer={[
-                    <Button
-                        key='close'
-                        onClick={() => {
-                            setInvoiceModalOpen(false);
-                            setInvoiceDetail(null);
-                        }}
-                    >
-                        Đóng
-                    </Button>,
-                    <Button key='print' type='primary' onClick={handlePrintInvoice}>
-                        In hóa đơn
-                    </Button>,
-                ]}
+                closable={false}
+                footer={null}
+                styles={{
+                    content: { padding: 0, borderRadius: 20, overflow: 'hidden', background: isDarkMode ? '#111827' : '#ffffff' },
+                    body: { padding: 0 },
+                }}
             >
                 {invoiceLoading ? (
                     <div className='flex justify-center py-10'>
@@ -2525,181 +2476,139 @@ export default function BookingList() {
                         const alreadyPaidTotal = Number(inv.total || 0) + depositPaidBefore;
 
                         return (
-                            <div ref={invoicePrintRef} className='bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden mb-2 relative'>
-                                {/* Top accent bar */}
-                                <div className="h-2 w-full bg-linear-to-r from-emerald-400 to-teal-500"></div>
-                                
-                                <div className="p-6 md:p-8">
-                                    {/* Header Section */}
-                                    <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8'>
+                            <div ref={invoicePrintRef} style={{ overflow: 'hidden', position: 'relative' }}>
+                                {/* ── HEADER ── */}
+                                <div style={{
+                                    background: isDarkMode
+                                        ? 'linear-gradient(135deg, #0f172a 0%, #1a2e4a 60%, #0a3328 100%)'
+                                        : 'linear-gradient(135deg, #1e40af 0%, #1d4ed8 55%, #065f46 100%)',
+                                    padding: '24px 24px 64px',
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                                         <div>
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <h1 className='text-2xl font-black text-slate-800 tracking-tight uppercase'>Hóa đơn</h1>
-                                                <Tag color='green' className="m-0 border-emerald-200 bg-emerald-50 text-emerald-700 rounded-md font-bold">Đã thanh toán</Tag>
-                                            </div>
-                                            <p className='text-sm text-slate-500 font-medium'>
-                                                Mã HĐ: <span className="text-slate-700">{inv.code}</span>
-                                            </p>
-                                            {booking.code && (
-                                                <p className='text-xs text-slate-400 mt-0.5'>
-                                                    Đơn đặt sân: #{booking.code}
-                                                </p>
-                                            )}
+                                            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>Hóa đơn thanh toán</div>
+                                            <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', fontFamily: 'monospace', letterSpacing: '-0.02em' }}>{inv.code}</div>
+                                            {booking.code && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>Đơn đặt sân: #{booking.code}</div>}
                                         </div>
-                                        <div className="text-left md:text-right text-sm text-slate-600">
-                                            <p>Ngày lập: <span className="font-semibold text-slate-800">{dayjs(inv.createdAt || inv.paidAt).format('DD/MM/YYYY HH:mm')}</span></p>
-                                            <p className="mt-1">Hình thức: <span className="font-semibold text-slate-800 uppercase text-xs tracking-wider bg-slate-100 px-2 py-0.5 rounded">{methodLabel}</span></p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ background: 'rgba(52,211,153,0.2)', color: '#6ee7b7', fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20, border: '1px solid rgba(52,211,153,0.3)' }}>Đã thanh toán</span>
+                                            <button onClick={() => { setInvoiceModalOpen(false); setInvoiceDetail(null); }} style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}>
+                                                <CloseOutlined style={{ fontSize: 13 }} />
+                                            </button>
                                         </div>
                                     </div>
+                                    {/* Info pills */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                                        {[
+                                            { icon: <UserOutlined style={{ color: '#34d399', fontSize: 15 }} />, iconBg: 'rgba(52,211,153,0.15)', primary: customer.name || customer.username || 'Khách lẻ', secondary: customer.phone || customer.email || '' },
+                                            { icon: <CalendarOutlined style={{ color: '#60a5fa', fontSize: 15 }} />, iconBg: 'rgba(96,165,250,0.15)', primary: dayjs(inv.createdAt || inv.paidAt).format('DD/MM/YYYY HH:mm'), secondary: methodLabel },
+                                            { icon: <EnvironmentOutlined style={{ color: '#a78bfa', fontSize: 15 }} />, iconBg: 'rgba(167,139,250,0.15)', primary: booking.courtId?.name || '—', secondary: booking.date ? `${dayjs(booking.date).format('DD/MM/YYYY')} · ${Array.isArray(booking.slots) && booking.slots.length > 0 ? booking.slots.map((s: any) => `${s.startTime}-${s.endTime}`).join(', ') : `${booking.startTime}-${booking.endTime}`}` : '' },
+                                        ].map((info, i) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                                                <div style={{ width: 34, height: 34, borderRadius: '50%', background: info.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{info.icon}</div>
+                                                <div>
+                                                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{info.primary}</div>
+                                                    <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{info.secondary}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
 
-                                    {/* Customer & Booking Info Grid */}
-                                    <div className='grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-5 rounded-xl border border-slate-100 mb-6'>
-                                        <div>
-                                            <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-3'>Thông tin khách hàng</h3>
-                                            <div className='space-y-2 text-sm'>
-                                                <div className='flex justify-between md:justify-start md:gap-4'>
-                                                    <span className='text-slate-500 w-20'>Họ tên:</span>
-                                                    <span className='font-semibold text-slate-800'>{customer.name || customer.username || 'Khách lẻ'}</span>
-                                                </div>
-                                                {customer.phone && (
-                                                    <div className='flex justify-between md:justify-start md:gap-4'>
-                                                        <span className='text-slate-500 w-20'>SĐT:</span>
-                                                        <span className="text-slate-800">{customer.phone}</span>
-                                                    </div>
-                                                )}
-                                                {customer.email && (
-                                                    <div className='flex justify-between md:justify-start md:gap-4'>
-                                                        <span className='text-slate-500 w-20'>Email:</span>
-                                                        <span className="text-slate-800 truncate max-w-[150px]" title={customer.email}>{customer.email}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <h3 className='text-xs font-bold text-slate-400 uppercase tracking-widest mb-3'>Chi tiết đặt sân</h3>
-                                            <div className='space-y-2 text-sm'>
-                                                <div className='flex justify-between md:justify-start md:gap-4'>
-                                                    <span className='text-slate-500 w-16'>Sân:</span>
-                                                    <span className='font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md'>{booking.courtId?.name || '—'}</span>
-                                                </div>
-                                                <div className='flex justify-between md:justify-start md:gap-4'>
-                                                    <span className='text-slate-500 w-16'>Ngày:</span>
-                                                    <span className='text-slate-800 font-medium'>{booking.date ? dayjs(booking.date).format('DD/MM/YYYY') : '—'}</span>
-                                                </div>
-                                                <div className='flex justify-between md:justify-start md:gap-4'>
-                                                    <span className='text-slate-500 w-16'>Giờ:</span>
-                                                    <span className='text-slate-800 font-medium'>
-                                                        {Array.isArray(booking.slots) && booking.slots.length > 0
-                                                            ? booking.slots.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ')
-                                                            : `${booking.startTime} - ${booking.endTime}`}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                {/* ── BODY ── */}
+                                <div style={{ background: isDarkMode ? '#111827' : '#f8fafc', marginTop: -40, borderRadius: '20px 20px 0 0', padding: '20px 20px 16px' }}>
 
                                     {/* Items Table */}
-                                    <div className="mb-6 border border-slate-100 rounded-xl overflow-hidden shadow-xs">
-                                        <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-widest">
-                                            <span>Hạng mục / Thiết bị</span>
-                                            <span>Thành tiền</span>
+                                    <div style={{ border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                                        <div style={{ background: isDarkMode ? '#0f172a' : '#1e293b', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Hạng mục / Thiết bị</span>
+                                            <span style={{ color: '#64748b', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Thành tiền</span>
                                         </div>
-                                        <div className="p-4 space-y-3">
+                                        <div style={{ padding: '12px 16px' }}>
                                             {mergedItems.length > 0 ? (
                                                 mergedItems.map((it: any, idx: number) => {
                                                     const modeText = getModeText(it.mode);
                                                     return (
-                                                        <div key={`${it._id || it.name || 'item'}_${idx}`} className='flex justify-between items-center group'>
+                                                        <div key={`${it._id || it.name || 'item'}_${idx}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: idx < mergedItems.length - 1 ? `1px solid ${isDarkMode ? '#334155' : '#f1f5f9'}` : 'none' }}>
                                                             <div>
-                                                                <div className='font-semibold text-slate-800 flex items-center gap-2'>
+                                                                <div style={{ fontWeight: 600, color: isDarkMode ? '#f1f5f9' : '#1e293b', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
                                                                     <span>{it.name || 'Hạng mục'}</span>
                                                                     {modeText && (
-                                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider ${it.mode === 'sell' ? 'bg-indigo-50 text-indigo-600' : 'bg-blue-50 text-blue-600'}`}>
+                                                                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700, background: it.mode === 'sell' ? (isDarkMode ? '#2d1b4e' : '#f5f3ff') : (isDarkMode ? '#1e3a5f' : '#eff6ff'), color: it.mode === 'sell' ? (isDarkMode ? '#c084fc' : '#7c3aed') : (isDarkMode ? '#60a5fa' : '#2563eb') }}>
                                                                             {modeText}
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <div className='text-xs text-slate-500 mt-0.5'>
+                                                                <div style={{ fontSize: 12, color: isDarkMode ? '#94a3b8' : '#64748b', marginTop: 2 }}>
                                                                     {formatVND(it.price)} x {it.qty} {it.unit || ''}
                                                                 </div>
                                                             </div>
-                                                            <div className='font-bold text-slate-700'>
+                                                            <div style={{ fontWeight: 700, color: isDarkMode ? '#f1f5f9' : '#1e293b', fontSize: 13 }}>
                                                                 {formatVND(it.subtotal || (it.qty || 0) * (it.price || 0))}
                                                             </div>
                                                         </div>
                                                     );
                                                 })
                                             ) : (
-                                                <div className="text-center text-xs text-slate-400 py-2">Không sử dụng thiết bị thêm</div>
+                                                <div style={{ textAlign: 'center', fontSize: 12, color: isDarkMode ? '#64748b' : '#94a3b8', padding: '8px 0' }}>Không sử dụng thiết bị thêm</div>
                                             )}
                                         </div>
                                     </div>
 
-                                    {/* Cost breakdown */}
-                                    <div className="flex flex-col md:flex-row justify-end text-sm">
-                                        <div className="w-full md:w-2/3 lg:w-[55%] space-y-2">
-                                            <div className='flex justify-between items-center py-1'>
-                                                <span className="text-slate-600">Tiền sân</span>
-                                                <span className='font-medium text-slate-800'>{formatVND(fieldAmount)}</span>
+                                    {/* Cost breakdown rows */}
+                                    <div style={{ border: `1px solid ${isDarkMode ? '#334155' : '#e2e8f0'}`, borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+                                        {[
+                                            { label: 'Tiền sân', value: formatVND(fieldAmount) },
+                                            { label: 'Tiền thiết bị', value: formatVND(equipmentTotal) },
+                                        ].map((row, i) => (
+                                            <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: isDarkMode ? (i % 2 === 0 ? '#1e293b' : '#263344') : (i % 2 === 0 ? '#fff' : '#f8fafc'), borderBottom: `1px solid ${isDarkMode ? '#334155' : '#f1f5f9'}` }}>
+                                                <span style={{ color: isDarkMode ? '#cbd5e1' : '#475569', fontSize: 13 }}>{row.label}</span>
+                                                <span style={{ fontWeight: 600, color: isDarkMode ? '#f1f5f9' : '#1e293b', fontSize: 13 }}>{row.value}</span>
                                             </div>
-                                            <div className='flex justify-between items-center py-1 border-b border-dashed border-slate-200 pb-3'>
-                                                <span className="text-slate-600">Tiền thiết bị</span>
-                                                <span className='font-medium text-slate-800'>{formatVND(equipmentTotal)}</span>
-                                            </div>
-                                            
-                                            <div className='flex justify-between items-center py-2'>
-                                                <span className="text-slate-800 font-semibold uppercase text-xs tracking-wider">Tổng cộng</span>
-                                                <span className='font-bold text-slate-800 text-base'>
-                                                    {formatVND(subtotalBeforeDiscount)}
-                                                </span>
-                                            </div>
-
-                                            {voucherDiscount > 0 && booking.voucherCode && (
-                                                <div className='flex justify-between items-center text-emerald-600 bg-emerald-50/50 px-2 py-1 rounded'>
-                                                    <span>Mã giảm giá ({booking.voucherCode})</span>
-                                                    <span className='font-medium'>- {formatVND(voucherDiscount)}</span>
-                                                </div>
-                                            )}
-
-                                            {depositPaidBefore > 0 && (
-                                                <div className='flex justify-between items-center text-indigo-600 bg-indigo-50/50 px-2 py-1 rounded'>
-                                                    <span>Đã thanh toán trước (Cọc)</span>
-                                                    <span className='font-medium'>- {formatVND(depositPaidBefore)}</span>
-                                                </div>
-                                            )}
-
-                                            {inv.discount > 0 && (
-                                                <div className='flex justify-between items-center text-rose-600 bg-rose-50/50 px-2 py-1 rounded'>
-                                                    <span>Giảm giá thêm (Admin)</span>
-                                                    <span className='font-medium'>- {formatVND(inv.discount)}</span>
-                                                </div>
-                                            )}
-
-                                            <div className='w-full border-t-2 border-slate-800 my-3'></div>
-
-                                            <div className='flex justify-between items-center bg-slate-800 text-white rounded-xl p-4 shadow-lg relative overflow-hidden'>
-                                                <div className="absolute -right-6 -bottom-6 opacity-10">
-                                                    <FileTextOutlined style={{ fontSize: 80 }} />
-                                                </div>
-                                                <div className="relative z-10">
-                                                    <span className="block text-xs text-slate-300 font-bold uppercase tracking-widest">Khách thanh toán</span>
-                                                    <span className="block text-[10px] text-slate-400 mt-1 opacity-80">(Chỉ tính hóa đơn này)</span>
-                                                </div>
-                                                <span className='text-3xl font-black font-mono tracking-tighter text-emerald-400 relative z-10'>
-                                                    {formatVND(inv.total)}
-                                                </span>
-                                            </div>
-
-                                            <div className="text-right mt-3 text-xs font-semibold text-emerald-600 flex items-center justify-end gap-1.5">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-                                                TỔNG ĐÃ THU: {formatVND(alreadyPaidTotal)}
-                                            </div>
+                                        ))}
+                                        {/* Subtotal */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 16px', background: isDarkMode ? '#1a2535' : '#f0f9ff', borderBottom: `1px solid ${isDarkMode ? '#334155' : '#bae6fd'}` }}>
+                                            <span style={{ fontWeight: 700, fontSize: 13, color: isDarkMode ? '#f1f5f9' : '#1e293b' }}>Tổng cộng</span>
+                                            <span style={{ fontWeight: 800, fontSize: 14, color: isDarkMode ? '#f1f5f9' : '#1e293b' }}>{formatVND(subtotalBeforeDiscount)}</span>
                                         </div>
+                                        {voucherDiscount > 0 && booking.voucherCode && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: isDarkMode ? '#0a3328' : '#ecfdf5' }}>
+                                                <span style={{ color: '#34d399', fontSize: 13 }}>Mã giảm giá ({booking.voucherCode})</span>
+                                                <span style={{ fontWeight: 600, color: '#34d399', fontSize: 13 }}>- {formatVND(voucherDiscount)}</span>
+                                            </div>
+                                        )}
+                                        {depositPaidBefore > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: isDarkMode ? '#1e3a5f' : '#eff6ff' }}>
+                                                <span style={{ color: isDarkMode ? '#93c5fd' : '#3b82f6', fontSize: 13 }}>Đã thanh toán trước (Cọc)</span>
+                                                <span style={{ fontWeight: 600, color: isDarkMode ? '#93c5fd' : '#3b82f6', fontSize: 13 }}>- {formatVND(depositPaidBefore)}</span>
+                                            </div>
+                                        )}
+                                        {inv.discount > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: isDarkMode ? '#3b1323' : '#fff1f2' }}>
+                                                <span style={{ color: isDarkMode ? '#fda4af' : '#e11d48', fontSize: 13 }}>Giảm giá thêm (Admin)</span>
+                                                <span style={{ fontWeight: 600, color: isDarkMode ? '#fda4af' : '#e11d48', fontSize: 13 }}>- {formatVND(inv.discount)}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    
-                                    {/* Footer / Watermark */}
-                                    <div className="mt-12 text-center text-[10px] text-slate-300 uppercase tracking-[0.2em] font-bold flex items-center justify-between before:flex-1 before:border-t before:border-slate-100 before:mr-4 after:flex-1 after:border-t after:border-slate-100 after:ml-4 pb-2">
-                                        Cảm ơn quý khách
+
+                                    {/* Total footer */}
+                                    <div style={{ background: isDarkMode ? 'linear-gradient(135deg, #0f172a, #1a3a5c)' : 'linear-gradient(135deg, #1e40af, #065f46)', borderRadius: 14, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+                                        <div style={{ position: 'absolute', right: -10, bottom: -10, opacity: 0.08 }}>
+                                            <FileTextOutlined style={{ fontSize: 80, color: '#fff' }} />
+                                        </div>
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Khách thanh toán</div>
+                                            <div style={{ color: '#6ee7b7', fontSize: 24, fontWeight: 900, fontFamily: 'monospace', marginTop: 2 }}>{formatVND(inv.total)}</div>
+                                            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 2 }}>TỔNG ĐÃ THU: {formatVND(alreadyPaidTotal)}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 10, position: 'relative', zIndex: 1 }}>
+                                            <button type='button' onClick={() => { setInvoiceModalOpen(false); setInvoiceDetail(null); }} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                                                Đóng
+                                            </button>
+                                            <button type='button' onClick={handlePrintInvoice} style={{ padding: '10px 22px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', boxShadow: '0 4px 14px rgba(16,185,129,0.35)' }}>
+                                                🖨️ In hóa đơn
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -2783,10 +2692,10 @@ export default function BookingList() {
                     setDetailData(null);
                 }}
                 footer={null}
+                closable={false}
                 width={680}
                 styles={{
                     content: { padding: 0, borderRadius: 20, overflow: 'hidden' },
-                    header: { display: 'none' },
                     body: { padding: 0 },
                 }}
             >
