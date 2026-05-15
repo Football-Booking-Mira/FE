@@ -339,6 +339,12 @@ const Checkout: React.FC = () => {
             return;
         }
 
+        // Admin không được đặt sân ở trang khách hàng
+        if (user?.role === 'admin') {
+            toast.error('Tài khoản quản trị không thể đặt sân ở đây. Vui lòng sử dụng trang quản trị để tạo đơn đặt sân!');
+            return;
+        }
+
         try {
             setIsPaying(true);
 
