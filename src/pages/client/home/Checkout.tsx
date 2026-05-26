@@ -372,40 +372,33 @@ const Checkout: React.FC = () => {
                 //  totalAmountToPay: tổng thanh toán trước voucher (để BE có thể dùng nếu cần)
                 const totalAllAmount = computedGrandTotal || baseTotal;
 
-                const resBooking = await fetch('http://localhost:3000/api/bookings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${user.token}`,
+                const resBooking = await api.post('/bookings', {
+                    courtId: bookingData.courtId,
+                    customerId: user._id,
+                    date: bookingData.date,
+                    startTime: bookingStartTime,
+                    endTime: bookingEndTime,
+                    paymentMethod,
+                    note: '',
+                    customerInfo: {
+                        name: nameTrim,
+                        phone: phoneTrim,
+                        email: emailTrim,
                     },
-                    body: JSON.stringify({
-                        courtId: bookingData.courtId,
-                        customerId: user._id,
-                        date: bookingData.date,
-                        startTime: bookingStartTime,
-                        endTime: bookingEndTime,
-                        paymentMethod,
-                        note: '',
-                        customerInfo: {
-                            name: nameTrim,
-                            phone: phoneTrim,
-                            email: emailTrim,
-                        },
-                        slots: bookingData.slots,
+                    slots: bookingData.slots,
 
-                        //  giữ field cho BE
-                        totalFieldAmount,
+                    //  giữ field cho BE
+                    totalFieldAmount,
 
-                        //  gửi thêm để BE muốn dùng thì dùng (không ảnh hưởng nếu BE ignore)
-                        equipmentTotal: equipMoney,
-                        totalAmount: totalAllAmount,
-                        equipmentBySlot: bookingData.equipmentBySlot || undefined,
+                    //  gửi thêm để BE muốn dùng thì dùng (không ảnh hưởng nếu BE ignore)
+                    equipmentTotal: equipMoney,
+                    totalAmount: totalAllAmount,
+                    equipmentBySlot: bookingData.equipmentBySlot || undefined,
 
-                        voucherCode: voucherResult?.code || undefined,
-                    }),
+                    voucherCode: voucherResult?.code || undefined,
                 });
 
-                const dataBooking = await resBooking.json();
+                const dataBooking = resBooking.data;
                 if (!dataBooking.success) {
                     console.error('Tạo booking thất bại:', dataBooking);
                     toast.error(dataBooking.message || 'Không tạo được đơn đặt sân!');
@@ -475,49 +468,49 @@ const Checkout: React.FC = () => {
                     payload.bookingId = bookingId;
                 }
 
-                const res = await fetch('http://localhost:3000/api/payment/vnpay/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
+                try {
+                    const res = await api.post('/payment/vnpay/create', payload);
+                    const data = res.data;
 
-                if (!res.ok) {
-                    let errorData: any;
-                    try {
-                        errorData = await res.json();
-                    } catch {
-                        errorData = { message: 'Không tạo được liên kết thanh toán VNPay!' };
-                    }
+                    if (!data.success) {
+                        const errorMsg = data.message || 'Không tạo được liên kết thanh toán VNPay!';
+                        const isVoucherOutOfStock =
+                            data.code === 'VOUCHER_OUT_OF_STOCK' ||
+                            String(errorMsg).includes('hết lượt');
 
-                    const errorMsg =
-                        errorData.message || 'Không tạo được liên kết thanh toán VNPay!';
-                    const isVoucherOutOfStock =
-                        errorData.code === 'VOUCHER_OUT_OF_STOCK' ||
-                        res.status === 409 ||
-                        String(errorMsg).includes('hết lượt');
+                        if (isVoucherOutOfStock && voucherResult?.code) {
+                            clearVoucher();
+                            setVoucherInput('');
+                            setTotalAmount(baseTotal);
+                            setIsPaying(false);
+                            toast.error(
+                                `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
+                            );
+                            return;
+                        }
 
-                    if (isVoucherOutOfStock && voucherResult?.code) {
-                        clearVoucher();
-                        setVoucherInput('');
-                        setTotalAmount(baseTotal);
                         setIsPaying(false);
-                        toast.error(
-                            `Voucher "${voucherResult.code}" đã hết lượt sử dụng, vui lòng chọn voucher khác.`
-                        );
+                        toast.error(errorMsg);
                         return;
                     }
 
-                    setIsPaying(false);
-                    toast.error(errorMsg);
+                    const paymentUrl = data.paymentUrl || data?.data?.paymentUrl || data?.data?.url;
+                    console.log('VNPay response:', data);
+
+                    if (paymentUrl) {
+                        toast.success('Đang chuyển tới trang thanh toán VNPay...');
+                        window.location.href = paymentUrl;
+                    } else {
+                        setIsPaying(false);
+                        toast.error('Không tạo được liên kết thanh toán VNPay!');
+                    }
                     return;
-                }
-
-                const data = await res.json();
-
-                if (!data.success) {
-                    const errorMsg = data.message || 'Không tạo được liên kết thanh toán VNPay!';
+                } catch (error: any) {
+                    const errorData = error.response?.data || {};
+                    const errorMsg = errorData.message || 'Không tạo được liên kết thanh toán VNPay!';
                     const isVoucherOutOfStock =
-                        data.code === 'VOUCHER_OUT_OF_STOCK' ||
+                        errorData.code === 'VOUCHER_OUT_OF_STOCK' ||
+                        error.response?.status === 409 ||
                         String(errorMsg).includes('hết lượt');
 
                     if (isVoucherOutOfStock && voucherResult?.code) {
