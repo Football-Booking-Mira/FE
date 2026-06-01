@@ -182,6 +182,7 @@ const Checkout: React.FC = () => {
         vouchers: publicVouchers,
         loading: loadingPublicVouchers,
         error: publicVouchersError,
+        refetch: refetchPublicVouchers,
     } = usePublicVouchers(20);
 
     // Prefill thông tin người đặt từ tài khoản hiện tại (localStorage.user)
@@ -650,7 +651,10 @@ const Checkout: React.FC = () => {
 
                                         <Dialog
                                             open={voucherDialogOpen}
-                                            onOpenChange={setVoucherDialogOpen}
+                                            onOpenChange={(open) => {
+                                                setVoucherDialogOpen(open);
+                                                if (open) refetchPublicVouchers();
+                                            }}
                                         >
                                             <DialogTrigger asChild>
                                                 <Button
