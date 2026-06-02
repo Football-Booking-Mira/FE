@@ -23,18 +23,18 @@ interface User {
 }
 
 const fetchUsers = async () => {
-    const res = await axios.get("/api/users");
+    const res = await axios.get("/users");
     return res.data.data as User[];
 };
 
 const updateRole = async ({ userId, role }: { userId: string; role: string }) => {
-    return axios.put(`/api/users/${userId}`, { role });
+    return axios.put(`/users/${userId}`, { role });
 };
 
-const blockUser = async (userId: string) => axios.patch(`/api/users/${userId}/block`);
-const unblockUser = async (userId: string) => axios.patch(`/api/users/${userId}/unlock`);
-const deleteUser = async (userId: string) => axios.delete(`/api/users/${userId}`);
-const createUser = async (payload: any) => axios.post("/api/users", payload);
+const blockUser = async (userId: string) => axios.patch(`/users/${userId}/block`);
+const unblockUser = async (userId: string) => axios.patch(`/users/${userId}/unlock`);
+const deleteUser = async (userId: string) => axios.delete(`/users/${userId}`);
+const createUser = async (payload: any) => axios.post("/users", payload);
 
 const STATUS_CONFIG = {
     active: { label: 'Hoạt động', icon: <CheckCircle2 size={14} />, color: 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' },

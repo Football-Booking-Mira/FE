@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "@/common/utils/api";
 import { motion } from "framer-motion";
 
 type MatchForm = {
@@ -30,7 +30,7 @@ const CreateMatchSchedule: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post("/api/matches/create", form);
+      await api.post("/matches/create", form);
       setMsg("Tạo lịch thi đấu thành công!");
       setForm({
         date: "",
