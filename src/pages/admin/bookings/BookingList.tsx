@@ -138,6 +138,7 @@ interface Booking {
     };
     refundAdminReason?: string;
     refundBillImage?: string;
+    refundAmount?: number;
     hasInvoice?: boolean;
     invoiceId?: string | null;
 }
@@ -1435,9 +1436,12 @@ export default function BookingList() {
             ),
         },
         {
-            title: 'Tổng tiền',
-            dataIndex: 'total',
-            render: (t: number) => (t ? formatVND(t) : '-'),
+            title: 'Tiền hoàn lại',
+            key: 'refundAmount',
+            render: (b: Booking) => {
+                const amt = typeof b.refundAmount === 'number' && b.refundAmount > 0 ? b.refundAmount : b.total;
+                return amt ? formatVND(amt) : '-';
+            },
         },
         {
             title: 'Thanh toán',
