@@ -18,7 +18,20 @@ instance.interceptors.request.use((config) => {
 const translateError = (error: AxiosError<any>): string => {
   const data = error.response?.data as any;
   if (data && typeof data === 'object' && data.message) {
-    const msg = data.message;
+    const msg = String(data.message);
+    
+    if (msg.toLowerCase().includes("invalid signature")) {
+      return "Thông tin cấu hình tải ảnh (Cloudinary) của máy chủ không hợp lệ hoặc bị sai lệch. Vui lòng kiểm tra lại cấu hình.";
+    }
+    if (msg.toLowerCase().includes("must supply")) {
+      return "Máy chủ chưa cấu hình đầy đủ thông tin xác thực tải ảnh (Cloudinary).";
+    }
+    if (msg.toLowerCase().includes("file too large") || msg.toLowerCase().includes("limit file size")) {
+      return "Kích thước ảnh quá lớn! Vui lòng chọn ảnh nhỏ hơn 5MB.";
+    }
+    if (msg.toLowerCase().includes("format") || msg.toLowerCase().includes("extension")) {
+      return "Định dạng tệp không được hỗ trợ! Vui lòng chọn ảnh JPG, PNG, WEBP.";
+    }
     if (msg.includes("Request failed") || msg.includes("status code")) {
       const status = msg.match(/\d+/)?.[0] || error.response?.status || "500";
       return `Máy chủ gặp sự cố (Mã lỗi: ${status}). Vui lòng thử lại sau!`;
