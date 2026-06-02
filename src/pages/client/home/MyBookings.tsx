@@ -261,9 +261,15 @@ const MyBookings: React.FC = () => {
             reviewForm.setFieldsValue({
                 rating: existing?.rating || 5,
                 comment: existing?.comment || '',
+                isAnonymous: existing?.isAnonymous || false,
             });
         } else {
             reviewForm.resetFields();
+            reviewForm.setFieldsValue({
+                rating: 5,
+                comment: '',
+                isAnonymous: false,
+            });
         }
         setReviewModalOpen(true);
     };
@@ -279,6 +285,7 @@ const MyBookings: React.FC = () => {
                 await api.put(`/review/${existingReview._id}`, {
                     rating: values.rating,
                     comment: values.comment,
+                    isAnonymous: values.isAnonymous || false,
                 });
                 toast.success('Cập nhật đánh giá thành công! ✨');
             } else {
@@ -287,6 +294,7 @@ const MyBookings: React.FC = () => {
                     bookingId: reviewingBooking._id,
                     rating: values.rating,
                     comment: values.comment,
+                    isAnonymous: values.isAnonymous || false,
                 });
                 toast.success('Đánh giá sân thành công! Cảm ơn bạn ⭐');
             }
@@ -2219,6 +2227,16 @@ const MyBookings: React.FC = () => {
                             className='rounded-xl'
                         />
                     </Form.Item>
+
+                    <Form.Item
+                        name='isAnonymous'
+                        valuePropName='checked'
+                        className='mb-2'
+                    >
+                        <Checkbox disabled={isViewOnlyReview} className='text-sm text-gray-600 dark:text-gray-400 font-semibold'>
+                            Đánh giá ẩn danh (Mọi người sẽ không thấy tên bạn)
+                        </Checkbox>
+                    </Form.Item>
                 </Form>
 
                 {/* THÔNG TIN SÂN BÊN DƯỚI BÌNH LUẬN */}
@@ -2600,16 +2618,35 @@ const MyBookings: React.FC = () => {
                     {/* Actions */}
                     <div className='flex gap-3 mt-2'>
                         <Button 
-                            className='w-1/3 h-12 rounded-xl text-gray-600 font-semibold border-gray-200 hover:bg-gray-50 hover:border-gray-300 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:border-gray-600 dark:bg-transparent outline-none shadow-none transition-all duration-200 flex items-center justify-center'
+                            type="default"
+                            style={{
+                                height: '48px',
+                                borderRadius: '12px',
+                                fontWeight: '600',
+                                borderColor: '#e5e7eb',
+                                color: '#4b5563',
+                                background: '#f9fafb',
+                            }}
+                            className='w-1/3 hover:bg-gray-100 hover:text-gray-800 dark:border-gray-700 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center'
                             onClick={closeRefundModal}
                         >
                             Hủy bỏ
                         </Button>
                         <Button 
-                            className='flex-1 h-12 rounded-xl font-bold bg-linear-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transform hover:-translate-y-0.5 text-white border-none transition-all duration-200 outline-none flex items-center justify-center gap-1.5'
+                            type="primary"
+                            style={{
+                                height: '48px',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                background: 'linear-gradient(135deg, #4f46e5 0%, #2563eb 100%)',
+                                border: 'none',
+                                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
+                                color: '#fff',
+                            }}
+                            className='flex-1 hover:opacity-90 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center'
                             onClick={handleSubmitRefund}
                         >
-                            <span>Gửi yêu cầu hoàn tiền</span>
+                            Gửi yêu cầu hoàn tiền
                         </Button>
                     </div>
                 </div>

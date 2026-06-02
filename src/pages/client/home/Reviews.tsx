@@ -12,7 +12,7 @@ import {
     Tag,
     Spin,
     Empty,
-    Modal, Form, Input,
+    Modal, Form, Input, Checkbox,
     message
 } from "antd";
 import axios from "axios";
@@ -74,6 +74,11 @@ const Reviews = ({ }: any) => {
         setSelectedBookingId(bookingId);
         setOpenReviewModal(true);
         form.resetFields();
+        form.setFieldsValue({
+            rating: 5,
+            comment: '',
+            isAnonymous: false,
+        });
     };
     const handleSubmitReview = async () => {
         try {
@@ -87,6 +92,7 @@ const Reviews = ({ }: any) => {
                     bookingId: selectedBookingId,
                     rating: values.rating, 
                     comment: values.comment,
+                    isAnonymous: values.isAnonymous || false,
                 },
                 {
                     headers: {
@@ -258,6 +264,17 @@ const Reviews = ({ }: any) => {
                             showCount
                             maxLength={300}
                         />
+                    </Form.Item>
+
+                    {/* Anonymous Checkbox */}
+                    <Form.Item
+                        name="isAnonymous"
+                        valuePropName="checked"
+                        className="mb-2"
+                    >
+                        <Checkbox className="text-gray-600 dark:text-gray-400 font-semibold">
+                            Đánh giá ẩn danh (Mọi người sẽ không thấy tên bạn)
+                        </Checkbox>
                     </Form.Item>
                 </Form>
             </Modal>

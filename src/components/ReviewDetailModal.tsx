@@ -35,7 +35,7 @@ const ReviewDetailModal = ({ open, onClose, review }: Props) => {
                 </Descriptions.Item>
 
                 <Descriptions.Item label="Người đánh giá">
-                    {userId.name} – {userId.email}
+                    {userId?.name || 'Người dùng ẩn danh'}{userId?.email ? ` – ${userId.email}` : ''}
                 </Descriptions.Item>
 
                 <Descriptions.Item label="Số sao">

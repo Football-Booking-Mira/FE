@@ -86,6 +86,8 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                             max={discountType === DISCOUNT_TYPES.PERCENT ? 100 : undefined}
                             addonAfter={discountType === DISCOUNT_TYPES.PERCENT ? '%' : 'đ'}
                             style={{ width: '100%' }}
+                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                            parser={(value) => value ? value.replace(/\$\s?|(\.*)/g, '') : ''}
                         />
                     </Form.Item>
                 </Col>
@@ -111,7 +113,13 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                                 },
                             ]}
                         >
-                            <InputNumber min={1} addonAfter='đ' style={{ width: '100%' }} />
+                            <InputNumber
+                                min={1}
+                                addonAfter='đ'
+                                style={{ width: '100%' }}
+                                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                                parser={(value) => value ? value.replace(/\$\s?|(\.*)/g, '') : ''}
+                            />
                         </Form.Item>
                     ) : (
                         <Form.Item label='Giá trị giảm tối đa' help='Không áp dụng cho loại giảm tiền cố định'>
@@ -134,7 +142,13 @@ const VoucherFormFields: React.FC<VoucherFormFieldsProps> = ({
                             },
                         ]}
                     >
-                        <InputNumber min={0} addonAfter='đ' style={{ width: '100%' }} />
+                        <InputNumber
+                            min={0}
+                            addonAfter='đ'
+                            style={{ width: '100%' }}
+                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                            parser={(value) => value ? value.replace(/\$\s?|(\.*)/g, '') : ''}
+                        />
                     </Form.Item>
                 </Col>
                 <Col span={12}>
