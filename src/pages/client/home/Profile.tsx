@@ -480,7 +480,19 @@ const Profile: React.FC = () => {
                                                 message.success("Tải ảnh thành công!");
                                             } catch (err: any) {
                                                 console.error(err);
-                                                message.error(err?.message || "Tải ảnh thất bại!");
+                                                const msg = err?.response?.data?.message || err?.message || "";
+                                                let friendlyMsg = "Tải ảnh đại diện thất bại!";
+                                                if (msg) {
+                                                    if (msg.includes("status code")) {
+                                                        const status = msg.match(/\d+/)?.[0] || "500";
+                                                        friendlyMsg = `Máy chủ gặp lỗi (${status}) khi tải ảnh lên!`;
+                                                    } else if (msg.includes("Network Error")) {
+                                                        friendlyMsg = "Lỗi kết nối mạng! Vui lòng kiểm tra lại.";
+                                                    } else {
+                                                        friendlyMsg = msg;
+                                                    }
+                                                }
+                                                message.error(friendlyMsg);
                                             }
                                             return false;
                                         }}

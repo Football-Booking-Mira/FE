@@ -97,6 +97,39 @@ api.interceptors.request.use(
 ========================= */
 import { toast } from 'react-toastify';
 
+const translateError = (error: AxiosError<any>): string => {
+  const data = error.response?.data as any;
+  
+  // 1. Dịch tin nhắn lỗi từ server nếu có
+  if (data && typeof data === 'object' && data.message) {
+    const msg = data.message;
+    if (msg.includes("Request failed") || msg.includes("status code")) {
+      const status = msg.match(/\d+/)?.[0] || error.response?.status || "500";
+      return `Máy chủ gặp sự cố (Mã lỗi: ${status}). Vui lòng thử lại sau!`;
+    }
+    // Dịch các lỗi server phổ biến bằng tiếng Anh
+    if (msg.toLowerCase().includes("internal server error")) {
+      return "Lỗi máy chủ nội bộ. Vui lòng liên hệ quản trị viên hoặc thử lại sau.";
+    }
+    return msg;
+  }
+  
+  // 2. Dịch lỗi kết nối/mạng từ Axios
+  const errMessage = error.message || "";
+  if (errMessage.includes("Network Error")) {
+    return "Lỗi kết nối mạng! Vui lòng kiểm tra lại đường truyền internet.";
+  }
+  if (errMessage.toLowerCase().includes("timeout")) {
+    return "Yêu cầu phản hồi quá hạn (timeout). Vui lòng thử lại.";
+  }
+  if (errMessage.includes("status code")) {
+    const status = errMessage.match(/\d+/)?.[0] || error.response?.status || "500";
+    return `Máy chủ gặp sự cố (Mã lỗi: ${status}). Vui lòng thử lại sau!`;
+  }
+  
+  return errMessage || "Đã xảy ra lỗi không xác định.";
+};
+
 api.interceptors.response.use(
   (response) => response,
 
@@ -109,6 +142,13 @@ api.interceptors.response.use(
 
     console.error(" API RESPONSE STATUS:", status);
     console.error(" API RESPONSE DATA:", data);
+
+    // Dịch thông báo lỗi sang tiếng Việt
+    const friendlyMessage = translateError(error);
+    error.message = friendlyMessage;
+    if (error.response?.data && typeof error.response.data === 'object') {
+      (error.response.data as any).message = friendlyMessage;
+    }
 
     // Nếu không có quyền, xóa xác thực cục bộ và chuyển hướng đến trang đăng nhập
     if (status === 401) {
@@ -128,8 +168,7 @@ api.interceptors.response.use(
       }
     }
 
-    // GIỮ NGUYÊN lỗi, không tạo Error mới
-    // để client có thể đọc error.response đầy đủ
+    // Trả về lỗi đã được dịch
     return Promise.reject(error);
   }
 );

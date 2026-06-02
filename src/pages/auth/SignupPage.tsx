@@ -133,7 +133,19 @@ export function SignupPage() {
                           message.success("Tải ảnh thành công!");
                         } catch (error: any) {
                           console.error(error);
-                          message.error(error?.message || "Tải ảnh thất bại!");
+                          const msg = error?.response?.data?.message || error?.message || "";
+                          let friendlyMsg = "Tải ảnh đại diện thất bại!";
+                          if (msg) {
+                            if (msg.includes("status code")) {
+                              const status = msg.match(/\d+/)?.[0] || "500";
+                              friendlyMsg = `Máy chủ gặp lỗi (${status}) khi tải ảnh lên!`;
+                            } else if (msg.includes("Network Error")) {
+                              friendlyMsg = "Lỗi kết nối mạng! Vui lòng kiểm tra lại.";
+                            } else {
+                              friendlyMsg = msg;
+                            }
+                          }
+                          message.error(friendlyMsg);
                         }
                         return false;
                       }}
