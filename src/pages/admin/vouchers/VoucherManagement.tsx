@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Card,
@@ -41,6 +41,7 @@ import {
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
+import { io, Socket } from "socket.io-client";
 import api from "@/common/utils/api";
 import { DISCOUNT_TYPES, VOUCHER_STATUS } from "@/common/constants/enums";
 import type {
@@ -49,6 +50,8 @@ import type {
   VoucherStatsUser,
   VoucherSummary,
 } from "@/types/voucher";
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
 const { Option } = Select;
 
@@ -180,6 +183,44 @@ const VoucherManagement: React.FC = () => {
       fetchStats(selectedVoucherId);
     }
   }, [selectedVoucherId, activeTab, fetchStats]);
+
+  // Socket: tự động refresh khi có booking mới (voucher có thể đã được dùng)
+  const socketRef = useRef<Socket | null>(null);
+  const lastSocketUpdateRef = useRef<number>(0);
+
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+    socketRef.current = socket;
+
+    const handleBookingUpdated = () => {
+      const now = Date.now();
+      if (now - lastSocketUpdateRef.current < 1000) return; // debounce 1s
+      lastSocketUpdateRef.current = now;
+
+      // Refresh voucher data
+      if (activeTab === "list") {
+        fetchVouchers(searchKeyword || undefined);
+      } else if (activeTab === "stats") {
+        fetchVouchersForStats();
+        if (selectedVoucherId) fetchStats(selectedVoucherId);
+      }
+    };
+
+    socket.on("booking_updated", handleBookingUpdated);
+    socket.on("booking_global_updated", handleBookingUpdated);
+
+    return () => {
+      socket.off("booking_updated", handleBookingUpdated);
+      socket.off("booking_global_updated", handleBookingUpdated);
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [activeTab, searchKeyword, selectedVoucherId]);
 
   // ==================== CỘT DANH SÁCH ====================
   const listColumns = [

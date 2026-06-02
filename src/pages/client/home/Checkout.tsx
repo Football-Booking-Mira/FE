@@ -690,9 +690,11 @@ const Checkout: React.FC = () => {
                                                 ) : (
                                                     <div className='space-y-2 max-h-80 overflow-y-auto'>
                                                         {publicVouchers.map((v) => {
-                                                            const isDisabled =
+                                                            const isOutOfStock = v.remainingQuantity <= 0;
+                                                            const isMinOrderNotMet =
                                                                 v.minOrderValue > 0 &&
                                                                 baseTotal < v.minOrderValue;
+                                                            const isDisabled = isOutOfStock || isMinOrderNotMet;
 
                                                             return (
                                                                 <button
@@ -744,11 +746,15 @@ const Checkout: React.FC = () => {
                                                                     <div className='flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1'>
                                                                         <span>
                                                                             Còn lại:{' '}
-                                                                            <span className='font-semibold text-green-700 dark:text-green-400'>
-                                                                                {
-                                                                                    v.remainingQuantity
-                                                                                }
-                                                                            </span>
+                                                                            {isOutOfStock ? (
+                                                                                <span className='font-semibold text-red-600'>
+                                                                                    Hết lượt sử dụng
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className='font-semibold text-green-700 dark:text-green-400'>
+                                                                                    {v.remainingQuantity}
+                                                                                </span>
+                                                                            )}
                                                                         </span>
 
                                                                         {v.minOrderValue > 0 && (
