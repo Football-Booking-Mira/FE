@@ -62,12 +62,12 @@ export function SignupPage() {
       </div>
 
       {/* Right Side: Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-24 relative bg-white dark:bg-gray-950 transition-colors duration-300 py-20 lg:py-0 overflow-y-auto max-h-screen">
+      <div className="w-full lg:w-1/2 flex flex-col items-center px-6 sm:px-12 lg:px-24 relative bg-white dark:bg-gray-950 transition-colors duration-300 py-16 overflow-y-auto h-screen">
         <Link to="/" className="absolute top-8 left-8 text-gray-500 dark:text-gray-400 hover:text-green-500 font-medium flex items-center gap-2 transition-colors z-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md px-3 py-1.5 rounded-full">
           <ArrowLeftOutlined /> <span className="hidden sm:inline">Quay về trang chủ</span>
         </Link>
 
-        <div className="w-full max-w-md mt-4 lg:mt-0">
+        <div className="w-full max-w-md my-auto">
           <div className="text-center mb-8 block lg:hidden">
             <img src="/lg-mira.png" alt="Logo" className="h-20 mx-auto drop-shadow-sm" />
           </div>
