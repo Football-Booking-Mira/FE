@@ -41,8 +41,9 @@ const ReviewAdminDetailModal: React.FC<Props> = ({
             setLoading(true);
             const token = localStorage.getItem("token");
 
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
             const res = await axios.get(
-                `http://localhost:3000/api/review/${reviewId}`,
+                `${API_URL}/review/${reviewId}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,

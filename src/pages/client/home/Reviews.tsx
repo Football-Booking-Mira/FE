@@ -86,8 +86,9 @@ const Reviews = ({ }: any) => {
 
             setSubmitting(true);
 
+            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
             await axios.post(
-                "http://localhost:3000/api/review",
+                `${API_URL}/review`,
                 {
                     bookingId: selectedBookingId,
                     rating: values.rating, 

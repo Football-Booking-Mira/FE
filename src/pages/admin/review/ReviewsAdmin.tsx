@@ -27,11 +27,13 @@ const ReviewsAdmin = () => {
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
 
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
     const fetchReviews = async (page: number) => {
         try {
             setLoading(true);
             const res = await axios.get(
-                `http://localhost:3000/api/review/admin/list?page=${page}&limit=${pagination.limit}`,
+                `${API_URL}/review/admin/list?page=${page}&limit=${pagination.limit}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             const data = res.data.data;
@@ -49,7 +51,7 @@ const ReviewsAdmin = () => {
 
     const updateStatus = async (id: string, status: 'active' | 'hidden') => {
         await axios.patch(
-            `http://localhost:3000/api/review/${id}/status`,
+            `${API_URL}/review/${id}/status`,
             { status },
             { headers: { Authorization: `Bearer ${token}` } }
         );

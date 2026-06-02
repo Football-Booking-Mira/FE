@@ -1,7 +1,7 @@
 import React from "react";
 import { Form, Row, Space, Typography } from "antd";
 import VoucherFormFields from "./components/VoucherFormFields";
-import useVoucherForm, { VoucherFormValues } from "./hooks/useVoucherForm";
+import useVoucherForm, { type VoucherFormValues } from "./hooks/useVoucherForm";
 
 const { Title } = Typography;
 

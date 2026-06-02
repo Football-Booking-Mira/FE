@@ -54,7 +54,7 @@ const Profile: React.FC = () => {
     });
     const [updating, setUpdating] = useState<boolean>(false);
 
-    const baseURL = 'http://localhost:3000'; // Thay bằng baseURL thực tế
+    const baseURL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'; // Thay bằng baseURL thực tế
 
     useEffect(() => {
         fetchUserDetail();

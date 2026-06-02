@@ -75,8 +75,9 @@ export default function BookingStatsReportPage() {
                 period: selectedPeriod,
                 offset: periodOffset.toString(),
             });
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
             const res = await fetch(
-                `http://localhost:3000/api/reports/public/booking-stats?${params}`
+                `${API_URL}/reports/public/booking-stats?${params}`
             );
             const json = await res.json();
             if (!res.ok || !json.success) throw new Error(json.error || 'Lỗi khi lấy báo cáo');

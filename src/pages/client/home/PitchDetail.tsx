@@ -174,7 +174,7 @@ const PitchDetail: React.FC = () => {
                 const token = localStorage.getItem("token");
 
                 const res = await fetch(
-                    `http://localhost:3000/api/review/court-pulic/${id}`,
+                    `${API_BASE}/review/court-pulic/${id}`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`,

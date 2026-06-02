@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import VoucherFormFields from "./components/VoucherFormFields";
-import useVoucherForm, { VoucherFormValues } from "./hooks/useVoucherForm";
+import useVoucherForm, { type VoucherFormValues } from "./hooks/useVoucherForm";
 import api from "@/common/utils/api";
 import { DISCOUNT_TYPES, VOUCHER_STATUS } from "@/common/constants/enums";
 

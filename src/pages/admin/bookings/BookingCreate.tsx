@@ -149,7 +149,8 @@ const BookingCreate: React.FC = () => {
     try {
       const values = await createCustomerForm.validateFields();
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:3000/api/users", {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const res = await fetch(`${API_URL}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
         body: JSON.stringify({ name: values.name, phone: values.phone, email: values.email || "" }),

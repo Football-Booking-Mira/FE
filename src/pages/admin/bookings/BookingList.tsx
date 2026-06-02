@@ -831,7 +831,8 @@ export default function BookingList() {
         }
 
         try {
-            const res = await fetch('http://localhost:3000/api/bookings/payment/vietqr', {
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+            const res = await fetch(`${API_URL}/bookings/payment/vietqr`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -18,6 +18,8 @@ interface Court {
   location?: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
 
@@ -45,7 +47,7 @@ const HomePage: React.FC = () => {
 
       const query = new URLSearchParams(params).toString();
       const res = await fetch(
-        `http://localhost:3000/api/courts${query ? "/search?" + query : ""}`
+        `${API_URL}/courts${query ? "/search?" + query : ""}`
       );
 
       if (!res.ok) throw new Error(`Lỗi HTTP: ${res.status}`);
@@ -69,7 +71,7 @@ const HomePage: React.FC = () => {
 
     const intervalFetch = async () => {
       try {
-        const res = await fetch("http://localhost:3000/api/courts");
+        const res = await fetch(`${API_URL}/courts`);
         if (!res.ok) throw new Error(`Lỗi HTTP: ${res.status}`);
         const data = await res.json();
 

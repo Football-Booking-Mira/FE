@@ -28,7 +28,8 @@ const ContactsPage = () => {
 
   const fetchData = () => {
     setLoading(true);
-    fetch("http://localhost:3000/api/contacts")
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    fetch(`${API_URL}/contacts`)
       .then((res) => res.json())
       .then((resData) => {
         if (Array.isArray(resData)) setData(resData);

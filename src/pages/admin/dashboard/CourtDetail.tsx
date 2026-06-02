@@ -21,6 +21,7 @@ interface Court {
 }
 
 export default function CourtDetail() {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
   const { id } = useParams<{ id: string }>();
   const [court, setCourt] = useState<Court | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,7 +32,7 @@ export default function CourtDetail() {
   useEffect(() => {
     const fetchCourt = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/courts/${id}`);
+        const res = await fetch(`${API_URL}/courts/${id}`);
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.message || "Lỗi khi tải dữ liệu");
@@ -50,7 +51,7 @@ export default function CourtDetail() {
   //  Hàm lưu mô tả
   const handleSave = async () => {
     try {
-      const res = await fetch(`http://localhost:3000/api/courts/${id}`, {
+      const res = await fetch(`${API_URL}/courts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description }),

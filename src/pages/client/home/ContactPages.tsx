@@ -16,7 +16,8 @@ const ContactPages: React.FC = () => {
     try {
       setLoading(true);
 
-      const res = await fetch("http://localhost:3000/api/contacts", {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const res = await fetch(`${API_URL}/contacts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
