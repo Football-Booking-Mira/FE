@@ -1163,11 +1163,7 @@ export default function BookingList() {
                             </span>
                         </div>
                         <div className="flex items-center gap-1.5 px-1">
-                            {hasMultiSlots && (
-                                <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-1.5 py-0.5 rounded border border-violet-100 dark:border-violet-500/20">
-                                    {b.slots.length} CA
-                                </span>
-                            )}
+                            {/* slot count hidden */}
                         </div>
                     </div>
                 );
