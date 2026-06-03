@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -17,11 +17,11 @@ dayjs.locale('vi');
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 
 const STATUS_LABELS: Record<string, string> = {
-    pending: 'Chờ xác nhận',
-    confirmed: 'Đã xác nhận',
-    in_use: 'Đang sử dụng',
-    completed: 'Hoàn thành',
-    cancelled: 'Đã hủy',
+    pending: 'Chá» xÃ¡c nháº­n',
+    confirmed: 'ÄÃ£ xÃ¡c nháº­n',
+    in_use: 'Äang sá»­ dá»¥ng',
+    completed: 'HoÃ n thÃ nh',
+    cancelled: 'ÄÃ£ há»§y',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -33,25 +33,25 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
-    unpaid: 'Chưa thanh toán',
-    partial: 'Đã thanh toán', //  ép label
-    paid: 'Đã thanh toán',
-    refunded: 'Hoàn tiền xong',
+    unpaid: 'ChÆ°a thanh toÃ¡n',
+    partial: 'ÄÃ£ thanh toÃ¡n', //  Ã©p label
+    paid: 'ÄÃ£ thanh toÃ¡n',
+    refunded: 'HoÃ n tiá»n xong',
 };
 
 const PAYMENT_COLORS: Record<string, string> = {
     unpaid: 'red',
-    partial: 'green', // ép màu xanh giống paid
+    partial: 'green', // Ã©p mÃ u xanh giá»‘ng paid
     paid: 'green',
     refunded: 'volcano',
 };
 
 const REFUND_STATUS_LABELS: Record<string, string> = {
-    none: 'Không có hoàn tiền',
-    pending: 'Đã gửi yêu cầu hoàn tiền',
-    processing: 'Đang xử lý hoàn tiền',
-    refunded: 'Đã hoàn tiền',
-    rejected: 'Từ chối hoàn tiền',
+    none: 'KhÃ´ng cÃ³ hoÃ n tiá»n',
+    pending: 'ÄÃ£ gá»­i yÃªu cáº§u hoÃ n tiá»n',
+    processing: 'Äang xá»­ lÃ½ hoÃ n tiá»n',
+    refunded: 'ÄÃ£ hoÃ n tiá»n',
+    rejected: 'Tá»« chá»‘i hoÃ n tiá»n',
 };
 
 const REFUND_STATUS_COLORS: Record<string, string> = {
@@ -63,31 +63,31 @@ const REFUND_STATUS_COLORS: Record<string, string> = {
 };
 
 const QUICK_CANCEL_REASONS = [
-    'Đổi kế hoạch',
-    'Đặt nhầm giờ',
-    'Không đủ người',
-    'Thời tiết xấu',
-    'Tìm được sân khác',
-    'Sự cố cá nhân',
+    'Äá»•i káº¿ hoáº¡ch',
+    'Äáº·t nháº§m giá»',
+    'KhÃ´ng Ä‘á»§ ngÆ°á»i',
+    'Thá»i tiáº¿t xáº¥u',
+    'TÃ¬m Ä‘Æ°á»£c sÃ¢n khÃ¡c',
+    'Sá»± cá»‘ cÃ¡ nhÃ¢n',
 ];
 
 const TABS = [
-    { key: 'all', label: 'Tất cả' },
-    { key: 'waiting_payment', label: 'Chờ thanh toán' },
-    { key: 'pending', label: 'Chờ xác nhận' },
-    { key: 'confirmed', label: 'Đã xác nhận' },
-    { key: 'in_use', label: 'Đang sử dụng' },
-    { key: 'completed', label: 'Hoàn thành' },
-    { key: 'cancelled', label: 'Đã hủy' },
-    { key: 'refunded', label: 'Hoàn tiền' },
+    { key: 'all', label: 'Táº¥t cáº£' },
+    { key: 'waiting_payment', label: 'Chá» thanh toÃ¡n' },
+    { key: 'pending', label: 'Chá» xÃ¡c nháº­n' },
+    { key: 'confirmed', label: 'ÄÃ£ xÃ¡c nháº­n' },
+    { key: 'in_use', label: 'Äang sá»­ dá»¥ng' },
+    { key: 'completed', label: 'HoÃ n thÃ nh' },
+    { key: 'cancelled', label: 'ÄÃ£ há»§y' },
+    { key: 'refunded', label: 'HoÃ n tiá»n' },
 ];
 
-// đổi "HH:mm" -> phút
+// Ä‘á»•i "HH:mm" -> phÃºt
 const timeToMin = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     return h * 60 + m;
 };
-// HELP BUILD LÝ DO
+// HELP BUILD LÃ DO
 const buildCancelReason = (tags: string[], note: string) => {
     const parts = [...tags];
     const clean = (note || '').trim();
@@ -95,7 +95,7 @@ const buildCancelReason = (tags: string[], note: string) => {
     return parts.join(' | ');
 };
 
-// lấy mảng thiết bị từ mọi kiểu response
+// láº¥y máº£ng thiáº¿t bá»‹ tá»« má»i kiá»ƒu response
 const extractEquipmentItems = (raw: any): any[] => {
     if (!raw) return [];
     if (Array.isArray(raw)) return raw;
@@ -124,15 +124,15 @@ const isExtraAfterPaid = (it: any): boolean => {
     );
 };
 
-// defaultPaymentStatus dùng để suy ra “các item không có flag”
-// - paid/refunded: mặc định thiết bị đã trả (vì đi cùng VNPay)
-// - partial/unpaid: mặc định thiết bị chưa trả (cọc tính cho sân)
+// defaultPaymentStatus dÃ¹ng Ä‘á»ƒ suy ra â€œcÃ¡c item khÃ´ng cÃ³ flagâ€
+// - paid/refunded: máº·c Ä‘á»‹nh thiáº¿t bá»‹ Ä‘Ã£ tráº£ (vÃ¬ Ä‘i cÃ¹ng VNPay)
+// - partial/unpaid: máº·c Ä‘á»‹nh thiáº¿t bá»‹ chÆ°a tráº£ (cá»c tÃ­nh cho sÃ¢n)
 const mergeEquipments = (items: any[] = [], defaultPaymentStatus: string = 'unpaid') => {
     const map: Record<string, any> = {};
 
     items.forEach((it) => {
         const eq = it.equipmentId || {};
-        const name = eq.name || it.name || 'Thiết bị';
+        const name = eq.name || it.name || 'Thiáº¿t bá»‹';
         const unit = eq.unit || it.unit || '';
         const mode: 'rent' | 'sell' = it.mode === 'sell' ? 'sell' : 'rent';
         const price = Number(it.price || (mode === 'rent' ? eq.rentPrice : eq.salePrice) || 0);
@@ -141,12 +141,12 @@ const mergeEquipments = (items: any[] = [], defaultPaymentStatus: string = 'unpa
 
         const subtotal = price * qty;
 
-        // quyết định paidFlag
+        // quyáº¿t Ä‘á»‹nh paidFlag
         let paidFlag = getItemPaidFlag(it);
 
         if (paidFlag === undefined) {
             if (isExtraAfterPaid(it))
-                paidFlag = false; // thêm lúc checkin => chưa trả
+                paidFlag = false; // thÃªm lÃºc checkin => chÆ°a tráº£
             else paidFlag = defaultPaymentStatus === 'paid' || defaultPaymentStatus === 'refunded';
         }
 
@@ -174,13 +174,13 @@ const mergeEquipments = (items: any[] = [], defaultPaymentStatus: string = 'unpa
     return Object.values(map);
 };
 
-// eligible để “Thanh toán lại”
+// eligible Ä‘á»ƒ â€œThanh toÃ¡n láº¡iâ€
 const canRetryPay = (b: any) =>
     b.status === 'pending' &&
     ['vnpay', 'zalopay'].includes(b.paymentMethod) &&
     (b.paymentStatus === 'unpaid' || b.paymentStatus === 'partial');
 
-// tính tiền cần trả cho từng ca (unpaid: full total, partial: total - deposit)
+// tÃ­nh tiá»n cáº§n tráº£ cho tá»«ng ca (unpaid: full total, partial: total - deposit)
 const calcNeedPay = (b: any) => {
     const total = Number(b.total ?? 0);
     const depositPaid = b.depositStatus === 'paid' ? Number(b.depositAmount ?? 0) : 0;
@@ -211,10 +211,10 @@ const MyBookings: React.FC = () => {
     const [cancelReasonTags, setCancelReasonTags] = useState<string[]>([]);
     const [cancelNote, setCancelNote] = useState('');
 
-    // thêm state meta để show đẹp trong modal (ở trên component)
+    // thÃªm state meta Ä‘á»ƒ show Ä‘áº¹p trong modal (á»Ÿ trÃªn component)
     const [cancelWarnMeta, setCancelWarnMeta] = useState({ totalCount: 0, discount: 0 });
 
-    //  MODAL CẢNH BÁO VOUCHER (step 1)
+    //  MODAL Cáº¢NH BÃO VOUCHER (step 1)
     const [isCancelWarnOpen, setIsCancelWarnOpen] = useState(false);
     const [cancelAgree, setCancelAgree] = useState(false);
     const [pendingCancelIds, setPendingCancelIds] = useState<string[]>([]);
@@ -231,13 +231,13 @@ const MyBookings: React.FC = () => {
     const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
     const [printingInvoiceId, setPrintingInvoiceId] = useState<string | null>(null);
 
-    // === ĐÁNH GIÁ SÂN ===
+    // === ÄÃNH GIÃ SÃ‚N ===
     const [reviewForm] = Form.useForm();
     const [reviewModalOpen, setReviewModalOpen] = useState(false);
     const [reviewingBooking, setReviewingBooking] = useState<any>(null);
     const [submittingReview, setSubmittingReview] = useState(false);
     const [isViewOnlyReview, setIsViewOnlyReview] = useState(false);
-    // map bookingId -> reviewData (để hiển thị sao đã đánh giá)
+    // map bookingId -> reviewData (Ä‘á»ƒ hiá»ƒn thá»‹ sao Ä‘Ã£ Ä‘Ã¡nh giÃ¡)
     const [reviewMap, setReviewMap] = useState<Record<string, any>>({});
 
     const fetchMyReviews = async () => {
@@ -250,7 +250,7 @@ const MyBookings: React.FC = () => {
                 else if (r.bookingId) map[String(r.bookingId)] = r;
             });
             setReviewMap(map);
-        } catch { /* bỏ qua */ }
+        } catch { /* bá» qua */ }
     };
 
     const openReviewModal = (booking: any, viewOnly = false) => {
@@ -287,7 +287,7 @@ const MyBookings: React.FC = () => {
                     comment: values.comment,
                     isAnonymous: values.isAnonymous || false,
                 });
-                toast.success('Cập nhật đánh giá thành công! ✨');
+                toast.success('Cáº­p nháº­t Ä‘Ã¡nh giÃ¡ thÃ nh cÃ´ng! âœ¨');
             } else {
                 // CREATE NEW
                 await api.post('/review', {
@@ -296,37 +296,37 @@ const MyBookings: React.FC = () => {
                     comment: values.comment,
                     isAnonymous: values.isAnonymous || false,
                 });
-                toast.success('Đánh giá sân thành công! Cảm ơn bạn ⭐');
+                toast.success('ÄÃ¡nh giÃ¡ sÃ¢n thÃ nh cÃ´ng! Cáº£m Æ¡n báº¡n â­');
             }
             setReviewModalOpen(false);
             reviewForm.resetFields();
-            fetchMyReviews(); // cập nhật map
+            fetchMyReviews(); // cáº­p nháº­t map
         } catch (err: any) {
-            const msg = err?.response?.data?.message || err?.message || 'Gửi đánh giá thất bại';
+            const msg = err?.response?.data?.message || err?.message || 'Gá»­i Ä‘Ã¡nh giÃ¡ tháº¥t báº¡i';
             toast.error(msg);
         } finally {
             setSubmittingReview(false);
         }
     };
 
-    // Modal chọn Payment method khi Retry payment
+    // Modal chá»n Payment method khi Retry payment
     const [isRetryMethodModalOpen, setIsRetryMethodModalOpen] = useState(false);
     const [retryAmount, setRetryAmount] = useState(0);
     const [retryMethod, setRetryMethod] = useState<'vnpay' | 'zalopay'>('vnpay');
     const [retryBody, setRetryBody] = useState<any>(null);
 
-    // --- QR THỦ CÔNG ---
+    // --- QR THá»¦ CÃ”NG ---
     const [showQrModal, setShowQrModal] = useState(false);
     const [qrData, setQrData] = useState<{image: string, amount: number, accountNo?: string, accountName?: string, bankName?: string, addInfo?: string} | null>(null);
 
-    // groupId -> list bookingId được chọn để thanh toán lại
+    // groupId -> list bookingId Ä‘Æ°á»£c chá»n Ä‘á»ƒ thanh toÃ¡n láº¡i
     const [selectedPayByGroup, setSelectedPayByGroup] = useState<Record<string, string[]>>({});
-    // groupId -> list bookingId được chọn để HOÀN TIỀN
+    // groupId -> list bookingId Ä‘Æ°á»£c chá»n Ä‘á»ƒ HOÃ€N TIá»€N
     const [selectedRefundByGroup, setSelectedRefundByGroup] = useState<Record<string, string[]>>(
         {}
     );
 
-    // groupId -> list bookingId được chọn để HỦY
+    // groupId -> list bookingId Ä‘Æ°á»£c chá»n Ä‘á»ƒ Há»¦Y
     const [selectedCancelByGroup, setSelectedCancelByGroup] = useState<Record<string, string[]>>(
         {}
     );
@@ -372,7 +372,7 @@ const MyBookings: React.FC = () => {
         }));
     };
 
-    // Thanh toán lại theo list ca đã chọn
+    // Thanh toÃ¡n láº¡i theo list ca Ä‘Ã£ chá»n
     const handlePayAgainSelected = async (selectedBookings: any[]) => {
         try {
             if (!selectedBookings.length) return;
@@ -383,7 +383,7 @@ const MyBookings: React.FC = () => {
             const amountToPay = selectedBookings.reduce((sum, b) => sum + calcNeedPay(b), 0);
 
             if (!amountToPay || amountToPay <= 0) {
-                toast.error('Không có số tiền cần thanh toán thêm cho các ca đã chọn!');
+                toast.error('KhÃ´ng cÃ³ sá»‘ tiá»n cáº§n thanh toÃ¡n thÃªm cho cÃ¡c ca Ä‘Ã£ chá»n!');
                 setPayingBookingId(null);
                 return;
             }
@@ -396,7 +396,7 @@ const MyBookings: React.FC = () => {
             });
             setIsRetryMethodModalOpen(true);
         } catch (err: any) {
-            toast.error('Có lỗi xảy ra khi lấy thông tin thanh toán.');
+            toast.error('CÃ³ lá»—i xáº£y ra khi láº¥y thÃ´ng tin thanh toÃ¡n.');
             setPayingBookingId(null);
         }
     };
@@ -414,13 +414,13 @@ const MyBookings: React.FC = () => {
                     });
                     
                     if (res.data?.paymentUrl) {
-                        toast.success('Đang chuyển tới trang thanh toán ZaloPay...');
+                        toast.success('Äang chuyá»ƒn tá»›i trang thanh toÃ¡n ZaloPay...');
                         window.location.href = res.data.paymentUrl;
                     } else {
-                        toast.error('Không tạo được liên kết thanh toán ZaloPay!');
+                        toast.error('KhÃ´ng táº¡o Ä‘Æ°á»£c liÃªn káº¿t thanh toÃ¡n ZaloPay!');
                     }
                 } catch(err) {
-                    toast.error('Lỗi khi tạo mã thanh toán!');
+                    toast.error('Lá»—i khi táº¡o mÃ£ thanh toÃ¡n!');
                 }
                 setPayingBookingId(null);
                 return;
@@ -433,16 +433,16 @@ const MyBookings: React.FC = () => {
                 payRes.data?.paymentUrl || payRes.data?.data?.paymentUrl || payRes.data?.data?.url;
 
             if (!paymentUrl) {
-                toast.error(`Không lấy được link thanh toán ${retryMethod.toUpperCase()}!`);
+                toast.error(`KhÃ´ng láº¥y Ä‘Æ°á»£c link thanh toÃ¡n ${retryMethod.toUpperCase()}!`);
                 setPayingBookingId(null);
                 return;
             }
 
-            toast.success(`Đang chuyển tới trang thanh toán ${retryMethod.toUpperCase()}...`);
+            toast.success(`Äang chuyá»ƒn tá»›i trang thanh toÃ¡n ${retryMethod.toUpperCase()}...`);
             window.location.href = paymentUrl;
         } catch (err: any) {
             toast.error(
-                err?.response?.data?.message || 'Không thể thanh toán lại, vui lòng thử lại!'
+                err?.response?.data?.message || 'KhÃ´ng thá»ƒ thanh toÃ¡n láº¡i, vui lÃ²ng thá»­ láº¡i!'
             );
             setPayingBookingId(null);
         }
@@ -456,7 +456,7 @@ const MyBookings: React.FC = () => {
             const info = retryRes.data?.data;
 
             if (!info || !info.amountToPay || info.amountToPay <= 0) {
-                toast.error('Không có số tiền cần thanh toán thêm cho đơn/nhóm đơn này.');
+                toast.error('KhÃ´ng cÃ³ sá»‘ tiá»n cáº§n thanh toÃ¡n thÃªm cho Ä‘Æ¡n/nhÃ³m Ä‘Æ¡n nÃ y.');
                 setPayingBookingId(null);
                 return;
             }
@@ -471,7 +471,7 @@ const MyBookings: React.FC = () => {
             setIsRetryMethodModalOpen(true);
         } catch (err: any) {
             toast.error(
-                err?.response?.data?.message || 'Không thể thanh toán lại, vui lòng thử lại!'
+                err?.response?.data?.message || 'KhÃ´ng thá»ƒ thanh toÃ¡n láº¡i, vui lÃ²ng thá»­ láº¡i!'
             );
             setPayingBookingId(null);
         }
@@ -496,7 +496,7 @@ const MyBookings: React.FC = () => {
 
             if (!booking?.hasInvoice) {
                 toast.error(
-                    'Đơn này chưa có hóa đơn. Vui lòng bấm "Thanh toán" để tạo hóa đơn trước!'
+                    'ÄÆ¡n nÃ y chÆ°a cÃ³ hÃ³a Ä‘Æ¡n. Vui lÃ²ng báº¥m "Thanh toÃ¡n" Ä‘á»ƒ táº¡o hÃ³a Ä‘Æ¡n trÆ°á»›c!'
                 );
                 setPrintingInvoiceId(null);
                 return;
@@ -505,14 +505,14 @@ const MyBookings: React.FC = () => {
             const res = await api.get(`/invoices/by-booking/${booking._id}`);
 
             if (!res?.data?.invoice) {
-                toast.error('Không tìm thấy hóa đơn!');
+                toast.error('KhÃ´ng tÃ¬m tháº¥y hÃ³a Ä‘Æ¡n!');
                 setPrintingInvoiceId(null);
                 return;
             }
 
             printInvoiceMira(res.data);
         } catch (err: any) {
-            toast.error(err?.response?.data?.message || 'Không thể tải thông tin hóa đơn!');
+            toast.error(err?.response?.data?.message || 'KhÃ´ng thá»ƒ táº£i thÃ´ng tin hÃ³a Ä‘Æ¡n!');
         } finally {
             setPrintingInvoiceId(null);
         }
@@ -562,7 +562,7 @@ const MyBookings: React.FC = () => {
             const userId = user?._id;
             if (!userId) {
                 setLoading(false);
-                toast.info('Vui lòng đăng nhập để xem đơn đặt sân');
+                toast.info('Vui lÃ²ng Ä‘Äƒng nháº­p Ä‘á»ƒ xem Ä‘Æ¡n Ä‘áº·t sÃ¢n');
                 navigate('/signin');
                 return;
             }
@@ -577,13 +577,13 @@ const MyBookings: React.FC = () => {
                     if (['none', 'pending', 'processing', 'refunded', 'rejected'].includes(raw))
                         return raw;
 
-                    // suy ra từ dữ liệu hiện có
+                    // suy ra tá»« dá»¯ liá»‡u hiá»‡n cÃ³
                     if (b.paymentStatus === 'refunded' || b.refundProcessedAt) return 'refunded';
 
-                    // đã gửi yêu cầu hoàn tiền
+                    // Ä‘Ã£ gá»­i yÃªu cáº§u hoÃ n tiá»n
                     if (b.refundRequestedAt) return 'pending';
 
-                    // không có gì
+                    // khÃ´ng cÃ³ gÃ¬
                     return 'none';
                 };
 
@@ -591,7 +591,7 @@ const MyBookings: React.FC = () => {
                     ...b,
                     status: String(b.status || '').toLowerCase(),
                     paymentStatus: String(b.paymentStatus || 'unpaid').toLowerCase(),
-                    refundStatus: normalizeRefundStatus(b), // <<< QUAN TRỌNG
+                    refundStatus: normalizeRefundStatus(b), // <<< QUAN TRá»ŒNG
                 }));
 
                 const sorted = [...mapped].sort((a: any, b: any) => {
@@ -642,7 +642,7 @@ const MyBookings: React.FC = () => {
                         String(a.startTime || '').localeCompare(String(b.startTime || ''))
                     );
 
-                    // Hoàn tiền theo nhóm
+                    // HoÃ n tiá»n theo nhÃ³m
                     g.refundBookings = (g.bookings || []).filter((b: any) => {
                         const rs = String(b.refundStatus || 'none').toLowerCase();
                         return (
@@ -672,7 +672,7 @@ const MyBookings: React.FC = () => {
                 setBookingGroups(groups);
                 applyFilter(activeTab, groups);
 
-                // reset selection mỗi lần load lại list
+                // reset selection má»—i láº§n load láº¡i list
                 setSelectedPayByGroup({});
                 setSelectedCancelByGroup({});
                 setSelectedRefundByGroup({});
@@ -738,19 +738,19 @@ const MyBookings: React.FC = () => {
                 // };
                 // setTabCounts(counts);
             } else {
-                toast.error(data?.message || 'Không lấy được danh sách đặt sân');
+                toast.error(data?.message || 'KhÃ´ng láº¥y Ä‘Æ°á»£c danh sÃ¡ch Ä‘áº·t sÃ¢n');
             }
         } catch {
-            // Auto retry khi server chưa sẵn sàng
+            // Auto retry khi server chÆ°a sáºµn sÃ ng
             if (bookingRetryRef.current < 15) {
                 bookingRetryRef.current += 1;
-                console.log(`[MyBookings] Đang thử kết nối lại... (lần ${bookingRetryRef.current})`);
+                console.log(`[MyBookings] Äang thá»­ káº¿t ná»‘i láº¡i... (láº§n ${bookingRetryRef.current})`);
                 bookingRetryTimerRef.current = setTimeout(() => {
                     fetchBookings();
                 }, 3000);
-                return; // Không tắt loading
+                return; // KhÃ´ng táº¯t loading
             } else {
-                toast.error('Không thể kết nối tới máy chủ. Vui lòng tải lại trang!');
+                toast.error('KhÃ´ng thá»ƒ káº¿t ná»‘i tá»›i mÃ¡y chá»§. Vui lÃ²ng táº£i láº¡i trang!');
             }
         } finally {
             setLoading(false);
@@ -762,7 +762,7 @@ const MyBookings: React.FC = () => {
 
     // Invoice view removed per user request
 
-    // KẾT NỐI SOCKET
+    // Káº¾T Ná»I SOCKET
     useEffect(() => {
         fetchBookings();
         fetchMyReviews();
@@ -782,7 +782,7 @@ const MyBookings: React.FC = () => {
 
             fetchBookings();
 
-            toast.info('Lịch đặt sân của bạn vừa được cập nhật', {
+            toast.info('Lá»‹ch Ä‘áº·t sÃ¢n cá»§a báº¡n vá»«a Ä‘Æ°á»£c cáº­p nháº­t', {
                 autoClose: 1500,
                 style: { backgroundColor: '#22c55e', color: '#fff' },
             });
@@ -818,7 +818,7 @@ const MyBookings: React.FC = () => {
 
     //console.log('filteredGroups', filteredGroups.length);
 
-    // HỦY ĐƠN (NHIỀU CA) - 2 bước: cảnh báo voucher -> nhập lý do
+    // Há»¦Y ÄÆ N (NHIá»€U CA) - 2 bÆ°á»›c: cáº£nh bÃ¡o voucher -> nháº­p lÃ½ do
     const openCancelModal = (bookingIds: string[], group?: any) => {
         const ids = bookingIds || [];
         if (!ids.length) return;
@@ -831,17 +831,17 @@ const MyBookings: React.FC = () => {
                     (b: any) => Number(b?.voucherDiscount || b?.discountTotal || 0) > 0
                 ));
 
-        //  tổng số ca trong đơn (theo group)
+        //  tá»•ng sá»‘ ca trong Ä‘Æ¡n (theo group)
         const groupCount = Array.isArray(group?.bookings) ? group.bookings.length : ids.length;
 
-        //  chỉ cảnh báo khi hủy 1 phần (ids < tổng ca)
+        //  chá»‰ cáº£nh bÃ¡o khi há»§y 1 pháº§n (ids < tá»•ng ca)
         const isPartialCancel = groupCount > 0 && ids.length < groupCount;
 
         if (hasVoucher && isPartialCancel) {
             setPendingCancelIds(ids);
             setCancelAgree(false);
 
-            //  meta để modal show đẹp
+            //  meta Ä‘á»ƒ modal show Ä‘áº¹p
             setCancelWarnMeta({ totalCount: groupCount, discount: groupVoucherDiscount });
 
             setIsCancelWarnOpen(true);
@@ -849,9 +849,9 @@ const MyBookings: React.FC = () => {
         }
         setCancelReasonTags([]);
         setCancelNote('');
-        setCancelReason(''); // giữ đồng bộ
+        setCancelReason(''); // giá»¯ Ä‘á»“ng bá»™
 
-        // không có voucher HOẶC hủy hết => vào thẳng modal nhập lý do
+        // khÃ´ng cÃ³ voucher HOáº¶C há»§y háº¿t => vÃ o tháº³ng modal nháº­p lÃ½ do
         setSelectedBookingIds(ids);
         setCancelReason('');
         setIsCancelModalOpen(true);
@@ -875,7 +875,7 @@ const MyBookings: React.FC = () => {
     const handleAcceptCancelWarn = () => {
         if (!cancelAgree) return;
 
-        // step 2: mở modal nhập lý do
+        // step 2: má»Ÿ modal nháº­p lÃ½ do
         setIsCancelWarnOpen(false);
 
         setSelectedBookingIds(pendingCancelIds);
@@ -887,7 +887,7 @@ const MyBookings: React.FC = () => {
         const finalReason = buildCancelReason(cancelReasonTags, cancelNote);
 
         if (!finalReason.trim()) {
-            toast.error('Vui lòng nhập lý do hủy đơn!');
+            toast.error('Vui lÃ²ng nháº­p lÃ½ do há»§y Ä‘Æ¡n!');
             return;
         }
 
@@ -898,7 +898,7 @@ const MyBookings: React.FC = () => {
                 )
             );
 
-            toast.success('Hủy các ca trong đơn thành công!', {
+            toast.success('Há»§y cÃ¡c ca trong Ä‘Æ¡n thÃ nh cÃ´ng!', {
                 autoClose: 1500,
                 style: { backgroundColor: '#dc2626', color: '#fff' },
             });
@@ -912,12 +912,12 @@ const MyBookings: React.FC = () => {
             toast.error(
                 err?.response?.data?.message ||
                     err.message ||
-                    'Không thể hủy, vui lòng kiểm tra lại!'
+                    'KhÃ´ng thá»ƒ há»§y, vui lÃ²ng kiá»ƒm tra láº¡i!'
             );
         }
     };
 
-    // HOÀN TIỀN
+    // HOÃ€N TIá»€N
     const openRefundModal = (bookings: any[]) => {
         const first = bookings[0] || {};
 
@@ -951,7 +951,7 @@ const MyBookings: React.FC = () => {
             !refundForm.accountName.trim() ||
             !refundForm.bankName.trim()
         ) {
-            toast.error('Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền!');
+            toast.error('Vui lÃ²ng nháº­p Ä‘áº§y Ä‘á»§ thÃ´ng tin tÃ i khoáº£n nháº­n hoÃ n tiá»n!');
             return;
         }
 
@@ -967,7 +967,7 @@ const MyBookings: React.FC = () => {
                 )
             );
 
-            toast.success('Đã gửi yêu cầu hoàn tiền!', {
+            toast.success('ÄÃ£ gá»­i yÃªu cáº§u hoÃ n tiá»n!', {
                 autoClose: 2000,
                 style: { backgroundColor: '#15803d', color: '#fff' },
             });
@@ -976,13 +976,13 @@ const MyBookings: React.FC = () => {
             fetchBookings();
         } catch (err: any) {
             toast.error(
-                err?.response?.data?.message || err.message || 'Không thể gửi yêu cầu hoàn tiền!'
+                err?.response?.data?.message || err.message || 'KhÃ´ng thá»ƒ gá»­i yÃªu cáº§u hoÃ n tiá»n!'
             );
         }
     };
 
     if (loading) {
-        return <LoadingScreen fullScreen text="Đang tải dữ liệu đơn đặt sân..." />;
+        return <LoadingScreen fullScreen text="Äang táº£i dá»¯ liá»‡u Ä‘Æ¡n Ä‘áº·t sÃ¢n..." />;
     }
 
     return (
@@ -990,7 +990,7 @@ const MyBookings: React.FC = () => {
             <ToastContainer position='top-right' autoClose={2500} theme='colored' />
             <div className='max-w-[1440px] w-full mx-auto px-4 md:px-6 lg:px-8'>
                 <h1 className='text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center transition-colors'>
-                    Đơn đặt sân của tôi
+                    ÄÆ¡n Ä‘áº·t sÃ¢n cá»§a tÃ´i
                 </h1>
 
                 {/* TABS */}
@@ -1026,7 +1026,7 @@ const MyBookings: React.FC = () => {
                 <div className='transition-colors'>
                     {filteredGroups.length === 0 ? (
                         <div className='bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm py-20 flex justify-center'>
-                            <Empty description='Không có đơn đặt sân nào' className='dark:opacity-80' />
+                            <Empty description='KhÃ´ng cÃ³ Ä‘Æ¡n Ä‘áº·t sÃ¢n nÃ o' className='dark:opacity-80' />
                         </div>
                     ) : (
                         <div className='flex flex-col gap-6'>
@@ -1047,13 +1047,13 @@ const MyBookings: React.FC = () => {
                                     0
                                 );
 
-                                // có thể thanh toán
+                                // cÃ³ thá»ƒ thanh toÃ¡n
                                 const eligiblePayBookings = group.bookings.filter((b: any) =>
                                     canRetryPay(b)
                                 );
                                 const eligiblePayIds = eligiblePayBookings.map((b: any) => b._id);
 
-                                // có thể hủy: cả pending lẫn confirmed (đã xác nhận) nếu đã thanh toán hoặc thanh toán 1 phần
+                                // cÃ³ thá»ƒ há»§y: cáº£ pending láº«n confirmed (Ä‘Ã£ xÃ¡c nháº­n) náº¿u Ä‘Ã£ thanh toÃ¡n hoáº·c thanh toÃ¡n 1 pháº§n
                                 const eligibleCancelBookings = group.bookings.filter((b: any) => {
                                     const s = String(b.status || '').toLowerCase().trim();
                                     const ps = String(b.paymentStatus || '').toLowerCase().trim();
@@ -1066,13 +1066,13 @@ const MyBookings: React.FC = () => {
                                     (b: any) => b._id
                                 );
 
-                                // đã chọn hủy (chỉ áp dụng đơn hợp lệ)
+                                // Ä‘Ã£ chá»n há»§y (chá»‰ Ã¡p dá»¥ng Ä‘Æ¡n há»£p lá»‡)
                                 const rawSelectedCancelIds = selectedCancelByGroup[group._id] || [];
                                 const selectedCancelIds = rawSelectedCancelIds.filter((id) =>
                                     eligibleCancelIds.includes(id)
                                 );
 
-                                // đã chọn thanh toán (chỉ áp dụng đơn hợp lệ)
+                                // Ä‘Ã£ chá»n thanh toÃ¡n (chá»‰ Ã¡p dá»¥ng Ä‘Æ¡n há»£p lá»‡)
                                 const rawSelectedIds = selectedPayByGroup[group._id] || [];
                                 const selectedIds = rawSelectedIds.filter((id) =>
                                     eligiblePayIds.includes(id)
@@ -1086,7 +1086,7 @@ const MyBookings: React.FC = () => {
                                     0
                                 );
 
-                                // hiển thị chọn tất cả (thanh toán) nếu >=2
+                                // hiá»ƒn thá»‹ chá»n táº¥t cáº£ (thanh toÃ¡n) náº¿u >=2
                                 const showSelectAll = eligiblePayIds.length > 1;
                                 const eligibleCount = eligiblePayIds.length;
                                 const selectedCount = selectedIds.length;
@@ -1100,7 +1100,7 @@ const MyBookings: React.FC = () => {
                                     selectedCount > 0 &&
                                     selectedCount < eligibleCount;
 
-                                // hiển thị chọn tất cả (hủy) nếu >=2
+                                // hiá»ƒn thá»‹ chá»n táº¥t cáº£ (há»§y) náº¿u >=2
                                 const showSelectAllCancel = eligibleCancelIds.length > 1;
                                 const cancelAllChecked =
                                     showSelectAllCancel &&
@@ -1112,7 +1112,7 @@ const MyBookings: React.FC = () => {
                                     selectedCancelIds.length > 0 &&
                                     selectedCancelIds.length < eligibleCancelIds.length;
 
-                                // Hoàn tiền theo nhóm
+                                // HoÃ n tiá»n theo nhÃ³m
                                 const refundableBookings = group.bookings.filter((b: any) => {
                                     const rawRefundStatus =
                                         b.refundStatus ||
@@ -1124,7 +1124,7 @@ const MyBookings: React.FC = () => {
                                         b.paymentStatus === 'paid' || b.paymentStatus === 'partial';
                                     const allowStatus = b.status === 'cancelled';
                                     const isCancelledByAdmin = b.cancelBy === 'admin';
-                                    // Các ca có thể hoàn tiền
+                                    // CÃ¡c ca cÃ³ thá»ƒ hoÃ n tiá»n
                                     return allowStatus && isPaidOrPartial && canRefundStatus && !isCancelledByAdmin;
                                 });
 
@@ -1132,11 +1132,31 @@ const MyBookings: React.FC = () => {
                                     refundableBookings.length > 0 &&
                                     refundableBookings.length === group.bookings.length;
 
-                                // Các ca đã chọn hoàn tiền (hợp lệ)
+                                // CÃ¡c ca Ä‘Ã£ chá»n hoÃ n tiá»n (há»£p lá»‡)
 
                                 const canPayAgainGroup = group.bookings.some((b: any) =>
                                     canRetryPay(b)
                                 );
+
+                                // Expand multi-slot bookings thÃ nh tá»«ng Ca riÃªng
+                                const expandedItems: any[] = group.bookings.flatMap((b: any, origIdx: number) => {
+                                    const slts = Array.isArray(b.slots) && b.slots.length > 1 ? b.slots : null;
+                                    if (slts) {
+                                        const n = slts.length;
+                                        return [...slts]
+                                            .sort((x: any, y: any) => timeToMin(x.startTime) - timeToMin(y.startTime))
+                                            .map((slot: any, si: number) => ({
+                                                booking: b,
+                                                caIdx: origIdx * n + si,
+                                                isExpanded: true,
+                                                isFirstSlot: si === 0,
+                                                displaySlot: slot,
+                                                perSlotField: Math.round((Number(b.fieldAmount) || 0) / n),
+                                                perSlotTotal: Math.round((Number(b.total) || 0) / n),
+                                            }));
+                                    }
+                                    return [{ booking: b, caIdx: origIdx, isExpanded: false, isFirstSlot: true, displaySlot: null, perSlotField: Number(b.fieldAmount) || 0, perSlotTotal: Number(b.total) || 0 }];
+                                });
 
                                 return (
                                     <div
@@ -1148,7 +1168,7 @@ const MyBookings: React.FC = () => {
                                             {imageUrl && (
                                                 <img
                                                     src={imageUrl}
-                                                    alt={first.courtId?.name || 'Sân bóng'}
+                                                    alt={first.courtId?.name || 'SÃ¢n bÃ³ng'}
                                                     className='w-24 h-24 md:w-28 md:h-28 rounded-xl object-cover border border-gray-200 dark:border-gray-700'
                                                 />
                                             )}
@@ -1156,7 +1176,7 @@ const MyBookings: React.FC = () => {
                                             <div className='flex-1 min-w-0'>
                                                 <div className='flex items-center gap-2 mb-2'>
                                                     <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-linear-to-r from-gray-100 to-gray-50 dark:from-gray-700/50 dark:to-gray-800/50 border border-gray-200 dark:border-gray-600/50 shadow-xs">
-                                                        <span className='text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest'>Mã đơn</span>
+                                                        <span className='text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest'>MÃ£ Ä‘Æ¡n</span>
                                                         <div className='w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600'></div>
                                                         <span className='text-xs font-black text-gray-800 dark:text-gray-100 tracking-tight uppercase'>
                                                             {group.code || first.code}
@@ -1166,7 +1186,7 @@ const MyBookings: React.FC = () => {
                                                 </div>
 
                                                 <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
-                                                    {first.courtId?.name || 'Sân bóng'}
+                                                    {first.courtId?.name || 'SÃ¢n bÃ³ng'}
                                                 </h2>
                                                 <p className='text-sm text-gray-600 dark:text-gray-300 mt-1'>
                                                     {format(new Date(first.date), 'dd/MM/yyyy', {
@@ -1174,10 +1194,10 @@ const MyBookings: React.FC = () => {
                                                     })}
                                                 </p>
 
-                                                {/* DANH SÁCH TỪNG CA */}
+                                                {/* DANH SÃCH Tá»ªNG CA */}
                                                 <div className='mt-3 space-y-3'>
-                                                    {group.bookings.map(
-                                                        (booking: any, idx: number) => {
+                                                    {expandedItems.map(
+                                                        ({ booking, caIdx: idx, isExpanded: __isExp, isFirstSlot, displaySlot: __slot, perSlotField: __perField, perSlotTotal: __perTotal }: any, __itemIdx: number) => {
                                                             const refundStatus =
                                                                 booking.refundStatus ||
                                                                 (booking.paymentStatus ===
@@ -1196,11 +1216,11 @@ const MyBookings: React.FC = () => {
                                                                 booking.refund?.reason ||
                                                                 '';
 
-                                                            const fieldAmount = Number(
-                                                                booking.fieldAmount || 0
-                                                            );
+                                                            const fieldAmount = __isExp
+                                                                ? __perField
+                                                                : Number(booking.fieldAmount || 0);
 
-                                                            // ---- tách tiền thiết bị ----
+                                                            // ---- tÃ¡ch tiá»n thiáº¿t bá»‹ ----
                                                             const rentTotal = Array.isArray(
                                                                 booking.equipments
                                                             )
@@ -1247,20 +1267,19 @@ const MyBookings: React.FC = () => {
                                                                 booking.equipmentTotal || 0
                                                             );
 
-                                                            // rent/sell chỉ để hiển thị chi tiết nếu có items
+                                                            // rent/sell chá»‰ Ä‘á»ƒ hiá»ƒn thá»‹ chi tiáº¿t náº¿u cÃ³ items
                                                             const equipmentTotalView =
                                                                 rentTotal + sellTotal;
 
-                                                            // tiền chuẩn để tính tổng: ưu tiên DB
+                                                            // tiá»n chuáº©n Ä‘á»ƒ tÃ­nh tá»•ng: Æ°u tiÃªn DB
                                                             const equipmentTotalForCalc =
                                                                 equipmentTotalDB > 0
                                                                     ? equipmentTotalDB
                                                                     : equipmentTotalView;
 
-                                                            const totalAll = Math.max(
-                                                                0,
-                                                                fieldAmount + equipmentTotalForCalc
-                                                            );
+                                                            const totalAll = __isExp
+                                                                ? __perTotal
+                                                                : Math.max(0, fieldAmount + equipmentTotalForCalc);
 
                                                             const refundAmount = Number(
                                                                 booking.refundAmount ??
@@ -1316,10 +1335,10 @@ const MyBookings: React.FC = () => {
                                                                     key={booking._id}
                                                                     className='border border-gray-100 dark:border-gray-700/60 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors w-full relative'
                                                                 >
-                                                                    {/* CHECKBOX góc trái: Pay + Hủy + Hoàn */}
+                                                                    {/* CHECKBOX gÃ³c trÃ¡i: Pay + Há»§y + HoÃ n */}
                                                                     {(canRetryThis ||
                                                                         canCancelThis ||
-                                                                        canRefundThis) && (
+                                                                        canRefundThis) && isFirstSlot && (
                                                                         <div className='absolute top-4 left-4 z-10 flex flex-col gap-2'>
                                                                             {canRetryThis && (
                                                                                 <Checkbox
@@ -1390,95 +1409,26 @@ const MyBookings: React.FC = () => {
                                                                         {/* LEFT INFO */}
                                                                         <div
                                                                             className={`min-w-0 flex-1 space-y-2 ${
-                                                                                hasAnyCheckbox
+                                                                                hasAnyCheckbox && isFirstSlot
                                                                                     ? 'pl-14'
                                                                                     : ''
                                                                             }`}
                                                                         >
                                                                             {/* SLOT TIME */}
-                                                                            {Array.isArray(
-                                                                                booking.slots
-                                                                            ) &&
-                                                                            booking.slots.length >
-                                                                                0 ? (
-                                                                                booking.slots
-                                                                                    .length ===
-                                                                                1 ? (
-                                                                                    <p className='text-sm font-medium text-gray-900 dark:text-gray-100'>
-                                                                                        Ca {idx + 1}
-                                                                                        :{' '}
-                                                                                        {
-                                                                                            booking
-                                                                                                .slots[0]
-                                                                                                .startTime
-                                                                                        }{' '}
-                                                                                        -{' '}
-                                                                                        {
-                                                                                            booking
-                                                                                                .slots[0]
-                                                                                                .endTime
-                                                                                        }
-                                                                                    </p>
-                                                                                ) : (
-                                                                                    [
-                                                                                        ...booking.slots,
-                                                                                    ]
-                                                                                        .sort(
-                                                                                            (
-                                                                                                a: any,
-                                                                                                b: any
-                                                                                            ) =>
-                                                                                                timeToMin(
-                                                                                                    a.startTime
-                                                                                                ) -
-                                                                                                timeToMin(
-                                                                                                    b.startTime
-                                                                                                )
-                                                                                        )
-                                                                                        .map(
-                                                                                            (
-                                                                                                slot: any,
-                                                                                                slotIdx: number
-                                                                                            ) => (
-                                                                                                <p
-                                                                                                    key={
-                                                                                                        slotIdx
-                                                                                                    }
-                                                                                                    className='text-sm font-medium text-gray-900 dark:text-gray-100'
-                                                                                                >
-                                                                                                    Ca{' '}
-                                                                                                    {slotIdx +
-                                                                                                        1}
+                                                                            <p className='text-sm font-medium text-gray-900 dark:text-gray-100'>
+                                                                                Ca {__itemIdx + 1}:{' '}
+                                                                                {__slot
+                                                                                    ? `${__slot.startTime} - ${__slot.endTime}`
+                                                                                    : (Array.isArray(booking.slots) && booking.slots.length === 1)
+                                                                                        ? `${booking.slots[0].startTime} - ${booking.slots[0].endTime}`
+                                                                                        : `${booking.startTime} - ${booking.endTime}`
+                                                                                }
+                                                                            </p>
 
-                                                                                                    :{' '}
-                                                                                                    {
-                                                                                                        slot.startTime
-                                                                                                    }{' '}
-                                                                                                    -{' '}
-                                                                                                    {
-                                                                                                        slot.endTime
-                                                                                                    }
-                                                                                                </p>
-                                                                                            )
-                                                                                        )
-                                                                                )
-                                                                            ) : (
-                                                                                <p className='text-sm font-medium text-gray-900 dark:text-gray-100'>
-                                                                                    Ca {idx + 1}:{' '}
-                                                                                    {
-                                                                                        booking.startTime
-                                                                                    }{' '}
-                                                                                    -{' '}
-                                                                                    {
-                                                                                        booking.endTime
-                                                                                    }
-                                                                                </p>
-                                                                            )}
-
-                                                                            {/* TRẠNG THÁI ĐƠN */}
+                                                                            {/* TRáº NG THÃI ÄÆ N */}
                                                                             <div className='flex flex-wrap items-center gap-2 text-xs md:text-sm'>
                                                                                 <span className='text-gray-500 dark:text-gray-300'>
-                                                                                    Trạng thái đơn:
+                                                                                    Tráº¡ng thÃ¡i Ä‘Æ¡n:
                                                                                 </span>
                                                                                 <Tag
                                                                                     color={
@@ -1499,10 +1449,10 @@ const MyBookings: React.FC = () => {
                                                                                 </Tag>
                                                                             </div>
 
-                                                                            {/* TRẠNG THÁI THANH TOÁN */}
+                                                                            {/* TRáº NG THÃI THANH TOÃN */}
                                                                             <div className='flex flex-wrap items-start gap-2 text-xs md:text-sm'>
                                                                                 <span className='text-gray-500 dark:text-gray-300'>
-                                                                                    Thanh toán:
+                                                                                    Thanh toÃ¡n:
                                                                                 </span>
 
                                                                                 <Tag
@@ -1518,34 +1468,34 @@ const MyBookings: React.FC = () => {
                                                                                     {PAYMENT_LABELS[
                                                                                         booking
                                                                                             .paymentStatus
-                                                                                    ] || 'Không rõ'}
+                                                                                    ] || 'KhÃ´ng rÃµ'}
                                                                                 </Tag>
 
                                                                                 <div className='w-full mt-2 text-xs text-gray-700 dark:text-gray-300 space-y-1'>
                                                                                     <div className='flex justify-between'>
                                                                                         <span>
-                                                                                            Tiền sân
+                                                                                            Tiá»n sÃ¢n
                                                                                         </span>
                                                                                         <span className='font-medium'>
                                                                                             {fieldAmount.toLocaleString(
                                                                                                 'vi-VN'
                                                                                             )}{' '}
-                                                                                            VNĐ
+                                                                                            VNÄ
                                                                                         </span>
                                                                                     </div>
                                                                                     {sellTotal >
                                                                                         0 && (
                                                                                         <div className='flex justify-between'>
                                                                                             <span>
-                                                                                                Thiết
-                                                                                                bị
+                                                                                                Thiáº¿t
+                                                                                                bá»‹
                                                                                                 mua
                                                                                             </span>
                                                                                             <span className='font-medium'>
                                                                                                 {sellTotal.toLocaleString(
                                                                                                     'vi-VN'
                                                                                                 )}{' '}
-                                                                                                VNĐ
+                                                                                                VNÄ
                                                                                             </span>
                                                                                         </div>
                                                                                     )}
@@ -1553,71 +1503,71 @@ const MyBookings: React.FC = () => {
                                                                                         0 && (
                                                                                         <div className='flex justify-between'>
                                                                                             <span>
-                                                                                                Thiết
-                                                                                                bị
-                                                                                                thuê
+                                                                                                Thiáº¿t
+                                                                                                bá»‹
+                                                                                                thuÃª
                                                                                             </span>
                                                                                             <span className='font-medium'>
                                                                                                 {rentTotal.toLocaleString(
                                                                                                     'vi-VN'
                                                                                                 )}{' '}
-                                                                                                VNĐ
+                                                                                                VNÄ
                                                                                             </span>
                                                                                         </div>
                                                                                     )}
-                                                                                    {/* CHÈN Ở ĐÂY */}{' '}
-                                                                                    {/* nếu items rỗng nhưng DB có tiền thiết bị => show 1 dòng tổng thiết bị */}
+                                                                                    {/* CHÃˆN á»ž ÄÃ‚Y */}{' '}
+                                                                                    {/* náº¿u items rá»—ng nhÆ°ng DB cÃ³ tiá»n thiáº¿t bá»‹ => show 1 dÃ²ng tá»•ng thiáº¿t bá»‹ */}
                                                                                     {equipmentTotalDB >
                                                                                         0 &&
                                                                                         equipmentTotalView ===
                                                                                             0 && (
                                                                                             <div className='flex justify-between'>
                                                                                                 <span>
-                                                                                                    Thiết
-                                                                                                    bị
+                                                                                                    Thiáº¿t
+                                                                                                    bá»‹
                                                                                                 </span>
                                                                                                 <span className='font-medium'>
                                                                                                     {equipmentTotalDB.toLocaleString(
                                                                                                         'vi-VN'
                                                                                                     )}{' '}
-                                                                                                    VNĐ
+                                                                                                    VNÄ
                                                                                                 </span>
                                                                                             </div>
                                                                                         )}
                                                                                     <div className='flex justify-between pt-1 border-t border-gray-200 dark:border-gray-700'>
                                                                                         <span className='font-semibold'>
-                                                                                            Tổng
+                                                                                            Tá»•ng
                                                                                         </span>
                                                                                         <span className='font-semibold'>
                                                                                             {totalAll.toLocaleString(
                                                                                                 'vi-VN'
                                                                                             )}{' '}
-                                                                                            VNĐ
+                                                                                            VNÄ
                                                                                         </span>
                                                                                     </div>
-                                                                                    {/* nếu có thiết bị thêm lúc check-in => sẽ hiện chưa trả đúng */}
+                                                                                    {/* náº¿u cÃ³ thiáº¿t bá»‹ thÃªm lÃºc check-in => sáº½ hiá»‡n chÆ°a tráº£ Ä‘Ãºng */}
                                                                                     {equipUnpaid >
                                                                                         0 && (
                                                                                         <div className='flex justify-between'>
                                                                                             <span className='text-red-600 font-semibold'>
-                                                                                                Thiết
-                                                                                                bị
-                                                                                                chưa
+                                                                                                Thiáº¿t
+                                                                                                bá»‹
+                                                                                                chÆ°a
                                                                                                 thanh
-                                                                                                toán
+                                                                                                toÃ¡n
                                                                                             </span>
                                                                                             <span className='text-red-600 font-semibold'>
                                                                                                 {equipUnpaid.toLocaleString(
                                                                                                     'vi-VN'
                                                                                                 )}{' '}
-                                                                                                VNĐ
+                                                                                                VNÄ
                                                                                             </span>
                                                                                         </div>
                                                                                     )}
                                                                                 </div>
                                                                             </div>
 
-                                                                            {/* THIẾT BỊ */}
+                                                                            {/* THIáº¾T Bá»Š */}
                                                                             {Array.isArray(
                                                                                 booking.equipments
                                                                             ) &&
@@ -1627,8 +1577,8 @@ const MyBookings: React.FC = () => {
                                                                                         <div className='font-semibold'>
                                                                                             {booking.status ===
                                                                                             'in_use'
-                                                                                                ? 'Thiết bị đang sử dụng:'
-                                                                                                : 'Thiết bị đã thuê / mua:'}
+                                                                                                ? 'Thiáº¿t bá»‹ Ä‘ang sá»­ dá»¥ng:'
+                                                                                                : 'Thiáº¿t bá»‹ Ä‘Ã£ thuÃª / mua:'}
                                                                                         </div>
                                                                                         {booking.equipments.map(
                                                                                             (
@@ -1650,7 +1600,7 @@ const MyBookings: React.FC = () => {
                                                                                                             {it.mode ===
                                                                                                             'sell'
                                                                                                                 ? 'mua'
-                                                                                                                : 'thuê'}{' '}
+                                                                                                                : 'thuÃª'}{' '}
                                                                                                             x{' '}
                                                                                                             {
                                                                                                                 it.qty
@@ -1667,12 +1617,12 @@ const MyBookings: React.FC = () => {
                                                                                     </div>
                                                                                 )}
 
-                                                                            {/* LÝ DO HỦY */}
+                                                                            {/* LÃ DO Há»¦Y */}
                                                                             {booking.status ===
                                                                                 'cancelled' &&
                                                                                 booking.cancelReason && (
                                                                                     <p className='text-xs text-red-500'>
-                                                                                        Lý do hủy:{' '}
+                                                                                        LÃ½ do há»§y:{' '}
                                                                                         <span className='font-medium'>
                                                                                             {
                                                                                                 booking.cancelReason
@@ -1684,24 +1634,24 @@ const MyBookings: React.FC = () => {
                                                                             {/* VOUCHER REVOKED WARNING */}
                                                                             {booking.status === 'cancelled' && group.voucherStatus === 'revoked' && (
                                                                                 <div className='mt-3 p-3 bg-linear-to-r from-orange-50 to-amber-50 border border-orange-200/60 rounded-xl flex items-start gap-2.5 dark:from-orange-900/20 dark:to-amber-900/10 dark:border-orange-800/40 shadow-sm'>
-                                                                                    <span className='text-orange-500 dark:text-orange-400 text-sm mt-0.5'>⚠️</span>
+                                                                                    <span className='text-orange-500 dark:text-orange-400 text-sm mt-0.5'>âš ï¸</span>
                                                                                     <div>
-                                                                                        <span className='font-bold text-orange-800 dark:text-orange-300 text-xs block mb-0.5'>Lưu ý hoàn tiền</span>
+                                                                                        <span className='font-bold text-orange-800 dark:text-orange-300 text-xs block mb-0.5'>LÆ°u Ã½ hoÃ n tiá»n</span>
                                                                                         <span className='text-[11px] text-orange-700/90 dark:text-orange-200/80 leading-relaxed block'>
-                                                                                            Do đơn hàng bị hủy một phần, voucher giảm giá đã mất hiệu lực. Số tiền hoàn thực tế sẽ được cấn trừ đi giá trị voucher đã sử dụng.
+                                                                                            Do Ä‘Æ¡n hÃ ng bá»‹ há»§y má»™t pháº§n, voucher giáº£m giÃ¡ Ä‘Ã£ máº¥t hiá»‡u lá»±c. Sá»‘ tiá»n hoÃ n thá»±c táº¿ sáº½ Ä‘Æ°á»£c cáº¥n trá»« Ä‘i giÃ¡ trá»‹ voucher Ä‘Ã£ sá»­ dá»¥ng.
                                                                                         </span>
                                                                                     </div>
                                                                                 </div>
                                                                             )}
 
-                                                                            {/* HOÀN TIỀN STATUS */}
+                                                                            {/* HOÃ€N TIá»€N STATUS */}
                                                                             {refundStatus !==
                                                                                 'none' && (
                                                                                 <div className='flex flex-col gap-1 mt-1'>
                                                                                     <div className='flex flex-wrap items-center gap-2'>
                                                                                         <span className='text-gray-500 dark:text-gray-300 text-xs'>
-                                                                                            Hoàn
-                                                                                            tiền:
+                                                                                            HoÃ n
+                                                                                            tiá»n:
                                                                                         </span>
                                                                                         <Tag
                                                                                             color={
@@ -1723,10 +1673,10 @@ const MyBookings: React.FC = () => {
                                                                                     {refundBillImage && (
                                                                                         <div className='mt-2 space-y-1'>
                                                                                             <span className='text-xs text-gray-500 dark:text-gray-300'>
-                                                                                                Ảnh
+                                                                                                áº¢nh
                                                                                                 bill
-                                                                                                chuyển
-                                                                                                khoản:
+                                                                                                chuyá»ƒn
+                                                                                                khoáº£n:
                                                                                             </span>
                                                                                             <a
                                                                                                 href={
@@ -1736,19 +1686,19 @@ const MyBookings: React.FC = () => {
                                                                                                 rel='noreferrer'
                                                                                                 className='text-xs text-emerald-600 underline hover:text-emerald-700'
                                                                                             >
-                                                                                                Mở
-                                                                                                ảnh
+                                                                                                Má»Ÿ
+                                                                                                áº£nh
                                                                                                 bill
                                                                                                 trong
                                                                                                 tab
-                                                                                                mới
+                                                                                                má»›i
                                                                                             </a>
                                                                                             <div className='mt-1'>
                                                                                                 <Image
                                                                                                     src={
                                                                                                         refundBillImage
                                                                                                     }
-                                                                                                    alt='Bill hoàn tiền'
+                                                                                                    alt='Bill hoÃ n tiá»n'
                                                                                                     className='max-h-64 rounded-md border cursor-pointer'
                                                                                                 />
                                                                                             </div>
@@ -1759,13 +1709,13 @@ const MyBookings: React.FC = () => {
                                                                                         'rejected' &&
                                                                                         refundAdminReason && (
                                                                                             <p className='mt-1 text-xs text-red-500'>
-                                                                                                Lý
+                                                                                                LÃ½
                                                                                                 do
                                                                                                 admin
-                                                                                                từ
-                                                                                                chối
-                                                                                                hoàn
-                                                                                                tiền:{' '}
+                                                                                                tá»«
+                                                                                                chá»‘i
+                                                                                                hoÃ n
+                                                                                                tiá»n:{' '}
                                                                                                 <span className='font-medium'>
                                                                                                     {
                                                                                                         refundAdminReason
@@ -1776,17 +1726,17 @@ const MyBookings: React.FC = () => {
                                                                                 </div>
                                                                             )}
 
-                                                                            {/* 2 dòng thiết bị đã trả / chưa trả */}
+                                                                            {/* 2 dÃ²ng thiáº¿t bá»‹ Ä‘Ã£ tráº£ / chÆ°a tráº£ */}
 
                                                                             {isRefunded &&
                                                                                 refundAmount >
                                                                                     0 && (
                                                                                     <p className='mt-1 text-xs text-emerald-600 font-semibold'>
-                                                                                        Đã hoàn trả:{' '}
+                                                                                        ÄÃ£ hoÃ n tráº£:{' '}
                                                                                         {refundAmount.toLocaleString(
                                                                                             'vi-VN'
                                                                                         )}{' '}
-                                                                                        ₫
+                                                                                        â‚«
                                                                                     </p>
                                                                                 )}
                                                                         </div>
@@ -1806,8 +1756,8 @@ const MyBookings: React.FC = () => {
                                                                                             )
                                                                                         }
                                                                                     >
-                                                                                        Yêu cầu hoàn
-                                                                                        tiền
+                                                                                        YÃªu cáº§u hoÃ n
+                                                                                        tiá»n
                                                                                     </Button>
                                                                                 )}
 
@@ -1827,16 +1777,16 @@ const MyBookings: React.FC = () => {
                                                                                             )
                                                                                         }
                                                                                     >
-                                                                                        Xem hóa đơn
+                                                                                        Xem hÃ³a Ä‘Æ¡n
                                                                                     </Button>
                                                                                 )}
 
-                                                                            {/* NÚT ĐÁNH GIÁ / HIỆN SAO */}
+                                                                            {/* NÃšT ÄÃNH GIÃ / HIá»†N SAO */}
                                                                             {booking.status === 'completed' && booking.paymentStatus === 'paid' && (
                                                                                 reviewMap[booking._id] ? (
                                                                                     <div className='flex flex-col items-end gap-1.5'>
                                                                                         <div className='flex items-center gap-2'>
-                                                                                            <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wide'>Đã đánh giá</span>
+                                                                                            <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wide'>ÄÃ£ Ä‘Ã¡nh giÃ¡</span>
                                                                                             <Rate disabled value={reviewMap[booking._id].rating} className='text-sm' style={{ fontSize: 12 }} />
                                                                                         </div>
                                                                                         <Button 
@@ -1845,7 +1795,7 @@ const MyBookings: React.FC = () => {
                                                                                             className='p-0 h-auto text-xs font-bold text-amber-600 hover:text-amber-700'
                                                                                             onClick={() => openReviewModal(booking, true)}
                                                                                         >
-                                                                                            Xem đánh giá của bạn
+                                                                                            Xem Ä‘Ã¡nh giÃ¡ cá»§a báº¡n
                                                                                         </Button>
                                                                                     </div>
                                                                                 ) : (
@@ -1860,7 +1810,7 @@ const MyBookings: React.FC = () => {
                                                                                         }}
                                                                                         onClick={() => openReviewModal(booking)}
                                                                                     >
-                                                                                        ⭐ Đánh giá sân
+                                                                                        â­ ÄÃ¡nh giÃ¡ sÃ¢n
                                                                                     </Button>
                                                                                 )
                                                                             )}
@@ -1874,11 +1824,11 @@ const MyBookings: React.FC = () => {
                                                                                     refundStatus
                                                                                 ) && (
                                                                                     <p className='text-xs text-blue-500 italic text-right'>
-                                                                                        Đã gửi yêu
-                                                                                        cầu hoàn
-                                                                                        tiền, vui
-                                                                                        lòng chờ
-                                                                                        admin xử lý.
+                                                                                        ÄÃ£ gá»­i yÃªu
+                                                                                        cáº§u hoÃ n
+                                                                                        tiá»n, vui
+                                                                                        lÃ²ng chá»
+                                                                                        admin xá»­ lÃ½.
                                                                                     </p>
                                                                                 )}
 
@@ -1887,8 +1837,8 @@ const MyBookings: React.FC = () => {
                                                                                 refundStatus ===
                                                                                     'refunded' && (
                                                                                     <p className='text-xs text-green-600 font-semibold text-right'>
-                                                                                        Đã hoàn tiền
-                                                                                        cho bạn.
+                                                                                        ÄÃ£ hoÃ n tiá»n
+                                                                                        cho báº¡n.
                                                                                     </p>
                                                                                 )}
                                                                         </div>
@@ -1901,7 +1851,7 @@ const MyBookings: React.FC = () => {
                                             </div>
                                         </div>
 
-                                        {/* RIGHT – tổng tiền + action cấp đơn */}
+                                        {/* RIGHT â€“ tá»•ng tiá»n + action cáº¥p Ä‘Æ¡n */}
                                         <div className='w-full md:w-[320px] shrink-0'>
                                             <div className='md:sticky md:top-24 bg-white dark:bg-gray-800 border-2 border-emerald-50 dark:border-gray-700 rounded-2xl shadow-md overflow-hidden'>
                                                 {/* Header */}
@@ -1909,19 +1859,19 @@ const MyBookings: React.FC = () => {
                                                     <div className='flex items-center justify-between'>
                                                         <div>
                                                             <p className='text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mb-0.5'>
-                                                                Tổng thanh toán
+                                                                Tá»•ng thanh toÃ¡n
                                                             </p>
                                                             <p className='text-[22px] font-black text-emerald-600 dark:text-emerald-400'>
                                                                 {groupTotal.toLocaleString('vi-VN')}
-                                                                <span className='text-sm font-semibold ml-1'>VNĐ</span>
+                                                                <span className='text-sm font-semibold ml-1'>VNÄ</span>
                                                             </p>
                                                         </div>
 
                                                         {discount > 0 && (
                                                             <div className='flex flex-col items-end'>
-                                                                <span className='text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5'>TIẾT KIỆM</span>
+                                                                <span className='text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5'>TIáº¾T KIá»†M</span>
                                                                 <span className='text-xs font-bold text-white bg-emerald-500 shadow-sm shadow-emerald-500/20 px-2 py-1 rounded-md'>
-                                                                    {discount.toLocaleString('vi-VN')} đ
+                                                                    {discount.toLocaleString('vi-VN')} Ä‘
                                                                 </span>
                                                             </div>
                                                         )}
@@ -1933,51 +1883,51 @@ const MyBookings: React.FC = () => {
                                                     <div className='space-y-2 text-sm'>
                                                         <div className='flex items-center justify-between'>
                                                             <span className='text-gray-600 dark:text-gray-300'>
-                                                                Tạm tính
+                                                                Táº¡m tÃ­nh
                                                             </span>
                                                             <span className='font-semibold text-gray-900 dark:text-gray-100'>
                                                                 {subtotal.toLocaleString('vi-VN')}{' '}
-                                                                VNĐ
+                                                                VNÄ
                                                             </span>
                                                         </div>
 
                                                         {discount > 0 && (
                                                             <div className='flex items-center justify-between'>
                                                                 <span className='text-gray-600 dark:text-gray-300'>
-                                                                    Giảm voucher
+                                                                    Giáº£m voucher
                                                                 </span>
                                                                 <span className='font-bold text-red-600'>
                                                                     -
                                                                     {discount.toLocaleString(
                                                                         'vi-VN'
                                                                     )}{' '}
-                                                                    VNĐ
+                                                                    VNÄ
                                                                 </span>
                                                             </div>
                                                         )}
 
                                                         <div className='border-t border-gray-200 dark:border-gray-700 pt-3 flex items-center justify-between'>
                                                             <span className='text-gray-700 dark:text-gray-300 font-semibold'>
-                                                                Tổng tiền đơn
+                                                                Tá»•ng tiá»n Ä‘Æ¡n
                                                             </span>
                                                             <span className='text-base font-extrabold text-gray-900 dark:text-gray-100'>
                                                                 {groupTotal.toLocaleString('vi-VN')}{' '}
-                                                                VNĐ
+                                                                VNÄ
                                                             </span>
                                                         </div>
 
-                                                        {/* Sẽ thanh toán */}
+                                                        {/* Sáº½ thanh toÃ¡n */}
                                                         {eligiblePayIds.length > 0 &&
                                                             selectedCount > 0 && (
                                                                 <div className='mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center justify-between'>
                                                                     <span className='text-emerald-700 text-xs font-semibold'>
-                                                                        Sẽ thanh toán
+                                                                        Sáº½ thanh toÃ¡n
                                                                     </span>
                                                                     <span className='text-emerald-700 font-extrabold'>
                                                                         {selectedPayAmount.toLocaleString(
                                                                             'vi-VN'
                                                                         )}{' '}
-                                                                        VNĐ
+                                                                        VNÄ
                                                                     </span>
                                                                 </div>
                                                             )}
@@ -1985,7 +1935,7 @@ const MyBookings: React.FC = () => {
 
                                                     {/* Actions */}
                                                     <div className='mt-4 space-y-3'>
-                                                        {/* CHỌN TẤT CẢ (THANH TOÁN LẠI) */}
+                                                        {/* CHá»ŒN Táº¤T Cáº¢ (THANH TOÃN Láº I) */}
                                                         {showSelectAll && (
                                                             <div className='flex justify-end'>
                                                                 <Checkbox
@@ -1999,12 +1949,12 @@ const MyBookings: React.FC = () => {
                                                                         )
                                                                     }
                                                                 >
-                                                                    Chọn tất cả
+                                                                    Chá»n táº¥t cáº£
                                                                 </Checkbox>
                                                             </div>
                                                         )}
 
-                                                        {/* THANH TOÁN LẠI THEO CA ĐÃ CHỌN */}
+                                                        {/* THANH TOÃN Láº I THEO CA ÄÃƒ CHá»ŒN */}
                                                         {eligiblePayIds.length > 0 && (
                                                             <Button
                                                                 type='primary'
@@ -2038,16 +1988,16 @@ const MyBookings: React.FC = () => {
                                                                     )
                                                                 }
                                                             >
-                                                                💳{' '}
+                                                                ðŸ’³{' '}
                                                                 {selectedPayBookings.length > 0
-                                                                    ? `Thanh toán lại (${selectedPayBookings.length}) • ${selectedPayAmount.toLocaleString(
+                                                                    ? `Thanh toÃ¡n láº¡i (${selectedPayBookings.length}) â€¢ ${selectedPayAmount.toLocaleString(
                                                                           'vi-VN'
-                                                                      )} VNĐ`
-                                                                    : 'Thanh toán lại'}
+                                                                      )} VNÄ`
+                                                                    : 'Thanh toÃ¡n láº¡i'}
                                                             </Button>
                                                         )}
 
-                                                        {/* (GIỮ) NÚT PAY AGAIN GROUP nếu group không dùng checkbox */}
+                                                        {/* (GIá»®) NÃšT PAY AGAIN GROUP náº¿u group khÃ´ng dÃ¹ng checkbox */}
                                                         {canPayAgainGroup &&
                                                             eligiblePayIds.length === 0 && (
                                                                 <Button
@@ -2073,19 +2023,19 @@ const MyBookings: React.FC = () => {
                                                                         handlePayAgainGroup(group)
                                                                     }
                                                                 >
-                                                                    💳{' '}
+                                                                    ðŸ’³{' '}
                                                                     {payingBookingId &&
                                                                     group.bookings.some(
                                                                         (b: any) =>
                                                                             b._id ===
                                                                             payingBookingId
                                                                     )
-                                                                        ? 'Đang chuyển tới VNPay...'
-                                                                        : 'Thanh toán lại'}
+                                                                        ? 'Äang chuyá»ƒn tá»›i VNPay...'
+                                                                        : 'Thanh toÃ¡n láº¡i'}
                                                                 </Button>
                                                             )}
 
-                                                        {/* CHỌN TẤT CẢ (HỦY) */}
+                                                        {/* CHá»ŒN Táº¤T Cáº¢ (Há»¦Y) */}
                                                         {showSelectAllCancel && (
                                                             <div className='flex justify-end'>
                                                                 <Checkbox
@@ -2101,12 +2051,12 @@ const MyBookings: React.FC = () => {
                                                                         )
                                                                     }
                                                                 >
-                                                                    Chọn tất cả để hủy
+                                                                    Chá»n táº¥t cáº£ Ä‘á»ƒ há»§y
                                                                 </Checkbox>
                                                             </div>
                                                         )}
 
-                                                        {/* HỦY THEO CA ĐÃ CHỌN */}
+                                                        {/* Há»¦Y THEO CA ÄÃƒ CHá»ŒN */}
                                                         {eligibleCancelIds.length > 0 && (
                                                             <Button
                                                                 danger
@@ -2134,14 +2084,14 @@ const MyBookings: React.FC = () => {
                                                                     )
                                                                 }
                                                             >
-                                                                ❌{' '}
+                                                                âŒ{' '}
                                                                 {selectedCancelIds.length > 0
-                                                                    ? `Hủy (${selectedCancelIds.length}) ca đã chọn`
-                                                                    : 'Hủy đã chọn'}
+                                                                    ? `Há»§y (${selectedCancelIds.length}) ca Ä‘Ã£ chá»n`
+                                                                    : 'Há»§y Ä‘Ã£ chá»n'}
                                                             </Button>
                                                         )}
 
-                                                        {/* HOÀN THEO GROUP */}
+                                                        {/* HOÃ€N THEO GROUP */}
                                                         {canRequestRefundGroup && (
                                                             <Button
                                                                 size='middle'
@@ -2157,7 +2107,7 @@ const MyBookings: React.FC = () => {
                                                                     openRefundModal(group.bookings)
                                                                 }
                                                             >
-                                                                💰 Yêu cầu hoàn tiền
+                                                                ðŸ’° YÃªu cáº§u hoÃ n tiá»n
                                                             </Button>
                                                         )}
                                                     </div>
@@ -2172,7 +2122,7 @@ const MyBookings: React.FC = () => {
                 </div>
             </div>
 
-            {/* ========== MODAL ĐÁNH GIÁ SÂN ========== */}
+            {/* ========== MODAL ÄÃNH GIÃ SÃ‚N ========== */}
             <Modal
                 open={reviewModalOpen}
                 onCancel={() => setReviewModalOpen(false)}
@@ -2183,38 +2133,38 @@ const MyBookings: React.FC = () => {
                 destroyOnHidden
             >
                 <div className='text-center mb-6'>
-                    <div className='w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center mx-auto mb-3 text-3xl'>⭐</div>
+                    <div className='w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center mx-auto mb-3 text-3xl'>â­</div>
                     <h3 className='text-xl font-black text-gray-900 dark:text-white'>
-                        {isViewOnlyReview ? 'Đánh giá của bạn' : 'Đánh giá sân bóng'}
+                        {isViewOnlyReview ? 'ÄÃ¡nh giÃ¡ cá»§a báº¡n' : 'ÄÃ¡nh giÃ¡ sÃ¢n bÃ³ng'}
                     </h3>
                     {reviewingBooking && (
                         <p className='text-sm text-gray-500 dark:text-gray-400 mt-1'>
-                            {reviewingBooking.courtId?.name} &bull; {reviewingBooking.startTime} – {reviewingBooking.endTime}
+                            {reviewingBooking.courtId?.name} &bull; {reviewingBooking.startTime} â€“ {reviewingBooking.endTime}
                         </p>
                     )}
                 </div>
 
                 <Form form={reviewForm} layout='vertical'>
                     <Form.Item
-                        label={<span className='text-xs font-black text-gray-500 uppercase tracking-wider'>Số sao chất lượng sân</span>}
+                        label={<span className='text-xs font-black text-gray-500 uppercase tracking-wider'>Sá»‘ sao cháº¥t lÆ°á»£ng sÃ¢n</span>}
                         name='rating'
-                        rules={[{ required: true, message: 'Vui lòng chọn số sao!' }]}
+                        rules={[{ required: true, message: 'Vui lÃ²ng chá»n sá»‘ sao!' }]}
                     >
                         <Rate disabled={isViewOnlyReview} allowClear={false} style={{ fontSize: 32, color: '#fadb14' }} />
                     </Form.Item>
 
                     <Form.Item
-                        label={<span className='text-xs font-black text-gray-500 uppercase tracking-wider'>Nhận xét của bạn</span>}
+                        label={<span className='text-xs font-black text-gray-500 uppercase tracking-wider'>Nháº­n xÃ©t cá»§a báº¡n</span>}
                         name='comment'
                         rules={[
-                            { required: true, message: 'Vui lòng nhập nhận xét!' },
-                            { min: 5, message: 'Tối thiểu 5 ký tự' },
+                            { required: true, message: 'Vui lÃ²ng nháº­p nháº­n xÃ©t!' },
+                            { min: 5, message: 'Tá»‘i thiá»ƒu 5 kÃ½ tá»±' },
                         ]}
                     >
                         <Input.TextArea
                             rows={4}
                             disabled={isViewOnlyReview}
-                            placeholder='Chia sẻ trải nghiệm của bạn về sân bóng này...'
+                            placeholder='Chia sáº» tráº£i nghiá»‡m cá»§a báº¡n vá» sÃ¢n bÃ³ng nÃ y...'
                             showCount={!isViewOnlyReview}
                             maxLength={300}
                             className='rounded-xl'
@@ -2227,12 +2177,12 @@ const MyBookings: React.FC = () => {
                         className='mb-2'
                     >
                         <Checkbox disabled={isViewOnlyReview} className='text-sm text-gray-600 dark:text-gray-400 font-semibold'>
-                            Đánh giá ẩn danh (Mọi người sẽ không thấy tên bạn)
+                            ÄÃ¡nh giÃ¡ áº©n danh (Má»i ngÆ°á»i sáº½ khÃ´ng tháº¥y tÃªn báº¡n)
                         </Checkbox>
                     </Form.Item>
                 </Form>
 
-                {/* THÔNG TIN SÂN BÊN DƯỚI BÌNH LUẬN */}
+                {/* THÃ”NG TIN SÃ‚N BÃŠN DÆ¯á»šI BÃŒNH LUáº¬N */}
                 {reviewingBooking?.courtId && (
                     <div className='mt-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-2xl flex items-center gap-4 border border-gray-100 dark:border-gray-700/50'>
                         <div className='w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-white dark:border-gray-700 shadow-sm'>
@@ -2243,9 +2193,9 @@ const MyBookings: React.FC = () => {
                             />
                         </div>
                         <div className='min-w-0'>
-                            <p className='text-xs font-black text-gray-500 uppercase tracking-widest leading-none mb-1.5'>Đánh giá cho sân</p>
+                            <p className='text-xs font-black text-gray-500 uppercase tracking-widest leading-none mb-1.5'>ÄÃ¡nh giÃ¡ cho sÃ¢n</p>
                             <h4 className='text-sm font-bold text-gray-900 dark:text-gray-100 truncate'>{reviewingBooking.courtId?.name}</h4>
-                            <p className='text-[10px] text-gray-400 font-medium mt-0.5'>{reviewingBooking.courtId?.location || 'Địa chỉ sân bóng'}</p>
+                            <p className='text-[10px] text-gray-400 font-medium mt-0.5'>{reviewingBooking.courtId?.location || 'Äá»‹a chá»‰ sÃ¢n bÃ³ng'}</p>
                         </div>
                     </div>
                 )}
@@ -2255,7 +2205,7 @@ const MyBookings: React.FC = () => {
                         onClick={() => setReviewModalOpen(false)}
                         className='flex-1 py-3 rounded-xl font-bold text-gray-500 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors'
                     >
-                        {isViewOnlyReview ? 'Đóng' : 'Hủy bỏ'}
+                        {isViewOnlyReview ? 'ÄÃ³ng' : 'Há»§y bá»'}
                     </button>
                     {isViewOnlyReview ? (
                         <button
@@ -2263,7 +2213,7 @@ const MyBookings: React.FC = () => {
                             className='flex-1 py-3 rounded-xl font-black text-white transition-all hover:scale-[1.02] active:scale-95 shadow-md shadow-emerald-200 dark:shadow-none'
                             style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
                         >
-                            ✍️ Sửa đánh giá
+                            âœï¸ Sá»­a Ä‘Ã¡nh giÃ¡
                         </button>
                     ) : (
                         <button
@@ -2272,13 +2222,13 @@ const MyBookings: React.FC = () => {
                             className='flex-1 py-3 rounded-xl font-black text-white transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-95 shadow-md shadow-amber-200 dark:shadow-none'
                             style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
                         >
-                            {submittingReview ? 'Đang gửi...' : '⭐ Gửi đánh giá'}
+                            {submittingReview ? 'Äang gá»­i...' : 'â­ Gá»­i Ä‘Ã¡nh giÃ¡'}
                         </button>
                     )}
                 </div>
             </Modal>
 
-            {/* MODAL HỦY (ĐẸP) */}
+            {/* MODAL Há»¦Y (Äáº¸P) */}
             <Modal
                 centered
                 open={isCancelModalOpen}
@@ -2295,11 +2245,11 @@ const MyBookings: React.FC = () => {
 
                         <div className='flex-1'>
                             <div className='text-base font-semibold text-gray-900 dark:text-gray-100'>
-                                Xác nhận hủy đơn đặt sân
+                                XÃ¡c nháº­n há»§y Ä‘Æ¡n Ä‘áº·t sÃ¢n
                             </div>
                             <div className='text-sm text-gray-600 dark:text-gray-300 mt-1'>
-                                Bạn đang hủy <b>{selectedBookingIds.length}</b> ca. Vui lòng nhập lý
-                                do để chúng tôi hỗ trợ tốt hơn.
+                                Báº¡n Ä‘ang há»§y <b>{selectedBookingIds.length}</b> ca. Vui lÃ²ng nháº­p lÃ½
+                                do Ä‘á»ƒ chÃºng tÃ´i há»— trá»£ tá»‘t hÆ¡n.
                             </div>
                         </div>
                     </div>
@@ -2307,15 +2257,15 @@ const MyBookings: React.FC = () => {
                     {/* Box note */}
                     <div className='rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3 text-sm text-gray-700 dark:text-gray-300'>
                         <ul className='list-disc pl-5 space-y-1'>
-                            <li>Lý do sẽ được gửi cho quản lý sân để xác nhận.</li>
-                            <li>Hãy mô tả ngắn gọn và rõ ràng.</li>
+                            <li>LÃ½ do sáº½ Ä‘Æ°á»£c gá»­i cho quáº£n lÃ½ sÃ¢n Ä‘á»ƒ xÃ¡c nháº­n.</li>
+                            <li>HÃ£y mÃ´ táº£ ngáº¯n gá»n vÃ  rÃµ rÃ ng.</li>
                         </ul>
                     </div>
 
-                    {/* danh sách ca đang hủy (xịn) */}
+                    {/* danh sÃ¡ch ca Ä‘ang há»§y (xá»‹n) */}
                     {selectedBookingIds.length > 0 && (
                         <div className='rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 text-xs text-gray-700 dark:text-gray-300'>
-                            <div className='font-semibold mb-2'>Các ca sẽ hủy:</div>
+                            <div className='font-semibold mb-2'>CÃ¡c ca sáº½ há»§y:</div>
                             <div className='space-y-1 max-h-24 overflow-auto pr-1'>
                                 {bookings
                                     .filter((b) => selectedBookingIds.includes(b._id))
@@ -2331,7 +2281,7 @@ const MyBookings: React.FC = () => {
                                         return (
                                             <div key={b._id} className='flex justify-between'>
                                                 <span className='truncate pr-2'>
-                                                    {b.courtId?.name || 'Sân'}
+                                                    {b.courtId?.name || 'SÃ¢n'}
                                                 </span>
                                                 <span className='font-medium'>{times}</span>
                                             </div>
@@ -2344,7 +2294,7 @@ const MyBookings: React.FC = () => {
                     {/* Textarea note */}
                     <div>
                         <div className='flex items-center justify-between mb-2'>
-                            <span className='text-sm font-medium text-gray-800 dark:text-gray-200'>Lý do hủy *</span>
+                            <span className='text-sm font-medium text-gray-800 dark:text-gray-200'>LÃ½ do há»§y *</span>
                             <span
                                 className={`text-xs ${
                                     buildCancelReason(cancelReasonTags, cancelNote).trim()
@@ -2353,8 +2303,8 @@ const MyBookings: React.FC = () => {
                                 }`}
                             >
                                 {buildCancelReason(cancelReasonTags, cancelNote).trim()
-                                    ? 'Hợp lệ'
-                                    : 'Bắt buộc'}
+                                    ? 'Há»£p lá»‡'
+                                    : 'Báº¯t buá»™c'}
                             </span>
                         </div>
 
@@ -2363,9 +2313,9 @@ const MyBookings: React.FC = () => {
                             onChange={(e) => {
                                 const v = e.target.value;
                                 setCancelNote(v);
-                                setCancelReason(buildCancelReason(cancelReasonTags, v)); // giữ cancelReason
+                                setCancelReason(buildCancelReason(cancelReasonTags, v)); // giá»¯ cancelReason
                             }}
-                            placeholder='Ghi chú thêm (không bắt buộc)...'
+                            placeholder='Ghi chÃº thÃªm (khÃ´ng báº¯t buá»™c)...'
                             showCount
                             maxLength={500}
                             rows={4}
@@ -2387,7 +2337,7 @@ const MyBookings: React.FC = () => {
                                                     : [...prev, t];
                                                 setCancelReason(
                                                     buildCancelReason(next, cancelNote)
-                                                ); // giữ cancelReason
+                                                ); // giá»¯ cancelReason
                                                 return next;
                                             });
                                         }}
@@ -2405,37 +2355,37 @@ const MyBookings: React.FC = () => {
                             })}
                         </div>
 
-                        {/* preview reason gửi đi */}
+                        {/* preview reason gá»­i Ä‘i */}
                         <div className='mt-2 text-xs text-gray-500 dark:text-gray-300'>
-                            <span className='font-semibold'>Lý do gửi đi:</span>{' '}
+                            <span className='font-semibold'>LÃ½ do gá»­i Ä‘i:</span>{' '}
                             <span className='text-gray-700 dark:text-gray-300'>
-                                {buildCancelReason(cancelReasonTags, cancelNote) || '—'}
+                                {buildCancelReason(cancelReasonTags, cancelNote) || 'â€”'}
                             </span>
                         </div>
 
                         {buildCancelReason(cancelReasonTags, cancelNote).trim().length === 0 && (
                             <div className='mt-2 text-xs text-red-500'>
-                                Vui lòng chọn lý do hoặc nhập ghi chú trước khi xác nhận.
+                                Vui lÃ²ng chá»n lÃ½ do hoáº·c nháº­p ghi chÃº trÆ°á»›c khi xÃ¡c nháº­n.
                             </div>
                         )}
                     </div>
 
                     {/* Actions */}
                     <div className='flex justify-end gap-2 pt-2'>
-                        <Button onClick={closeCancelModal}>Đóng</Button>
+                        <Button onClick={closeCancelModal}>ÄÃ³ng</Button>
                         <Button
                             type='primary'
                             danger
                             disabled={!cancelReason.trim()}
                             onClick={handleConfirmCancel}
                         >
-                            Xác nhận hủy
+                            XÃ¡c nháº­n há»§y
                         </Button>
                     </div>
                 </div>
             </Modal>
 
-            {/*  MODAL CẢNH BÁO VOUCHER (STEP 1) */}
+            {/*  MODAL Cáº¢NH BÃO VOUCHER (STEP 1) */}
             <Modal
                 centered
                 open={isCancelWarnOpen}
@@ -2452,13 +2402,13 @@ const MyBookings: React.FC = () => {
 
                         <div className='flex-1'>
                             <div className='text-base font-semibold text-gray-900 dark:text-gray-100'>
-                                Voucher sẽ mất hiệu lực khi hủy một phần
+                                Voucher sáº½ máº¥t hiá»‡u lá»±c khi há»§y má»™t pháº§n
                             </div>
 
                             <div className='text-sm text-gray-600 dark:text-gray-300 mt-1'>
-                                Bạn đang hủy <b>{pendingCancelIds.length}</b> /{' '}
-                                <b>{cancelWarnMeta.totalCount}</b> ca trong đơn. Voucher đã áp dụng
-                                cho đơn này sẽ <b>không được hoàn lại</b>.
+                                Báº¡n Ä‘ang há»§y <b>{pendingCancelIds.length}</b> /{' '}
+                                <b>{cancelWarnMeta.totalCount}</b> ca trong Ä‘Æ¡n. Voucher Ä‘Ã£ Ã¡p dá»¥ng
+                                cho Ä‘Æ¡n nÃ y sáº½ <b>khÃ´ng Ä‘Æ°á»£c hoÃ n láº¡i</b>.
                             </div>
                         </div>
                     </div>
@@ -2466,16 +2416,16 @@ const MyBookings: React.FC = () => {
                     {/* Detail box */}
                     <div className='rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-100'>
                         <ul className='list-disc pl-5 space-y-1'>
-                            <li>Bạn chỉ nên hủy một phần nếu thật sự cần thiết.</li>
+                            <li>Báº¡n chá»‰ nÃªn há»§y má»™t pháº§n náº¿u tháº­t sá»± cáº§n thiáº¿t.</li>
                             {cancelWarnMeta.discount > 0 && (
                                 <li>
-                                    Voucher đang giảm:{' '}
+                                    Voucher Ä‘ang giáº£m:{' '}
                                     <b className='text-amber-700 dark:text-amber-400'>
-                                        {cancelWarnMeta.discount.toLocaleString('vi-VN')} VNĐ
+                                        {cancelWarnMeta.discount.toLocaleString('vi-VN')} VNÄ
                                     </b>
                                 </li>
                             )}
-                            <li>Nếu bạn muốn hủy toàn bộ, hệ thống sẽ bỏ qua cảnh báo này.</li>
+                            <li>Náº¿u báº¡n muá»‘n há»§y toÃ n bá»™, há»‡ thá»‘ng sáº½ bá» qua cáº£nh bÃ¡o nÃ y.</li>
                         </ul>
                     </div>
 
@@ -2484,25 +2434,25 @@ const MyBookings: React.FC = () => {
                         checked={cancelAgree}
                         onChange={(e) => setCancelAgree(e.target.checked)}
                     >
-                        Tôi đã hiểu và đồng ý tiếp tục
+                        TÃ´i Ä‘Ã£ hiá»ƒu vÃ  Ä‘á»“ng Ã½ tiáº¿p tá»¥c
                     </Checkbox>
 
                     {/* Actions */}
                     <div className='flex justify-end gap-2 pt-2'>
-                        <Button onClick={closeCancelWarn}>Đóng</Button>
+                        <Button onClick={closeCancelWarn}>ÄÃ³ng</Button>
                         <Button
                             type='primary'
                             danger
                             disabled={!cancelAgree}
                             onClick={handleAcceptCancelWarn}
                         >
-                            Tiếp tục
+                            Tiáº¿p tá»¥c
                         </Button>
                     </div>
                 </div>
             </Modal>
 
-            {/* MODAL HOÀN TIỀN */}
+            {/* MODAL HOÃ€N TIá»€N */}
             <Modal
                 centered
                 open={isRefundModalOpen}
@@ -2517,7 +2467,7 @@ const MyBookings: React.FC = () => {
                 }}
                 closeIcon={
                     <div className='w-8 h-8 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 transition-colors z-100'>
-                        <span className='text-gray-600 dark:text-gray-300 font-bold'>✕</span>
+                        <span className='text-gray-600 dark:text-gray-300 font-bold'>âœ•</span>
                     </div>
                 }
                 destroyOnHidden
@@ -2533,13 +2483,13 @@ const MyBookings: React.FC = () => {
                     
                     <div className='relative z-10 flex flex-col items-center'>
                         <div className='w-16 h-16 bg-white dark:bg-gray-800 rounded-full shadow-md mx-auto flex items-center justify-center mb-4 border-2 border-indigo-100 dark:border-indigo-800/50 transform transition hover:scale-105'>
-                            <span className='text-3xl filter drop-shadow-sm'>🏦</span>
+                            <span className='text-3xl filter drop-shadow-sm'>ðŸ¦</span>
                         </div>
                         <h3 className='text-2xl font-black text-gray-900 dark:text-gray-100 mb-1.5'>
-                            Yêu cầu hoàn tiền
+                            YÃªu cáº§u hoÃ n tiá»n
                         </h3>
                         <p className='text-gray-500 dark:text-gray-400 text-sm'>
-                            Vui lòng nhập thông tin tài khoản ngân hàng để nhận tiền
+                            Vui lÃ²ng nháº­p thÃ´ng tin tÃ i khoáº£n ngÃ¢n hÃ ng Ä‘á»ƒ nháº­n tiá»n
                         </p>
                     </div>
                 </div>
@@ -2548,7 +2498,7 @@ const MyBookings: React.FC = () => {
                 <div className='px-6 pt-5 pb-7 bg-white dark:bg-gray-800'>
                     <div className='space-y-4'>
                         <div>
-                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>Số tài khoản <span className="text-red-500">*</span></span>
+                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>Sá»‘ tÃ i khoáº£n <span className="text-red-500">*</span></span>
                             <Input
                                 size="large"
                                 className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 hover:border-indigo-300 focus:border-indigo-500"
@@ -2562,7 +2512,7 @@ const MyBookings: React.FC = () => {
                         </div>
 
                         <div>
-                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>Tên chủ tài khoản <span className="text-red-500">*</span></span>
+                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>TÃªn chá»§ tÃ i khoáº£n <span className="text-red-500">*</span></span>
                             <Input
                                 size="large"
                                 className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 hover:border-indigo-300 focus:border-indigo-500"
@@ -2576,14 +2526,14 @@ const MyBookings: React.FC = () => {
                         </div>
 
                         <div>
-                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>Ngân hàng <span className="text-red-500">*</span></span>
+                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>NgÃ¢n hÃ ng <span className="text-red-500">*</span></span>
                             <Input
                                 size="large"
                                 className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 hover:border-indigo-300 focus:border-indigo-500"
                                 value={refundForm.bankName}
                                 onChange={(e) => {
                                     const value = e.target.value
-                                        .replace(/[^A-Za-zÀ-ỹà-ỹ\s]/g, '')
+                                        .replace(/[^A-Za-zÃ€-á»¹Ã -á»¹\s]/g, '')
                                         .toUpperCase();
                                     setRefundForm((prev) => ({ ...prev, bankName: value }));
                                 }}
@@ -2592,7 +2542,7 @@ const MyBookings: React.FC = () => {
                         </div>
 
                         <div className='mb-6'>
-                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>Ghi chú thêm (không bắt buộc)</span>
+                            <span className='block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5'>Ghi chÃº thÃªm (khÃ´ng báº¯t buá»™c)</span>
                             <Input.TextArea
                                 className="rounded-xl bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 focus:bg-white dark:focus:bg-gray-800 hover:border-indigo-300 focus:border-indigo-500"
                                 rows={3}
@@ -2602,7 +2552,7 @@ const MyBookings: React.FC = () => {
                                 onChange={(e) =>
                                     setRefundForm((prev) => ({ ...prev, note: e.target.value }))
                                 }
-                                placeholder='VD: Chuyển giúp em trong giờ hành chính...'
+                                placeholder='VD: Chuyá»ƒn giÃºp em trong giá» hÃ nh chÃ­nh...'
                             />
                             <div className="mt-8"></div> {/* Spacer for absolute counter */}
                         </div>
@@ -2623,7 +2573,7 @@ const MyBookings: React.FC = () => {
                             className='w-1/3 hover:bg-gray-100 hover:text-gray-800 dark:border-gray-700 dark:text-gray-300 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center'
                             onClick={closeRefundModal}
                         >
-                            Hủy bỏ
+                            Há»§y bá»
                         </Button>
                         <Button 
                             type="primary"
@@ -2639,13 +2589,13 @@ const MyBookings: React.FC = () => {
                             className='flex-1 hover:opacity-90 transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center'
                             onClick={handleSubmitRefund}
                         >
-                            Gửi yêu cầu hoàn tiền
+                            Gá»­i yÃªu cáº§u hoÃ n tiá»n
                         </Button>
                     </div>
                 </div>
             </Modal>
 
-            {/* MODAL CHỌN PHƯƠNG THỨC THANH TOÁN KHI RETRY */}
+            {/* MODAL CHá»ŒN PHÆ¯Æ NG THá»¨C THANH TOÃN KHI RETRY */}
             <Modal
                 centered
                 open={isRetryMethodModalOpen}
@@ -2663,7 +2613,7 @@ const MyBookings: React.FC = () => {
                 }}
                 closeIcon={
                     <div className='w-8 h-8 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 transition-colors z-100'>
-                        <span className='text-gray-600 dark:text-gray-300 font-bold'>✕</span>
+                        <span className='text-gray-600 dark:text-gray-300 font-bold'>âœ•</span>
                     </div>
                 }
             >
@@ -2678,13 +2628,13 @@ const MyBookings: React.FC = () => {
                     
                     <div className='relative z-10 flex flex-col items-center'>
                         <div className='w-16 h-16 bg-white dark:bg-gray-800 rounded-full shadow-md mx-auto flex items-center justify-center mb-4 border-2 border-emerald-100 dark:border-emerald-800/50 transform transition hover:scale-105'>
-                            <span className='text-3xl filter drop-shadow-sm'>💳</span>
+                            <span className='text-3xl filter drop-shadow-sm'>ðŸ’³</span>
                         </div>
                         <h3 className='text-2xl font-black text-gray-900 dark:text-gray-100 mb-1.5'>
-                            Thanh toán đơn hàng
+                            Thanh toÃ¡n Ä‘Æ¡n hÃ ng
                         </h3>
                         <p className='text-gray-500 dark:text-gray-400 text-sm'>
-                            Vui lòng chọn phương thức thanh toán để tiếp tục
+                            Vui lÃ²ng chá»n phÆ°Æ¡ng thá»©c thanh toÃ¡n Ä‘á»ƒ tiáº¿p tá»¥c
                         </p>
                     </div>
                 </div>
@@ -2693,16 +2643,16 @@ const MyBookings: React.FC = () => {
                 <div className='px-6 pt-5 pb-7 bg-white dark:bg-gray-800'>
                     {/* Amount info */}
                     <div className='flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl mb-6 border border-gray-100 dark:border-gray-700/50'>
-                        <span className='text-gray-600 dark:text-gray-400 font-medium'>Số tiền cần thanh toán</span>
+                        <span className='text-gray-600 dark:text-gray-400 font-medium'>Sá»‘ tiá»n cáº§n thanh toÃ¡n</span>
                         <span className='text-xl font-black text-emerald-600 dark:text-emerald-400'>
-                            {retryAmount.toLocaleString('vi-VN')} VNĐ
+                            {retryAmount.toLocaleString('vi-VN')} VNÄ
                         </span>
                     </div>
 
                     <div className='space-y-3 mb-8'>
                         {[
-                            { value: 'vnpay', label: 'Thanh toán qua VNPay', desc: 'Thẻ nội địa, thẻ quốc tế, quét mã QR', iconImage: 'https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png' },
-                            { value: 'zalopay', label: 'Thanh toán qua ZaloPay', desc: 'Ví ZaloPay, thẻ ATM, thẻ quốc tế', iconImage: 'https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png' },
+                            { value: 'vnpay', label: 'Thanh toÃ¡n qua VNPay', desc: 'Tháº» ná»™i Ä‘á»‹a, tháº» quá»‘c táº¿, quÃ©t mÃ£ QR', iconImage: 'https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png' },
+                            { value: 'zalopay', label: 'Thanh toÃ¡n qua ZaloPay', desc: 'VÃ­ ZaloPay, tháº» ATM, tháº» quá»‘c táº¿', iconImage: 'https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png' },
                         ].map((method) => (
                             <label
                                 key={method.value}
@@ -2753,31 +2703,31 @@ const MyBookings: React.FC = () => {
                                 setPayingBookingId(null);
                             }}
                         >
-                            Hủy bỏ
+                            Há»§y bá»
                         </Button>
                         <Button 
                             className='flex-1 h-12 rounded-xl font-bold bg-linear-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:-translate-y-0.5 text-white border-none transition-all duration-200 outline-none flex items-center justify-center gap-1.5'
                             onClick={confirmRetryPayment}
                         >
-                            <span>Thanh toán</span>
+                            <span>Thanh toÃ¡n</span>
                             <span className='w-1 h-1 bg-white/70 rounded-full mx-0.5'></span>
                             <span>{retryMethod === 'vnpay' ? 'VNPay' : 'ZaloPay'}</span>
                         </Button>
                     </div>
                 </div>
             </Modal>
-            {/* MODAL QR THANH TOÁN THỦ CÔNG */}
+            {/* MODAL QR THANH TOÃN THá»¦ CÃ”NG */}
             <Modal
                 title={
                     <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-400 font-black text-lg">
-                        <span>📲 Quét mã bằng ứng dụng ZaloPay / Ngân hàng</span>
+                        <span>ðŸ“² QuÃ©t mÃ£ báº±ng á»©ng dá»¥ng ZaloPay / NgÃ¢n hÃ ng</span>
                     </div>
                 }
                 open={showQrModal}
                 onCancel={() => setShowQrModal(false)}
                 footer={[
                     <Button key="close" type="primary" onClick={() => setShowQrModal(false)} className="bg-blue-600 hover:bg-blue-500 font-bold px-8">
-                        Đã thanh toán xong
+                        ÄÃ£ thanh toÃ¡n xong
                     </Button>
                 ]}
                 centered
@@ -2793,15 +2743,15 @@ const MyBookings: React.FC = () => {
                             <div className="mt-4 w-full bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-slate-500 dark:text-slate-400">Ngân hàng:</span>
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">NgÃ¢n hÃ ng:</span>
                                         <span className="font-bold text-slate-800 dark:text-slate-200">{qrData.bankName}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-slate-500 dark:text-slate-400">Chủ tài khoản:</span>
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Chá»§ tÃ i khoáº£n:</span>
                                         <span className="font-bold text-slate-800 dark:text-slate-200">{qrData.accountName}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-slate-500 dark:text-slate-400">Số tài khoản:</span>
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Sá»‘ tÃ i khoáº£n:</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-black text-blue-600 dark:text-blue-400 tracking-wider">{qrData.accountNo}</span>
                                             <Button 
@@ -2809,7 +2759,7 @@ const MyBookings: React.FC = () => {
                                                 size="small" 
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(qrData.accountNo || '');
-                                                    toast.success('Đã copy số tài khoản!');
+                                                    toast.success('ÄÃ£ copy sá»‘ tÃ i khoáº£n!');
                                                 }}
                                                 className="text-blue-600 hover:bg-blue-50"
                                             >
@@ -2818,7 +2768,7 @@ const MyBookings: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm text-slate-500 dark:text-slate-400">Nội dung:</span>
+                                        <span className="text-sm text-slate-500 dark:text-slate-400">Ná»™i dung:</span>
                                         <div className="flex items-center gap-2">
                                             <span className="font-mono font-medium text-slate-800 dark:text-slate-200 text-xs max-w-[150px] truncate">{qrData.addInfo}</span>
                                             <Button 
@@ -2826,7 +2776,7 @@ const MyBookings: React.FC = () => {
                                                 size="small" 
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(qrData.addInfo || '');
-                                                    toast.success('Đã copy nội dung!');
+                                                    toast.success('ÄÃ£ copy ná»™i dung!');
                                                 }}
                                                 className="text-blue-600 hover:bg-blue-50"
                                             >
@@ -2835,9 +2785,9 @@ const MyBookings: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Số tiền:</span>
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Sá»‘ tiá»n:</span>
                                         <span className="text-xl font-black text-rose-600 dark:text-rose-400">
-                                            {qrData.amount.toLocaleString('vi-VN')} đ
+                                            {qrData.amount.toLocaleString('vi-VN')} Ä‘
                                         </span>
                                     </div>
                                 </div>
