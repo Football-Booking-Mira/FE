@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -2533,7 +2533,7 @@ const MyBookings: React.FC = () => {
                                 value={refundForm.bankName}
                                 onChange={(e) => {
                                     const value = e.target.value
-                                        .replace(/[^A-Za-zÃ€-á»¹Ã -á»¹\s]/g, '')
+                                        .replace(/[^A-Za-z\u00C0-\u1EF9\s]/g, '')
                                         .toUpperCase();
                                     setRefundForm((prev) => ({ ...prev, bankName: value }));
                                 }}
