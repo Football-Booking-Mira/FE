@@ -1207,16 +1207,33 @@ export default function BookingList() {
             key: 'time',
             render: (b: any) => {
                 if (b.isGroup) {
+                    const flatSlots: any[] = [];
+                    b.groupedItems.forEach((booking: any) => {
+                        const slots = Array.isArray(booking.slots) && booking.slots.length > 0
+                            ? booking.slots
+                            : [{ startTime: booking.startTime, endTime: booking.endTime }];
+                        slots.forEach((slot: any) => {
+                            flatSlots.push({
+                                slot,
+                                booking,
+                            });
+                        });
+                    });
+
+                    flatSlots.sort((x: any, y: any) =>
+                        String(x.slot.startTime).localeCompare(String(y.slot.startTime))
+                    );
+
                     return (
                         <div className="flex flex-col gap-1.5 py-1">
-                            {b.groupedItems.map((s: any, idx: number) => (
+                            {flatSlots.map((item: any, idx: number) => (
                                 <div key={idx} className="flex items-center gap-2">
                                     <span className="shrink-0 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded leading-none border border-indigo-100 dark:border-indigo-500/20">
                                         Ca {idx+1}
                                     </span>
                                     <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50/50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 rounded border border-slate-100 dark:border-slate-700/50 text-[11px] font-bold">
                                         <Clock size={10} className="opacity-70" />
-                                        {s.startTime} - {s.endTime}
+                                        {item.slot.startTime} - {item.slot.endTime}
                                     </div>
                                 </div>
                             ))}
@@ -1275,10 +1292,27 @@ export default function BookingList() {
                 };
 
                 if (s === 'multiple') {
+                    const flatSlots: any[] = [];
+                    b.groupedItems.forEach((booking: any) => {
+                        const slots = Array.isArray(booking.slots) && booking.slots.length > 0
+                            ? booking.slots
+                            : [{ startTime: booking.startTime, endTime: booking.endTime }];
+                        slots.forEach((slot: any) => {
+                            flatSlots.push({
+                                slot,
+                                booking,
+                            });
+                        });
+                    });
+
+                    flatSlots.sort((x: any, y: any) =>
+                        String(x.slot.startTime).localeCompare(String(y.slot.startTime))
+                    );
+
                     return (
-                        <div className="flex flex-col gap-1">
-                            {b.groupedItems.map((child: any, idx: number) => {
-                                const childStatus = child.status;
+                        <div className="flex flex-col gap-1.5 py-1">
+                            {flatSlots.map((item: any, idx: number) => {
+                                const childStatus = item.booking.status;
                                 const style = getStatusStyle(childStatus);
                                 return (
                                     <span key={idx} className={`px-2 py-0.5 text-[11px] font-medium rounded-full border truncate max-w-fit ${style.bg} ${style.text} ${style.bgDark} ${style.textDark} ${style.border}`}>
@@ -1400,14 +1434,31 @@ export default function BookingList() {
                  };
 
                 if (b.isGroup) {
+                    const flatSlots: any[] = [];
+                    b.groupedItems.forEach((booking: any) => {
+                        const slots = Array.isArray(booking.slots) && booking.slots.length > 0
+                            ? booking.slots
+                            : [{ startTime: booking.startTime, endTime: booking.endTime }];
+                        slots.forEach((slot: any) => {
+                            flatSlots.push({
+                                slot,
+                                booking,
+                            });
+                        });
+                    });
+
+                    flatSlots.sort((x: any, y: any) =>
+                        String(x.slot.startTime).localeCompare(String(y.slot.startTime))
+                    );
+
                     return (
                         <div className="flex flex-col gap-1.5">
-                            {b.groupedItems.map((child: Booking, idx: number) => (
+                            {flatSlots.map((item: any, idx: number) => (
                                  <div key={idx} className="flex items-center gap-2 border-b border-dashed border-slate-100 dark:border-white/5 pb-2.5 last:border-0 last:pb-0">
                                      <span className="shrink-0 text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded leading-none w-max">
                                          Ca {idx+1}
                                      </span>
-                                     {renderRowActions(child)}
+                                     {renderRowActions(item.booking)}
                                  </div>
                             ))}
                         </div>
