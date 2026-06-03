@@ -830,6 +830,9 @@ export default function BookingList() {
             return;
         }
 
+        // Dùng paymentFinalTotal, nếu = 0 thì dùng paymentBaseTotal (còn phải thu)
+        const amountToSend = paymentFinalTotal > 0 ? paymentFinalTotal : paymentBaseTotal;
+
         try {
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
             const res = await fetch(`${API_URL}/bookings/payment/vietqr`, {
@@ -840,7 +843,7 @@ export default function BookingList() {
                 },
                 body: JSON.stringify({
                     bookingId: paymentBooking._id,
-                    amount: paymentFinalTotal, // Updated from paymentBaseTotal to include discounts
+                    amount: amountToSend,
                     customer: {
                         name:
                             paymentBooking.customerInfo?.name ||
@@ -860,6 +863,11 @@ export default function BookingList() {
 
             const result = await res.json();
 
+            if (!res.ok || !result?.success) {
+                toast.error(result?.message || 'Không tạo được mã QR! Kiểm tra cấu hình ngân hàng trên server.');
+                return;
+            }
+
             const qr = result?.data?.qrImageBase64 as string | undefined;
             const amount = result?.data?.amount as number | undefined;
 
@@ -867,11 +875,11 @@ export default function BookingList() {
                 setQrData({ image: qr, amount });
                 setShowQrModal(true);
             } else {
-                console.error('Không lấy được mã QR từ API.');
+                toast.error('Server không trả về mã QR. Vui lòng thử lại!');
             }
         } catch (err) {
             console.error(err);
-            console.error('Lỗi khi tạo mã QR.');
+            toast.error('Lỗi kết nối khi tạo mã QR!');
         }
     };
 
