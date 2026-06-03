@@ -1038,6 +1038,26 @@ const MyBookings: React.FC = () => {
                                 const discount = Number(group.voucherDiscount || 0);
                                 const groupTotal = Math.max(0, subtotal - discount);
 
+                                // Expand multi-slot bookings thành từng Ca riêng (moved up)
+                                const expandedItems: any[] = group.bookings.flatMap((b: any, origIdx: number) => {
+                                    const slts = Array.isArray(b.slots) && b.slots.length > 1 ? b.slots : null;
+                                    if (slts) {
+                                        const n = slts.length;
+                                        return [...slts]
+                                            .sort((x: any, y: any) => timeToMin(x.startTime) - timeToMin(y.startTime))
+                                            .map((slot: any, si: number) => ({
+                                                booking: b,
+                                                caIdx: origIdx * n + si,
+                                                isExpanded: true,
+                                                isFirstSlot: si === 0,
+                                                displaySlot: slot,
+                                                perSlotField: Math.round((Number(b.fieldAmount) || 0) / n),
+                                                perSlotTotal: Math.round((Number(b.total) || 0) / n),
+                                            }));
+                                    }
+                                    return [{ booking: b, caIdx: origIdx, isExpanded: false, isFirstSlot: true, displaySlot: null, perSlotField: Number(b.fieldAmount) || 0, perSlotTotal: Number(b.total) || 0 }];
+                                });
+
                                 const slotCount: number = group.bookings.reduce(
                                     (sum: number, b: any) => {
                                         if (Array.isArray(b.slots) && b.slots.length > 0)
@@ -1087,7 +1107,8 @@ const MyBookings: React.FC = () => {
                                 );
 
                                 // hiển thị chọn tất cả (thanh toán) nếu >=2
-                                const showSelectAll = eligiblePayIds.length > 1;
+                                const visiblePayCount = expandedItems.filter(item => eligiblePayIds.includes(item.booking._id)).length;
+                                 const showSelectAll = visiblePayCount > 1;
                                 const eligibleCount = eligiblePayIds.length;
                                 const selectedCount = selectedIds.length;
 
@@ -1101,7 +1122,8 @@ const MyBookings: React.FC = () => {
                                     selectedCount < eligibleCount;
 
                                 // hiển thị chọn tất cả (hủy) nếu >=2
-                                const showSelectAllCancel = eligibleCancelIds.length > 1;
+                                const visibleCancelCount = expandedItems.filter(item => eligibleCancelIds.includes(item.booking._id)).length;
+                                 const showSelectAllCancel = visibleCancelCount > 1;
                                 const cancelAllChecked =
                                     showSelectAllCancel &&
                                     eligibleCancelIds.length > 0 &&
@@ -1138,27 +1160,7 @@ const MyBookings: React.FC = () => {
                                     canRetryPay(b)
                                 );
 
-                                // Expand multi-slot bookings thành từng Ca riêng
-                                const expandedItems: any[] = group.bookings.flatMap((b: any, origIdx: number) => {
-                                    const slts = Array.isArray(b.slots) && b.slots.length > 1 ? b.slots : null;
-                                    if (slts) {
-                                        const n = slts.length;
-                                        return [...slts]
-                                            .sort((x: any, y: any) => timeToMin(x.startTime) - timeToMin(y.startTime))
-                                            .map((slot: any, si: number) => ({
-                                                booking: b,
-                                                caIdx: origIdx * n + si,
-                                                isExpanded: true,
-                                                isFirstSlot: si === 0,
-                                                displaySlot: slot,
-                                                perSlotField: Math.round((Number(b.fieldAmount) || 0) / n),
-                                                perSlotTotal: Math.round((Number(b.total) || 0) / n),
-                                            }));
-                                    }
-                                    return [{ booking: b, caIdx: origIdx, isExpanded: false, isFirstSlot: true, displaySlot: null, perSlotField: Number(b.fieldAmount) || 0, perSlotTotal: Number(b.total) || 0 }];
-                                });
-
-                                return (
+                                                                return (
                                     <div
                                         key={group._id}
                                         className='bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-750 shadow-sm hover:shadow-md transition-shadow p-5 md:p-6 flex flex-col md:flex-row md:items-start md:justify-between gap-6'
@@ -1332,13 +1334,13 @@ const MyBookings: React.FC = () => {
 
                                                             return (
                                                                 <div
-                                                                    key={booking._id}
+                                                                    key={`${booking._id}-${__itemIdx}`}
                                                                     className='border border-gray-100 dark:border-gray-700/60 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-800/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-900/10 transition-colors w-full relative'
                                                                 >
                                                                     {/* CHECKBOX góc trái: Pay + Hủy + Hoàn */}
                                                                     {(canRetryThis ||
                                                                         canCancelThis ||
-                                                                        canRefundThis) && isFirstSlot && (
+                                                                        canRefundThis) && (
                                                                         <div className='absolute top-4 left-4 z-10 flex flex-col gap-2'>
                                                                             {canRetryThis && (
                                                                                 <Checkbox
@@ -1409,9 +1411,7 @@ const MyBookings: React.FC = () => {
                                                                         {/* LEFT INFO */}
                                                                         <div
                                                                             className={`min-w-0 flex-1 space-y-2 ${
-                                                                                hasAnyCheckbox && isFirstSlot
-                                                                                    ? 'pl-14'
-                                                                                    : ''
+                                                                                hasAnyCheckbox ? 'pl-14' : ''
                                                                             }`}
                                                                         >
                                                                             {/* SLOT TIME */}
