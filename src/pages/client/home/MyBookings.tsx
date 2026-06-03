@@ -1162,14 +1162,7 @@ const MyBookings: React.FC = () => {
                                                             {group.code || first.code}
                                                         </span>
                                                     </div>
-                                                    {slotCount > 1 && (
-                                                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-linear-to-r from-indigo-50 to-blue-50 dark:from-indigo-500/10 dark:to-blue-500/10 border border-indigo-100 dark:border-indigo-500/20 shadow-xs">
-                                                            <Layers size={11} className="text-indigo-600 dark:text-indigo-400" />
-                                                            <span className='text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wide'>
-                                                                {slotCount} CA
-                                                            </span>
-                                                        </div>
-                                                    )}
+
                                                 </div>
 
                                                 <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
