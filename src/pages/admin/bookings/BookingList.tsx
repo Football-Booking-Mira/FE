@@ -1140,27 +1140,39 @@ export default function BookingList() {
             dataIndex: 'code',
             key: 'code',
             width: 150,
-            render: (v: string, b: any) => (
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                        {b.isGroup ? (
-                            <div className="flex items-center justify-center w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">
-                                <Layers size={14} />
-                            </div>
-                        ) : (
-                            <div className="flex items-center justify-center w-6 h-6 rounded bg-slate-50 dark:bg-slate-800 text-slate-500">
-                                <FileTextOutlined style={{ fontSize: 12 }} />
-                            </div>
-                        )}
-                        <span className="font-black text-slate-900 dark:text-slate-100 tracking-tight text-sm">
-                            {v}
-                        </span>
+            render: (v: string, b: any) => {
+                const hasMultiSlots = !b.isGroup && Array.isArray(b.slots) && b.slots.length > 1;
+                return (
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                            {b.isGroup ? (
+                                <div className="flex items-center justify-center w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">
+                                    <Layers size={14} />
+                                </div>
+                            ) : hasMultiSlots ? (
+                                <div className="flex items-center justify-center w-6 h-6 rounded bg-violet-50 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400">
+                                    <Layers size={14} />
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center w-6 h-6 rounded bg-slate-50 dark:bg-slate-800 text-slate-500">
+                                    <FileTextOutlined style={{ fontSize: 12 }} />
+                                </div>
+                            )}
+                            <span className="font-black text-slate-900 dark:text-slate-100 tracking-tight text-sm">
+                                {v}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-1">
+                            {hasMultiSlots && (
+                                <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-1.5 py-0.5 rounded border border-violet-100 dark:border-violet-500/20">
+                                    {b.slots.length} CA
+                                </span>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex items-center gap-1.5 px-1">
-                        {/* Hidden as requested: ĐƠN GỘP/ĐƠN LẺ */}
-                    </div>
-                </div>
-            ),
+                );
+            },
+
         },
         {
             title: 'Khách hàng',
@@ -1216,12 +1228,32 @@ export default function BookingList() {
                     );
                 }
 
+                // Booking đơn nhưng có nhiều slots (multi-slot trong 1 booking)
+                if (Array.isArray(b.slots) && b.slots.length > 1) {
+                    return (
+                        <div className="flex flex-col gap-1.5 py-1">
+                            {b.slots.map((s: any, idx: number) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                    <span className="shrink-0 text-[10px] font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-1.5 py-0.5 rounded leading-none border border-violet-100 dark:border-violet-500/20">
+                                        Ca {idx+1}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50/50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 rounded border border-slate-100 dark:border-slate-700/50 text-[11px] font-bold">
+                                        <Clock size={10} className="opacity-70" />
+                                        {s.startTime} - {s.endTime}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    );
+                }
+
                 return (
                     <div className="flex items-center gap-2 px-2.5 py-1 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-100 dark:border-slate-700 text-[12px] font-bold">
                         <Clock size={12} className="opacity-70" />
                         {b.startTime} - {b.endTime}
                     </div>
                 );
+
             },
         },
 
