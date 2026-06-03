@@ -830,6 +830,15 @@ export default function BookingList() {
             return;
         }
 
+        const targetBooking = paymentBooking.isGroup
+            ? (paymentBooking.groupedItems || []).find((item: any) => item.status !== 'cancelled') || paymentBooking.groupedItems?.[0]
+            : paymentBooking;
+
+        if (!targetBooking) {
+            toast.error('Không tìm thấy ca đặt sân hợp lệ!');
+            return;
+        }
+
         // Dùng paymentFinalTotal, nếu = 0 thì dùng paymentBaseTotal (còn phải thu)
         const amountToSend = paymentFinalTotal > 0 ? paymentFinalTotal : paymentBaseTotal;
 
@@ -842,20 +851,20 @@ export default function BookingList() {
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    bookingId: paymentBooking._id,
+                    bookingId: targetBooking._id,
                     amount: amountToSend,
                     customer: {
                         name:
-                            paymentBooking.customerInfo?.name ||
-                            paymentBooking.customerId?.name ||
+                            targetBooking.customerInfo?.name ||
+                            targetBooking.customerId?.name ||
                             'Khách hàng',
                         phone:
-                            paymentBooking.customerInfo?.phone ||
-                            paymentBooking.customerId?.phone ||
+                            targetBooking.customerInfo?.phone ||
+                            targetBooking.customerId?.phone ||
                             '',
                         email:
-                            paymentBooking.customerInfo?.email ||
-                            paymentBooking.customerId?.email ||
+                            targetBooking.customerInfo?.email ||
+                            targetBooking.customerId?.email ||
                             '',
                     },
                 }),
@@ -886,6 +895,15 @@ export default function BookingList() {
     const handleConfirmPayment = async () => {
         if (!paymentBooking) return;
 
+        const targetBooking = paymentBooking.isGroup
+            ? (paymentBooking.groupedItems || []).find((item: any) => item.status !== 'cancelled') || paymentBooking.groupedItems?.[0]
+            : paymentBooking;
+
+        if (!targetBooking) {
+            toast.error('Không tìm thấy ca đặt sân hợp lệ!');
+            return;
+        }
+
         try {
             const values = await paymentForm.validateFields();
             const discount = Number(values.discount || 0) || 0;
@@ -894,7 +912,7 @@ export default function BookingList() {
 
             try {
                 await api.post('/invoices', {
-                    bookingId: paymentBooking._id,
+                    bookingId: targetBooking._id,
                     discount,
                     method: values.method,
                     note: values.note || values.discountReason || '',
@@ -1336,7 +1354,7 @@ export default function BookingList() {
             title: 'Thao tác',
             key: 'actions',
             render: (b: any) => {
-                 const renderRowActions = (child: Booking) => {
+                 const renderRowActions = (child: Booking, isSubRow = false) => {
                      const btnBase = "p-2 rounded-lg transition-all active:scale-90 flex items-center justify-center border shadow-xs";
                      
                      return (
@@ -1418,7 +1436,7 @@ export default function BookingList() {
                                      </button>
                                  </>
                              )}
-                             {child.status === 'completed' && (
+                             {child.status === 'completed' && !isSubRow && (
                                  child.hasInvoice ? (
                                      <button onClick={() => openInvoiceModal(child)} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-[11px] flex gap-1.5 items-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-300 dark:border-slate-600 shadow-xs">
                                          <FileTextOutlined style={{ fontSize: 14 }} /> HÓA ĐƠN
@@ -1451,16 +1469,45 @@ export default function BookingList() {
                         String(x.slot.startTime).localeCompare(String(y.slot.startTime))
                     );
 
+                    const activeGroupItems = b.groupedItems.filter((item: any) => item.status !== 'cancelled');
+                    const hasCompleted = activeGroupItems.some((item: any) => item.status === 'completed');
+                    const groupHasInvoice = activeGroupItems.some((item: any) => item.hasInvoice);
+
                     return (
-                        <div className="flex flex-col gap-1.5">
-                            {flatSlots.map((item: any, idx: number) => (
-                                 <div key={idx} className="flex items-center gap-2 border-b border-dashed border-slate-100 dark:border-white/5 pb-2.5 last:border-0 last:pb-0">
-                                     <span className="shrink-0 text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded leading-none w-max">
-                                         Ca {idx+1}
-                                     </span>
-                                     {renderRowActions(item.booking)}
-                                 </div>
-                            ))}
+                        <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-1.5">
+                                {flatSlots.map((item: any, idx: number) => (
+                                     <div key={idx} className="flex items-center gap-2 border-b border-dashed border-slate-100 dark:border-white/5 pb-2.5 last:border-0 last:pb-0">
+                                         <span className="shrink-0 text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded leading-none w-max">
+                                             Ca {idx+1}
+                                         </span>
+                                         {renderRowActions(item.booking, true)}
+                                     </div>
+                                ))}
+                            </div>
+
+                            {(groupHasInvoice || hasCompleted) && (
+                                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                                    {groupHasInvoice ? (
+                                        <button 
+                                            onClick={() => {
+                                                const invoiceBooking = b.groupedItems.find((item: any) => item.hasInvoice) || b.groupedItems[0];
+                                                openInvoiceModal(invoiceBooking);
+                                            }} 
+                                            className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold text-[11px] flex gap-1.5 items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-300 dark:border-slate-600 shadow-xs"
+                                        >
+                                            <FileTextOutlined style={{ fontSize: 14 }} /> HÓA ĐƠN CẢ ĐƠN
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            onClick={() => openPaymentModal(b)} 
+                                            className="w-full px-3 py-2 bg-emerald-600 text-white rounded-lg font-bold text-[11px] flex gap-1.5 items-center justify-center hover:bg-emerald-700 transition-all border border-emerald-500 shadow-sm"
+                                        >
+                                            <DollarOutlined style={{ fontSize: 14 }} /> THANH TOÁN CẢ ĐƠN
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     );
                 }
@@ -1649,31 +1696,60 @@ export default function BookingList() {
         },
     ];
 
-    // tổng gốc của booking
-    const originalTotal = paymentBooking?.total || 0;
+    const isGroupPayment = !!paymentBooking?.isGroup;
+    const activeBookings = isGroupPayment 
+        ? (paymentBooking?.groupedItems || []).filter((item: any) => item.status !== 'cancelled') 
+        : (paymentBooking ? [paymentBooking] : []);
+
+    // tổng gốc của booking (hoặc nhóm bookings)
+    const originalTotal = isGroupPayment
+        ? activeBookings.reduce((sum, b) => sum + Number(b.total || 0), 0)
+        : (paymentBooking?.total || 0);
 
     // voucher (nếu có)
-    const voucherDiscount = Number(
-        paymentBooking?.voucherDiscount ||
-            paymentBooking?.discountTotal ||
-            paymentBooking?.voucherSnapshot?.discountValue ||
-            0
-    );
-    const voucherCode =
-        paymentBooking?.voucherCode ||
-        paymentBooking?.voucher?.code ||
-        paymentBooking?.voucherSnapshot?.code ||
-        '';
+    const voucherDiscount = isGroupPayment
+        ? activeBookings.reduce((sum, b) => sum + Number(
+            b.voucherDiscount ||
+                b.discountTotal ||
+                b.voucherSnapshot?.discountValue ||
+                0
+          ), 0)
+        : Number(
+            paymentBooking?.voucherDiscount ||
+                paymentBooking?.discountTotal ||
+                paymentBooking?.voucherSnapshot?.discountValue ||
+                0
+          );
+    const voucherCode = isGroupPayment
+        ? activeBookings
+            .map((b) => b.voucherCode || b.voucher?.code || b.voucherSnapshot?.code)
+            .filter(Boolean)
+            .join(', ')
+        : (paymentBooking?.voucherCode ||
+            paymentBooking?.voucher?.code ||
+            paymentBooking?.voucherSnapshot?.code ||
+            '');
 
     // số tiền đã thanh toán trước (vnpay / đặt cọc)
-    const depositPaid =
-        paymentBooking && paymentBooking.depositAmount ? paymentBooking.depositAmount : 0;
+    const depositPaid = isGroupPayment
+        ? activeBookings.reduce((sum, b) => sum + Number(b.depositAmount || 0), 0)
+        : (paymentBooking && paymentBooking.depositAmount ? paymentBooking.depositAmount : 0);
 
     // còn phải thu trước khi giảm giá hóa đơn
-    const paymentBaseTotal = getOutstandingAmount(paymentBooking);
+    const paymentBaseTotal = isGroupPayment
+        ? activeBookings.reduce((sum, b) => sum + getOutstandingAmount(b), 0)
+        : getOutstandingAmount(paymentBooking);
 
     // sau khi trừ giảm giá trên hóa đơn
     const paymentFinalTotal = Math.max(0, paymentBaseTotal - (Number(paymentDiscount || 0) || 0));
+
+    const totalFieldAmount = isGroupPayment
+        ? activeBookings.reduce((sum, b) => sum + Number(b.fieldAmount ?? b.total ?? 0), 0)
+        : (paymentBooking ? Number(paymentBooking.fieldAmount ?? paymentBooking.total ?? 0) : 0);
+
+    const totalEquipmentTotal = isGroupPayment
+        ? activeBookings.reduce((sum, b) => sum + Number(b.equipmentTotal || 0), 0)
+        : (paymentBooking ? Number(paymentBooking.equipmentTotal || 0) : 0);
 
     // In hóa đơn
     const handlePrintInvoice = () => {
@@ -2368,7 +2444,7 @@ export default function BookingList() {
                                     </div>
                                     <div>
                                         <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{dayjs(paymentBooking.date).format('DD/MM/YYYY')}</div>
-                                        <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{paymentBooking.startTime} – {paymentBooking.endTime}</div>
+                                        <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{isGroupPayment ? `Gồm ${activeBookings.length} ca` : `${paymentBooking.startTime} – ${paymentBooking.endTime}`}</div>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -2399,8 +2475,8 @@ export default function BookingList() {
                                     </div>
                                     {/* Rows */}
                                     {[
-                                        { label: 'Tiền sân', value: formatVND(paymentBooking.fieldAmount ?? paymentBooking.total ?? 0), accent: false },
-                                        { label: 'Tiền thiết bị', value: formatVND(paymentBooking.equipmentTotal ?? 0), accent: false },
+                                        { label: 'Tiền sân', value: formatVND(totalFieldAmount), accent: false },
+                                        { label: 'Tiền thiết bị', value: formatVND(totalEquipmentTotal), accent: false },
                                         ...(voucherDiscount > 0 ? [{ label: `Voucher${voucherCode ? ` (${voucherCode})` : ''}`, value: `- ${formatVND(voucherDiscount)}`, accent: true, color: '#34d399' }] : []),
                                     ].map((row, i) => (
                                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: isDarkMode ? (i % 2 === 0 ? '#1e293b' : '#263344') : (i % 2 === 0 ? '#fff' : '#f8fafc'), borderBottom: `1px solid ${isDarkMode ? '#334155' : '#f1f5f9'}` }}>
