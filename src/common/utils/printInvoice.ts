@@ -39,46 +39,57 @@ export const printInvoiceMira = (invoiceDetail: any) => {
 
     const items = Object.values(mergedMap);
     const booking = inv.bookingId || {};
+    const bookings = invoiceDetail.bookings || [booking];
     const customer = booking.customerInfo || booking.customerId || inv.customerId || {};
     const methodLabel = PAYMENT_METHOD_TEXT[inv.method] || inv.method || '—';
 
-    // tiền sân/thiết bị lấy đúng field, không lấy booking.total cho tiền sân
-    const fieldAmount = Number(booking.fieldAmount || 0);
-    const equipmentTotal = Number(booking.equipmentTotal || 0);
-    const voucherDiscount = Number(booking.voucherDiscount || booking.discountTotal || 0);
+    // Tính tổng tiền sân và thiết bị từ danh sách chi tiết các hạng mục thực tế
+    const fieldAmount = items
+        .filter((it: any) => it.type === 'field')
+        .reduce((sum, it) => sum + Number(it.subtotal || 0), 0);
 
-    // booking.total BE nên đã là (field + equipment - voucherDiscount). Nếu chưa có thì tự tính
-    const bookingTotal =
-        Number(booking.total || 0) > 0
-            ? Number(booking.total || 0)
-            : Math.max(0, fieldAmount + equipmentTotal - voucherDiscount);
+    const equipmentTotal = items
+        .filter((it: any) => it.type !== 'field')
+        .reduce((sum, it) => sum + Number(it.subtotal || 0), 0);
+
+    // Tính tổng voucher giảm giá của cả nhóm ca
+    const voucherDiscount = bookings && bookings.length > 0
+        ? bookings.reduce((sum: number, b: any) => sum + Number(b.voucherDiscount || b.discountTotal || 0), 0)
+        : Number(booking.voucherDiscount || booking.discountTotal || 0);
+
+    // Tổng tiền của cả nhóm ca trước khi giảm giá hóa đơn
+    const bookingTotal = Math.max(0, fieldAmount + equipmentTotal - voucherDiscount);
 
     // inv.discount là giảm thêm trên hóa đơn (nếu có)
     const invoiceDiscount = Number(inv.discount || 0);
     const grandTotal = Math.max(0, bookingTotal - invoiceDiscount);
 
-    // depositAmount sau khi tạo invoice thường = tổng đã thanh toán (đặt cọc + hóa đơn này)
-    const totalPaid = Number(booking.depositAmount || 0);
+    // Tiền khách thanh toán ở hóa đơn này
     const paidThisInvoice = Number(inv.total || 0);
 
-    // đã thanh toán trước = tổng đã trả - tiền hoá đơn này (không âm)
-    const prepaidBefore = Math.max(0, totalPaid - paidThisInvoice);
+    // Tính toán tiền đã đặt cọc/thanh toán trước dựa trên phương trình cân bằng tài chính
+    const prepaidBefore = Math.max(0, bookingTotal - paidThisInvoice - invoiceDiscount);
 
-    // còn phải thu = tổng - tổng đã trả (không âm)
-    const remainingPay = Math.max(0, grandTotal - totalPaid);
+    // Tổng đã thanh toán (bao gồm đặt cọc trước đó + tiền thanh toán hóa đơn này)
+    const alreadyPaidTotal = prepaidBefore + paidThisInvoice;
 
-    // để show "Tổng đã thanh toán" đúng
-    const alreadyPaidTotal = totalPaid;
+    // còn phải thu
+    const remainingPay = Math.max(0, grandTotal - alreadyPaidTotal);
 
     const createdAt = inv.createdAt || inv.paidAt;
     const createdAtStr = createdAt ? dayjs(createdAt).format('DD/MM/YYYY HH:mm') : '';
 
     const bookingDateStr = booking.date ? dayjs(booking.date).format('DD/MM/YYYY') : '';
-    // khung giờ hiển thị: ưu tiên danh sách slots, fallback sang startTime/endTime
-    const bookingTimeStr =
-        Array.isArray(booking.slots) && booking.slots.length > 0
-            ? booking.slots.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ')
-            : `${booking.startTime || ''} - ${booking.endTime || ''}`;
+    
+    // liệt kê đầy đủ khung giờ của các ca đặt sân trong nhóm
+    const bookingTimeStr = bookings && bookings.length > 0
+        ? bookings.map((b: any, idx: number) => {
+            const timeStr = Array.isArray(b.slots) && b.slots.length > 0
+                ? b.slots.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ')
+                : `${b.startTime || ''} - ${b.endTime || ''}`;
+            return `Ca ${idx + 1}: ${timeStr}`;
+        }).join(', ')
+        : `${booking.startTime || ''} - ${booking.endTime || ''}`;
 
     const itemsRowsHtml =
         /* html */
