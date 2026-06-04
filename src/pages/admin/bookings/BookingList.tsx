@@ -1506,19 +1506,21 @@ export default function BookingList() {
 
                     return (
                         <div className="flex flex-col gap-2">
-                            <div className="flex flex-col gap-1.5">
-                                {flatSlots.map((item: any, idx: number) => (
-                                     <div key={idx} className="flex items-center gap-2 border-b border-dashed border-slate-100 dark:border-white/5 pb-2.5 last:border-0 last:pb-0">
-                                         <span className="shrink-0 text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded leading-none w-max">
-                                             Ca {idx+1}
-                                         </span>
-                                         {renderRowActions(item.booking, true)}
-                                     </div>
-                                ))}
-                            </div>
+                            {!(groupHasInvoice || allCompleted) && (
+                                <div className="flex flex-col gap-1.5">
+                                    {flatSlots.map((item: any, idx: number) => (
+                                         <div key={idx} className="flex items-center gap-2 border-b border-dashed border-slate-100 dark:border-white/5 pb-2.5 last:border-0 last:pb-0">
+                                             <span className="shrink-0 text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-1.5 py-0.5 rounded leading-none w-max">
+                                                 Ca {idx+1}
+                                             </span>
+                                             {renderRowActions(item.booking, true)}
+                                         </div>
+                                    ))}
+                                </div>
+                            )}
 
                             {(groupHasInvoice || allCompleted) && (
-                                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                                <div className="flex justify-end">
                                     {groupHasInvoice ? (
                                         <button 
                                             onClick={() => {
