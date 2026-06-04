@@ -107,8 +107,9 @@ const ReviewAdminDetailModal: React.FC<Props> = ({
                     <div className="relative bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-6 pb-8">
                         {/* Close button */}
                         <button
+                            type="button"
                             onClick={onClose}
-                            className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center text-white transition-all backdrop-blur-sm"
+                            className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center text-white transition-all backdrop-blur-sm z-30 cursor-pointer"
                         >
                             ✕
                         </button>
