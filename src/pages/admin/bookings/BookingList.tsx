@@ -1471,6 +1471,7 @@ export default function BookingList() {
 
                     const activeGroupItems = b.groupedItems.filter((item: any) => item.status !== 'cancelled');
                     const hasCompleted = activeGroupItems.some((item: any) => item.status === 'completed');
+                    const allCompleted = activeGroupItems.length > 0 && activeGroupItems.every((item: any) => item.status === 'completed');
                     const groupHasInvoice = activeGroupItems.some((item: any) => item.hasInvoice);
 
                     return (
@@ -1486,7 +1487,7 @@ export default function BookingList() {
                                 ))}
                             </div>
 
-                            {(groupHasInvoice || hasCompleted) && (
+                            {(groupHasInvoice || allCompleted) && (
                                 <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-end">
                                     {groupHasInvoice ? (
                                         <button 
