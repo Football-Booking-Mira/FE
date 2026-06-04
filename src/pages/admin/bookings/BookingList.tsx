@@ -814,17 +814,11 @@ export default function BookingList() {
 
     const [showQrModal, setShowQrModal] = useState(false);
     const [qrData, setQrData] = useState<QrData | null>(null);
+    const [qrLoading, setQrLoading] = useState(false);
 
     const token = localStorage.getItem('token');
 
-    const handleMethodChange = async (value: string) => {
-        // nếu không phải chuyển khoản thì tắt QR
-        if (value !== 'transfer') {
-            setShowQrModal(false);
-            return;
-        }
-
-        // đảm bảo có booking
+    const generateQr = async (customAmount?: number) => {
         if (!paymentBooking) {
             toast.error('Không có thông tin đơn thanh toán!');
             return;
@@ -839,9 +833,21 @@ export default function BookingList() {
             return;
         }
 
-        // Dùng paymentFinalTotal, nếu = 0 thì dùng paymentBaseTotal (còn phải thu)
-        const amountToSend = paymentFinalTotal > 0 ? paymentFinalTotal : paymentBaseTotal;
+        // Ưu tiên: số tiền tuỳ chỉnh → paymentFinalTotal → paymentBaseTotal → originalTotal
+        const amountToSend = customAmount && customAmount > 0
+            ? customAmount
+            : paymentFinalTotal > 0
+                ? paymentFinalTotal
+                : paymentBaseTotal > 0
+                    ? paymentBaseTotal
+                    : originalTotal;
 
+        if (!amountToSend || amountToSend <= 0) {
+            toast.error('Số tiền không hợp lệ để tạo mã QR!');
+            return;
+        }
+
+        setQrLoading(true);
         try {
             const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
             const res = await fetch(`${API_URL}/bookings/payment/vietqr`, {
@@ -889,7 +895,19 @@ export default function BookingList() {
         } catch (err) {
             console.error(err);
             toast.error('Lỗi kết nối khi tạo mã QR!');
+        } finally {
+            setQrLoading(false);
         }
+    };
+
+    const handleMethodChange = async (value: string) => {
+        // nếu không phải chuyển khoản thì tắt QR
+        if (value !== 'transfer') {
+            setShowQrModal(false);
+            return;
+        }
+        // Tự động tạo QR ngay khi chọn chuyển khoản
+        await generateQr();
     };
 
     const handleConfirmPayment = async () => {
@@ -2553,6 +2571,33 @@ export default function BookingList() {
                                         <Input type='number' min={0} placeholder='VD: 250000' />
                                     </Form.Item>
                                 </div>
+
+                                {/* Nút tạo mã QR - chỉ hiện khi chọn chuyển khoản */}
+                                <Form.Item noStyle shouldUpdate={(prev: any, cur: any) => prev.method !== cur.method}>
+                                    {({ getFieldValue }: any) => getFieldValue('method') === 'transfer' && (
+                                        <div style={{ marginBottom: 14, padding: '12px 16px', background: isDarkMode ? '#0f2744' : '#eff6ff', borderRadius: 12, border: `1px solid ${isDarkMode ? '#1e40af' : '#bfdbfe'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                            <div>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: isDarkMode ? '#93c5fd' : '#1e40af', marginBottom: 2 }}>
+                                                    📲 Mã QR chuyển khoản
+                                                </div>
+                                                <div style={{ fontSize: 11, color: isDarkMode ? '#64748b' : '#6b7280' }}>
+                                                    Số tiền:{' '}
+                                                    <b style={{ color: isDarkMode ? '#f1f5f9' : '#111827' }}>
+                                                        {formatVND(paymentFinalTotal > 0 ? paymentFinalTotal : paymentBaseTotal > 0 ? paymentBaseTotal : originalTotal)}
+                                                    </b>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type='button'
+                                                disabled={qrLoading}
+                                                onClick={() => generateQr()}
+                                                style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: qrLoading ? '#6b7280' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: qrLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(59,130,246,0.35)' }}
+                                            >
+                                                {qrLoading ? '⏳ Đang tạo...' : showQrModal ? '🔄 Tạo lại QR' : '📱 Hiện mã QR'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </Form.Item>
 
                                 {/* Total footer + actions */}
                                 <div style={{ background: isDarkMode ? 'linear-gradient(135deg, #0f172a, #1a3a5c)' : 'linear-gradient(135deg, #1e40af, #065f46)', borderRadius: 14, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
