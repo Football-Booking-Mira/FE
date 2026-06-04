@@ -1708,13 +1708,17 @@ export default function BookingList() {
         : (paymentBooking?.total || 0);
 
     // voucher (nếu có)
+    // Backend: chỉ booking đầu tiên (index=0) có voucherDiscount = tổng giảm giá (vd 150k),
+    // các booking còn lại voucherDiscount = 0, nhưng discountTotal chia đều theo tỉ lệ.
+    // → Lấy voucherDiscount từ booking đầu có voucherDiscount > 0 (KHÔNG reduce cộng dồn)
     const voucherDiscount = isGroupPayment
-        ? activeBookings.reduce((sum, b) => sum + Number(
-            b.voucherDiscount ||
-                b.discountTotal ||
-                b.voucherSnapshot?.discountValue ||
-                0
-          ), 0)
+        ? (() => {
+            // Tìm booking có voucherDiscount > 0 (booking gốc lưu tổng)
+            const bookingWithVoucher = activeBookings.find((b) => Number(b.voucherDiscount || 0) > 0);
+            if (bookingWithVoucher) return Number(bookingWithVoucher.voucherDiscount);
+            // Dự phòng: cộng tổng discountTotal nếu không có voucherDiscount riêng
+            return activeBookings.reduce((sum, b) => sum + Number(b.discountTotal || 0), 0);
+        })()
         : Number(
             paymentBooking?.voucherDiscount ||
                 paymentBooking?.discountTotal ||
