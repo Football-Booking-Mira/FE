@@ -1761,44 +1761,49 @@ const MyBookings: React.FC = () => {
                                                                                     </Button>
                                                                                 )}
 
-                                                                            {booking.status ===
-                                                                                'completed' &&
-                                                                                booking.hasInvoice && (
+                                                                            {/* XEM HÓA ĐƠN - Chỉ hiển thị 1 nút cho cả nhóm ca */}
+                                                                            {__itemIdx === 0 && (() => {
+                                                                                const invoiceBooking = group.bookings.find((b: any) => b.status === 'completed' && b.hasInvoice);
+                                                                                if (!invoiceBooking) return null;
+                                                                                return (
                                                                                     <Button
                                                                                         size='middle'
                                                                                         className='border-emerald-500 text-emerald-600 hover:bg-emerald-50'
-                                                                                        loading={
-                                                                                            printingInvoiceId ===
-                                                                                            booking._id
-                                                                                        }
-                                                                                        onClick={() =>
-                                                                                            handleViewInvoice(
-                                                                                                booking
-                                                                                            )
-                                                                                        }
+                                                                                        loading={printingInvoiceId === invoiceBooking._id}
+                                                                                        onClick={() => handleViewInvoice(invoiceBooking)}
                                                                                     >
                                                                                         Xem hóa đơn
                                                                                     </Button>
-                                                                                )}
+                                                                                );
+                                                                            })()}
 
-                                                                            {/* NÚT ĐÁNH GIÁ / HIỆN SAO */}
-                                                                            {booking.status === 'completed' && booking.paymentStatus === 'paid' && (
-                                                                                reviewMap[booking._id] ? (
-                                                                                    <div className='flex flex-col items-end gap-1.5'>
-                                                                                        <div className='flex items-center gap-2'>
-                                                                                            <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wide'>Đã đánh giá</span>
-                                                                                            <Rate disabled value={reviewMap[booking._id].rating} className='text-sm' style={{ fontSize: 12 }} />
+                                                                            {/* NÚT ĐÁNH GIÁ / HIỆN SAO - Chỉ hiển thị 1 nút cho cả nhóm ca */}
+                                                                            {__itemIdx === 0 && (() => {
+                                                                                const eligibleReviewBooking = group.bookings.find((b: any) => b.status === 'completed' && b.paymentStatus === 'paid');
+                                                                                if (!eligibleReviewBooking) return null;
+                                                                                
+                                                                                const reviewedBooking = group.bookings.find((b: any) => reviewMap[b._id]);
+                                                                                
+                                                                                if (reviewedBooking) {
+                                                                                    return (
+                                                                                        <div className='flex flex-col items-end gap-1.5'>
+                                                                                            <div className='flex items-center gap-2'>
+                                                                                                <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wide'>Đã đánh giá</span>
+                                                                                                <Rate disabled value={reviewMap[reviewedBooking._id].rating} className='text-sm' style={{ fontSize: 12 }} />
+                                                                                            </div>
+                                                                                            <Button 
+                                                                                                size='small' 
+                                                                                                type="link" 
+                                                                                                className='p-0 h-auto text-xs font-bold text-amber-600 hover:text-amber-700'
+                                                                                                onClick={() => openReviewModal(reviewedBooking, true)}
+                                                                                            >
+                                                                                                Xem đánh giá của bạn
+                                                                                            </Button>
                                                                                         </div>
-                                                                                        <Button 
-                                                                                            size='small' 
-                                                                                            type="link" 
-                                                                                            className='p-0 h-auto text-xs font-bold text-amber-600 hover:text-amber-700'
-                                                                                            onClick={() => openReviewModal(booking, true)}
-                                                                                        >
-                                                                                            Xem đánh giá của bạn
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                ) : (
+                                                                                    );
+                                                                                }
+                                                                                
+                                                                                return (
                                                                                     <Button
                                                                                         size='middle'
                                                                                         style={{
@@ -1808,12 +1813,12 @@ const MyBookings: React.FC = () => {
                                                                                             fontWeight: 700,
                                                                                             borderRadius: 10,
                                                                                         }}
-                                                                                        onClick={() => openReviewModal(booking)}
+                                                                                        onClick={() => openReviewModal(eligibleReviewBooking)}
                                                                                     >
                                                                                         ⭐ Đánh giá sân
                                                                                     </Button>
-                                                                                )
-                                                                            )}
+                                                                                );
+                                                                            })()}
 
                                                                             {booking.status ===
                                                                                 'cancelled' &&
