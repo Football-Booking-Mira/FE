@@ -83,6 +83,7 @@ const BookingCreate: React.FC = () => {
   const [isCustomerListModalOpen, setCustomerListModalOpen] = useState(false);
   const [isCustomerCreateModalOpen, setCustomerCreateModalOpen] = useState(false);
   const [createCustomerForm] = Form.useForm();
+  const [customerSaving, setCustomerSaving] = useState(false);
 
   const [courts, setCourts] = useState<Court[]>([]);
   const [courtLoading, setCourtLoading] = useState(false);
@@ -145,15 +146,16 @@ const BookingCreate: React.FC = () => {
     }
   }, [selectedCourt]);
 
-  const handleCreateCustomer = async () => {
+  const handleCreateCustomer = async (values?: any) => {
     try {
-      const values = await createCustomerForm.validateFields();
+      const formValues = values && !values.errorFields && !values.target ? values : await createCustomerForm.validateFields();
+      setCustomerSaving(true);
       const token = localStorage.getItem("token");
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
       const res = await fetch(`${API_URL}/users`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
-        body: JSON.stringify({ name: values.name, phone: values.phone, email: values.email || "" }),
+        body: JSON.stringify({ name: formValues.name, phone: formValues.phone, email: formValues.email || "" }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.status !== 200 && res.status !== 201) return toast.error(data.message || "Không thể thêm khách hàng");
@@ -161,7 +163,12 @@ const BookingCreate: React.FC = () => {
       toast.success("Thêm khách hàng thành công!");
       setCustomerCreateModalOpen(false);
       createCustomerForm.resetFields();
-    } catch { toast.error("Có lỗi xảy ra khi tạo khách hàng"); }
+    } catch (err: any) {
+      if (err?.errorFields) return; // validation failed, form will display errors
+      toast.error("Có lỗi xảy ra khi tạo khách hàng");
+    } finally {
+      setCustomerSaving(false);
+    }
   };
 
   const handleSubmitBooking = async () => {
@@ -426,17 +433,92 @@ const BookingCreate: React.FC = () => {
       </Modal>
 
       {/* Modal Thêm khách hàng */}
-      <Modal title="Thêm khách hàng mới" open={isCustomerCreateModalOpen} onCancel={() => { setCustomerCreateModalOpen(false); createCustomerForm.resetFields(); }} onOk={handleCreateCustomer} okText="Lưu" cancelText="Hủy" destroyOnHidden>
-        <Form form={createCustomerForm} layout="vertical">
-          <Form.Item label="Họ tên" name="name" rules={[{ required: true, message: "Vui lòng nhập họ tên" }]}>
-            <Input placeholder="Nhập họ tên khách hàng" />
+      <Modal 
+        title={
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-white/5">
+            <div className="p-2.5 bg-blue-500/10 dark:bg-blue-500/20 rounded-xl text-blue-500 flex items-center justify-center">
+              <UserPlus size={18} />
+            </div>
+            <div>
+              <span className="text-base font-black text-slate-800 dark:text-white tracking-tight block">
+                Thêm khách hàng mới
+              </span>
+              <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
+                Nhập thông tin chi tiết khách hàng bên dưới
+              </span>
+            </div>
+          </div>
+        }
+        open={isCustomerCreateModalOpen} 
+        onCancel={() => { setCustomerCreateModalOpen(false); createCustomerForm.resetFields(); }} 
+        footer={null}
+        destroyOnHidden
+      >
+        <Form 
+          form={createCustomerForm} 
+          layout="vertical"
+          onFinish={handleCreateCustomer}
+          className="mt-5 space-y-4"
+        >
+          <Form.Item 
+            label={<span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Họ tên</span>} 
+            name="name" 
+            rules={[
+              { required: true, message: "Vui lòng nhập họ tên" },
+              { min: 2, message: "Họ tên phải có ít nhất 2 ký tự" }
+            ]}
+          >
+            <Input 
+              prefix={<User size={16} className="text-slate-400 mr-1.5" />}
+              placeholder="Nhập họ tên khách hàng" 
+              className="!w-full !py-2.5 !bg-slate-50 dark:!bg-white/5 !border-2 !border-slate-100 dark:!border-white/10 !rounded-2xl font-semibold text-sm !text-slate-700 dark:!text-slate-200 placeholder:!text-slate-300 dark:placeholder:!text-slate-600 focus-within:!border-blue-400 focus-within:!ring-4 focus-within:!ring-blue-500/10 !outline-none transition-all shadow-xs"
+            />
           </Form.Item>
-          <Form.Item label="Số điện thoại" name="phone" rules={[{ required: true, message: "Vui lòng nhập số điện thoại" }, { pattern: /^[0-9]{8,15}$/, message: "Số điện thoại không hợp lệ" }]}>
-            <Input placeholder="Nhập số điện thoại" />
+
+          <Form.Item 
+            label={<span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Số điện thoại</span>} 
+            name="phone" 
+            rules={[
+              { required: true, message: "Vui lòng nhập số điện thoại" }, 
+              { pattern: /^0[0-9]{9}$/, message: "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0" }
+            ]}
+          >
+            <Input 
+              prefix={<Phone size={16} className="text-slate-400 mr-1.5" />}
+              placeholder="Nhập số điện thoại (ví dụ: 0944444402)" 
+              className="!w-full !py-2.5 !bg-slate-50 dark:!bg-white/5 !border-2 !border-slate-100 dark:!border-white/10 !rounded-2xl font-semibold text-sm !text-slate-700 dark:!text-slate-200 placeholder:!text-slate-300 dark:placeholder:!text-slate-600 focus-within:!border-blue-400 focus-within:!ring-4 focus-within:!ring-blue-500/10 !outline-none transition-all shadow-xs"
+            />
           </Form.Item>
-          <Form.Item label="Email" name="email" rules={[{ type: "email", message: "Email không hợp lệ" }]}>
-            <Input placeholder="Nhập email (tùy chọn)" />
+
+          <Form.Item 
+            label={<span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email</span>} 
+            name="email" 
+            rules={[{ type: "email", message: "Email không đúng định dạng" }]}
+          >
+            <Input 
+              prefix={<Mail size={16} className="text-slate-400 mr-1.5" />}
+              placeholder="Nhập email (tùy chọn)" 
+              className="!w-full !py-2.5 !bg-slate-50 dark:!bg-white/5 !border-2 !border-slate-100 dark:!border-white/10 !rounded-2xl font-semibold text-sm !text-slate-700 dark:!text-slate-200 placeholder:!text-slate-300 dark:placeholder:!text-slate-600 focus-within:!border-blue-400 focus-within:!ring-4 focus-within:!ring-blue-500/10 !outline-none transition-all shadow-xs"
+            />
           </Form.Item>
+
+          <div className="flex justify-end gap-3 pt-5 border-t border-slate-100 dark:border-white/5 mt-6">
+            <button 
+              type="button"
+              onClick={() => { setCustomerCreateModalOpen(false); createCustomerForm.resetFields(); }}
+              className="px-5 py-2.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200 dark:border-white/10 cursor-pointer active:scale-95"
+            >
+              Hủy
+            </button>
+            <button 
+              type="submit"
+              disabled={customerSaving}
+              className="px-6 py-2.5 bg-blue-500 text-white rounded-xl font-black text-sm hover:bg-blue-600 shadow-lg shadow-blue-500/30 transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+            >
+              {customerSaving ? <Spin size="small" className="brightness-200" /> : null}
+              Lưu
+            </button>
+          </div>
         </Form>
       </Modal>
     </div>
