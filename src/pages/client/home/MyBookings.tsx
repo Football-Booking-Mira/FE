@@ -1761,64 +1761,7 @@ const MyBookings: React.FC = () => {
                                                                                     </Button>
                                                                                 )}
 
-                                                                            {/* XEM HÓA ĐƠN - Chỉ hiển thị 1 nút cho cả nhóm ca */}
-                                                                            {__itemIdx === 0 && (() => {
-                                                                                const invoiceBooking = group.bookings.find((b: any) => b.status === 'completed' && b.hasInvoice);
-                                                                                if (!invoiceBooking) return null;
-                                                                                return (
-                                                                                    <Button
-                                                                                        size='middle'
-                                                                                        className='border-emerald-500 text-emerald-600 hover:bg-emerald-50'
-                                                                                        loading={printingInvoiceId === invoiceBooking._id}
-                                                                                        onClick={() => handleViewInvoice(invoiceBooking)}
-                                                                                    >
-                                                                                        Xem hóa đơn
-                                                                                    </Button>
-                                                                                );
-                                                                            })()}
 
-                                                                            {/* NÚT ĐÁNH GIÁ / HIỆN SAO - Chỉ hiển thị 1 nút cho cả nhóm ca */}
-                                                                            {__itemIdx === 0 && (() => {
-                                                                                const eligibleReviewBooking = group.bookings.find((b: any) => b.status === 'completed' && b.paymentStatus === 'paid');
-                                                                                if (!eligibleReviewBooking) return null;
-                                                                                
-                                                                                const reviewedBooking = group.bookings.find((b: any) => reviewMap[b._id]);
-                                                                                
-                                                                                if (reviewedBooking) {
-                                                                                    return (
-                                                                                        <div className='flex flex-col items-end gap-1.5'>
-                                                                                            <div className='flex items-center gap-2'>
-                                                                                                <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wide'>Đã đánh giá</span>
-                                                                                                <Rate disabled value={reviewMap[reviewedBooking._id].rating} className='text-sm' style={{ fontSize: 12 }} />
-                                                                                            </div>
-                                                                                            <Button 
-                                                                                                size='small' 
-                                                                                                type="link" 
-                                                                                                className='p-0 h-auto text-xs font-bold text-amber-600 hover:text-amber-700'
-                                                                                                onClick={() => openReviewModal(reviewedBooking, true)}
-                                                                                            >
-                                                                                                Xem đánh giá của bạn
-                                                                                            </Button>
-                                                                                        </div>
-                                                                                    );
-                                                                                }
-                                                                                
-                                                                                return (
-                                                                                    <Button
-                                                                                        size='middle'
-                                                                                        style={{
-                                                                                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                                                                                            borderColor: '#d97706',
-                                                                                            color: '#fff',
-                                                                                            fontWeight: 700,
-                                                                                            borderRadius: 10,
-                                                                                        }}
-                                                                                        onClick={() => openReviewModal(eligibleReviewBooking)}
-                                                                                    >
-                                                                                        ⭐ Đánh giá sân
-                                                                                    </Button>
-                                                                                );
-                                                                            })()}
 
                                                                             {booking.status ===
                                                                                 'cancelled' &&
@@ -2115,6 +2058,64 @@ const MyBookings: React.FC = () => {
                                                                 💰 Yêu cầu hoàn tiền
                                                             </Button>
                                                         )}
+                                                         {/* XEM HÓA ĐƠN CỦA ĐƠN */}
+                                                         {(() => {
+                                                             const invoiceBooking = group.bookings.find((b: any) => b.status === 'completed' && b.hasInvoice);
+                                                             if (!invoiceBooking) return null;
+                                                             return (
+                                                                 <Button
+                                                                     size='middle'
+                                                                     className='w-full rounded-xl font-bold border-emerald-500 text-emerald-600 hover:bg-emerald-50 h-[42px]'
+                                                                     loading={printingInvoiceId === invoiceBooking._id}
+                                                                     onClick={() => handleViewInvoice(invoiceBooking)}
+                                                                 >
+                                                                     Xem hóa đơn
+                                                                 </Button>
+                                                             );
+                                                         })()}
+
+                                                         {/* ĐÁNH GIÁ SÂN CỦA ĐƠN */}
+                                                         {(() => {
+                                                             const eligibleReviewBooking = group.bookings.find((b: any) => b.status === 'completed' && b.paymentStatus === 'paid');
+                                                             if (!eligibleReviewBooking) return null;
+                                                             
+                                                             const reviewedBooking = group.bookings.find((b: any) => reviewMap[b._id]);
+                                                             
+                                                             if (reviewedBooking) {
+                                                                 return (
+                                                                     <div className='flex flex-col items-center gap-1.5 p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-gray-700'>
+                                                                         <div className='flex items-center gap-2'>
+                                                                             <span className='text-[10px] text-gray-400 font-semibold uppercase tracking-wide'>Đã đánh giá</span>
+                                                                             <Rate disabled value={reviewMap[reviewedBooking._id].rating} className='text-sm' style={{ fontSize: 12 }} />
+                                                                         </div>
+                                                                         <Button 
+                                                                             size='small' 
+                                                                             type="link" 
+                                                                             className='p-0 h-auto text-xs font-bold text-amber-600 hover:text-amber-700'
+                                                                             onClick={() => openReviewModal(reviewedBooking, true)}
+                                                                         >
+                                                                             Xem đánh giá của bạn
+                                                                         </Button>
+                                                                     </div>
+                                                                 );
+                                                             }
+                                                             
+                                                             return (
+                                                                 <Button
+                                                                     size='middle'
+                                                                     className='w-full rounded-xl font-bold h-[42px]'
+                                                                     style={{
+                                                                         background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                                                                         borderColor: '#d97706',
+                                                                         color: '#fff',
+                                                                         boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
+                                                                     }}
+                                                                     onClick={() => openReviewModal(eligibleReviewBooking)}
+                                                                 >
+                                                                     ⭐ Đánh giá sân
+                                                                 </Button>
+                                                             );
+                                                         })()}
                                                     </div>
                                                 </div>
                                             </div>
