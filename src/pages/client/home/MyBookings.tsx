@@ -2092,7 +2092,18 @@ const MyBookings: React.FC = () => {
                                                                              size='small' 
                                                                              type="link" 
                                                                              className='p-0 h-auto text-xs font-bold text-amber-600 hover:text-amber-700'
-                                                                             onClick={() => openReviewModal(reviewedBooking, true)}
+                                                                             onClick={() => {
+                                                                                 const allSlots = group.bookings.flatMap((b: any) => {
+                                                                                     const slots = Array.isArray(b.slots) && b.slots.length > 0
+                                                                                         ? b.slots
+                                                                                         : [{ startTime: b.startTime, endTime: b.endTime }];
+                                                                                     return slots.map((s: any) => `${s.startTime} – ${s.endTime}`);
+                                                                                 });
+                                                                                 openReviewModal({
+                                                                                     ...reviewedBooking,
+                                                                                     allGroupSlotTimes: allSlots,
+                                                                                 }, true);
+                                                                             }}
                                                                          >
                                                                              Xem đánh giá của bạn
                                                                          </Button>
@@ -2110,7 +2121,18 @@ const MyBookings: React.FC = () => {
                                                                          color: '#fff',
                                                                          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
                                                                      }}
-                                                                     onClick={() => openReviewModal(eligibleReviewBooking)}
+                                                                     onClick={() => {
+                                                                         const allSlots = group.bookings.flatMap((b: any) => {
+                                                                             const slots = Array.isArray(b.slots) && b.slots.length > 0
+                                                                                 ? b.slots
+                                                                                 : [{ startTime: b.startTime, endTime: b.endTime }];
+                                                                             return slots.map((s: any) => `${s.startTime} – ${s.endTime}`);
+                                                                         });
+                                                                         openReviewModal({
+                                                                             ...eligibleReviewBooking,
+                                                                             allGroupSlotTimes: allSlots,
+                                                                         });
+                                                                     }}
                                                                  >
                                                                      ⭐ Đánh giá sân
                                                                  </Button>
@@ -2145,7 +2167,7 @@ const MyBookings: React.FC = () => {
                     </h3>
                     {reviewingBooking && (
                         <p className='text-sm text-gray-500 dark:text-gray-400 mt-1'>
-                            {reviewingBooking.courtId?.name} &bull; {reviewingBooking.startTime} – {reviewingBooking.endTime}
+                            {reviewingBooking.courtId?.name} &bull; {reviewingBooking.allGroupSlotTimes ? reviewingBooking.allGroupSlotTimes.join(', ') : `${reviewingBooking.startTime} – ${reviewingBooking.endTime}`}
                         </p>
                     )}
                 </div>
