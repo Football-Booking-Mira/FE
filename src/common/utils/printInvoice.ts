@@ -37,9 +37,10 @@ export const printInvoiceMira = (invoiceDetail: any) => {
         const b = bookings.find((x: any) => x.code === bCode);
         const timeStr = b
             ? (Array.isArray(b.slots) && b.slots.length > 0
-                ? b.slots.map((s: any) => `${s.startTime}-${s.endTime}`).join(', ')
-                : `${b.startTime || ''}-${b.endTime || ''}`)
+                ? b.slots.map((s: any) => `${s.startTime} - ${s.endTime}`).join(', ')
+                : `${b.startTime || ''} - ${b.endTime || ''}`)
             : '';
+        const caPrice = it.subtotal || it.price || 0;
 
         // Với tiền sân (type === 'field'), gộp chung theo tên sân và không quan tâm giá trong key (để gom vào 1 dòng)
         // Với thiết bị khác, gộp theo tên sạch, đơn vị, giá và hình thức thuê/bán
@@ -51,7 +52,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
             mergedMap[key].qty += it.qty || 0;
             mergedMap[key].subtotal += it.subtotal || (it.qty || 0) * (it.price || 0);
             if (it.type === 'field' && timeStr) {
-                mergedMap[key].timeSlots.push(timeStr);
+                mergedMap[key].caDetails.push({ timeStr, price: caPrice });
             }
         } else {
             mergedMap[key] = {
@@ -59,21 +60,31 @@ export const printInvoiceMira = (invoiceDetail: any) => {
                 name: cleanName,
                 qty: it.qty || 0,
                 subtotal: it.subtotal || (it.qty || 0) * (it.price || 0),
-                timeSlots: it.type === 'field' && timeStr ? [timeStr] : [],
+                caDetails: it.type === 'field' && timeStr ? [{ timeStr, price: caPrice }] : [],
             };
         }
     });
 
-    // Cập nhật lại đơn giá trung bình cho sân gộp và nối khung giờ chi tiết vào tên sân
+    // Cập nhật lại tên và bổ sung danh sách chi tiết các ca kèm giá từng ca
     const items = Object.values(mergedMap).map((it: any) => {
         if (it.type === 'field') {
             if (it.qty > 0) {
                 it.price = Math.round(it.subtotal / it.qty);
             }
-            if (it.timeSlots && it.timeSlots.length > 0) {
-                // Lọc bỏ trùng lặp khung giờ nếu có
-                const uniqueSlots = Array.from(new Set(it.timeSlots));
-                it.name = `${it.name} (${uniqueSlots.join(', ')})`;
+            if (it.caDetails && it.caDetails.length > 0) {
+                const detailsHtml = it.caDetails.map((detail: any, idx: number) => {
+                    return `• Ca ${idx + 1} (${detail.timeStr}): ${formatVND(detail.price)}`;
+                }).join('<br/>');
+                
+                it.name = `
+                    <div style="font-weight: 700;">${it.name}</div>
+                    <div style="font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: normal; line-height: 1.4; text-align: left;">
+                        ${detailsHtml}
+                    </div>
+                `.trim();
+                
+                // Ẩn cột đơn giá (hiển thị dấu gạch ngang) vì các ca có đơn giá khác nhau
+                it.hidePriceColumn = true;
             }
         }
         return it;
@@ -141,7 +152,7 @@ export const printInvoiceMira = (invoiceDetail: any) => {
                 <td>${renderMode(it.mode)}</td>
                 <td>${it.unit || ''}</td>
                 <td class="text-right">${it.qty || 0}</td>
-                <td class="text-right">${formatVND(it.price || 0)}</td>
+                <td class="text-right">${it.hidePriceColumn ? '—' : formatVND(it.price || 0)}</td>
                 <td class="text-right">${formatVND(
                     it.subtotal || (it.qty || 0) * (it.price || 0)
                 )}</td>
