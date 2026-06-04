@@ -833,14 +833,12 @@ export default function BookingList() {
             return;
         }
 
-        // Ưu tiên: số tiền tuỳ chỉnh → paymentFinalTotal → paymentBaseTotal → originalTotal
+        // Ưu tiên: số tiền tuỳ chỉnh → paymentFinalTotal → paymentBaseTotal
         const amountToSend = customAmount && customAmount > 0
             ? customAmount
             : paymentFinalTotal > 0
                 ? paymentFinalTotal
-                : paymentBaseTotal > 0
-                    ? paymentBaseTotal
-                    : originalTotal;
+                : paymentBaseTotal;
 
         if (!amountToSend || amountToSend <= 0) {
             toast.error('Số tiền không hợp lệ để tạo mã QR!');
@@ -906,8 +904,10 @@ export default function BookingList() {
             setShowQrModal(false);
             return;
         }
-        // Tự động tạo QR ngay khi chọn chuyển khoản
-        await generateQr();
+        // Tự động tạo QR ngay khi chọn chuyển khoản (chỉ tạo khi còn tiền cần thu)
+        if (paymentFinalTotal > 0) {
+            await generateQr();
+        }
     };
 
     const handleConfirmPayment = async () => {
@@ -1759,9 +1759,7 @@ export default function BookingList() {
         : (paymentBooking && paymentBooking.depositAmount ? paymentBooking.depositAmount : 0);
 
     // còn phải thu trước khi giảm giá hóa đơn
-    const paymentBaseTotal = isGroupPayment
-        ? activeBookings.reduce((sum, b) => sum + getOutstandingAmount(b), 0)
-        : getOutstandingAmount(paymentBooking);
+    const paymentBaseTotal = Math.max(0, originalTotal - depositPaid);
 
     // sau khi trừ giảm giá trên hóa đơn
     const paymentFinalTotal = Math.max(0, paymentBaseTotal - (Number(paymentDiscount || 0) || 0));
@@ -2576,25 +2574,38 @@ export default function BookingList() {
                                 <Form.Item noStyle shouldUpdate={(prev: any, cur: any) => prev.method !== cur.method}>
                                     {({ getFieldValue }: any) => getFieldValue('method') === 'transfer' && (
                                         <div style={{ marginBottom: 14, padding: '12px 16px', background: isDarkMode ? '#0f2744' : '#eff6ff', borderRadius: 12, border: `1px solid ${isDarkMode ? '#1e40af' : '#bfdbfe'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                                            <div>
-                                                <div style={{ fontSize: 12, fontWeight: 700, color: isDarkMode ? '#93c5fd' : '#1e40af', marginBottom: 2 }}>
-                                                    📲 Mã QR chuyển khoản
+                                            {paymentFinalTotal <= 0 ? (
+                                                <div>
+                                                    <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', marginBottom: 2 }}>
+                                                        🎉 Đơn hàng đã thanh toán đủ
+                                                    </div>
+                                                    <div style={{ fontSize: 11, color: isDarkMode ? '#94a3b8' : '#6b7280' }}>
+                                                        Không cần thanh toán thêm qua chuyển khoản.
+                                                    </div>
                                                 </div>
-                                                <div style={{ fontSize: 11, color: isDarkMode ? '#64748b' : '#6b7280' }}>
-                                                    Số tiền:{' '}
-                                                    <b style={{ color: isDarkMode ? '#f1f5f9' : '#111827' }}>
-                                                        {formatVND(paymentFinalTotal > 0 ? paymentFinalTotal : paymentBaseTotal > 0 ? paymentBaseTotal : originalTotal)}
-                                                    </b>
-                                                </div>
-                                            </div>
-                                            <button
-                                                type='button'
-                                                disabled={qrLoading}
-                                                onClick={() => generateQr()}
-                                                style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: qrLoading ? '#6b7280' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: qrLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(59,130,246,0.35)' }}
-                                            >
-                                                {qrLoading ? '⏳ Đang tạo...' : showQrModal ? '🔄 Tạo lại QR' : '📱 Hiện mã QR'}
-                                            </button>
+                                            ) : (
+                                                <>
+                                                    <div>
+                                                        <div style={{ fontSize: 12, fontWeight: 700, color: isDarkMode ? '#93c5fd' : '#1e40af', marginBottom: 2 }}>
+                                                            📲 Mã QR chuyển khoản
+                                                        </div>
+                                                        <div style={{ fontSize: 11, color: isDarkMode ? '#64748b' : '#6b7280' }}>
+                                                            Số tiền:{' '}
+                                                            <b style={{ color: isDarkMode ? '#f1f5f9' : '#111827' }}>
+                                                                {formatVND(paymentFinalTotal)}
+                                                            </b>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        type='button'
+                                                        disabled={qrLoading}
+                                                        onClick={() => generateQr()}
+                                                        style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: qrLoading ? '#6b7280' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', fontWeight: 700, fontSize: 12, cursor: qrLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', boxShadow: '0 3px 10px rgba(59,130,246,0.35)' }}
+                                                    >
+                                                        {qrLoading ? '⏳ Đang tạo...' : showQrModal ? '🔄 Tạo lại QR' : '📱 Hiện mã QR'}
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </Form.Item>
