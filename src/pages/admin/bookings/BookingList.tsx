@@ -231,6 +231,9 @@ interface EquipmentItem {
 interface QrData {
     image: string;
     amount: number;
+    bankName?: string;
+    accountNo?: string;
+    accountName?: string;
 }
 
 // số tiền còn phải thu (total - cọc đã trả)
@@ -883,9 +886,18 @@ export default function BookingList() {
 
             const qr = result?.data?.qrImageBase64 as string | undefined;
             const amount = result?.data?.amount as number | undefined;
+            const bankName = result?.data?.bankName as string | undefined;
+            const accountNo = result?.data?.accountNo as string | undefined;
+            const accountName = result?.data?.accountName as string | undefined;
 
             if (qr && typeof amount === 'number') {
-                setQrData({ image: qr, amount });
+                setQrData({
+                    image: qr,
+                    amount,
+                    bankName,
+                    accountNo,
+                    accountName
+                });
                 setShowQrModal(true);
             } else {
                 toast.error('Server không trả về mã QR. Vui lòng thử lại!');
@@ -3238,6 +3250,26 @@ export default function BookingList() {
                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
                                         Mở App Ngân hàng quét để thanh toán
                                     </p>
+                                </div>
+
+                                {/* Bank Information details */}
+                                <div className="w-full mt-4 pt-4 border-t border-slate-200/80 z-10 text-slate-800">
+                                    <div className="flex flex-col gap-2.5 text-xs w-full">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Ngân hàng</span>
+                                            <span className="text-slate-700 font-extrabold">{qrData.bankName || 'TPBank'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Số tài khoản</span>
+                                            <span className="text-emerald-700 font-mono font-bold tracking-wider bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100 select-all cursor-pointer" title="Nhấp đúp để chọn tất cả">
+                                                {qrData.accountNo || '00000847022'}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Chủ tài khoản</span>
+                                            <span className="text-slate-700 font-extrabold uppercase">{qrData.accountName || 'TRINH QUOC HUNG'}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
