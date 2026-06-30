@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { Check, XCircle } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-
+import { Button } from '@/components/ui/button';
 
 interface CheckoutData {
   courtId?: string;
@@ -54,83 +54,88 @@ const PaymentResultPage: React.FC = () => {
   };
 
   return (
-    <div className='min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4 transition-colors'>
-      <div className='max-w-lg w-full'>
-        <div className='bg-white dark:bg-gray-900 rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.4)] p-10 text-center relative overflow-hidden'>
-          {/* Trang trí nền */}
-          {isSuccess ? (
-            <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-green-500 to-emerald-400"></div>
-          ) : (
-            <div className="absolute top-0 left-0 right-0 h-2 bg-linear-to-r from-red-500 to-orange-400"></div>
-          )}
+    <div className='min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden'>
+      
+      {isSuccess && (
+        <>
+          <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/20 rounded-full blur-[100px] opacity-50 animate-pulse"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-300/20 rounded-full blur-[100px] opacity-50 animate-pulse delay-700"></div>
+        </>
+      )}
 
+      <div className='max-w-md w-full relative z-10'>
+        <div className='bg-card rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-border/40 p-10 text-center flex flex-col items-center transition-all'>
+          
           {/* Icon */}
-          <div
-            className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-8 mt-4
-                        ${isSuccess
-                ? 'bg-green-100 dark:bg-green-900/30'
-                : 'bg-red-100 dark:bg-red-900/30'}`}
-          >
+          <div className={`relative flex items-center justify-center w-24 h-24 mb-6 ${isSuccess ? '' : 'bg-destructive/10 rounded-full'}`}>
             {isSuccess ? (
-              <CheckCircle className='w-14 h-14 text-green-600 dark:text-green-400' />
+              <>
+                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-20"></div>
+                <div className="relative flex items-center justify-center w-full h-full bg-primary/10 rounded-full">
+                  <Check className='w-12 h-12 text-primary' strokeWidth={3} />
+                </div>
+              </>
             ) : (
-              <XCircle className='w-14 h-14 text-red-600 dark:text-red-400' />
+              <XCircle className='w-14 h-14 text-destructive' />
             )}
           </div>
 
-          {/* Tiêu đề */}
-          <h1 className='text-3xl font-black text-gray-900 dark:text-gray-100 mb-4 tracking-tight'>
+          {/* Title */}
+          <h1 className='text-2xl font-bold text-foreground tracking-tight mb-2'>
             {isSuccess ? 'Đặt Sân Thành Công' : 'Thanh Toán Thất Bại'}
           </h1>
 
-          <p className='text-gray-500 dark:text-gray-400 mb-8 text-base leading-relaxed'>
+          {/* Subtitle */}
+          <p className='text-sm text-muted-foreground px-6 mb-8'>
             {isSuccess
               ? 'Cảm ơn bạn đã đặt sân. Chúc bạn có trận đấu vui vẻ! ⚽'
               : 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại hoặc chọn phương thức khác.'}
           </p>
 
-          {/* Thông tin đơn hàng */}
-          <div className='bg-gray-50 dark:bg-gray-800 rounded-2xl p-5 mb-8 border border-gray-100 dark:border-gray-700'>
-            <div className='space-y-3 text-left'>
-              <div className='flex items-center justify-between'>
-                <span className='text-gray-500 dark:text-gray-400 text-sm'>Mã đơn hàng</span>
-                <span className='font-mono font-bold text-gray-900 dark:text-gray-100 text-sm'>{txnRef || '—'}</span>
-              </div>
-              <div className='h-px bg-gray-200 dark:bg-gray-700'></div>
-              <div className='flex items-center justify-between'>
-                <span className='text-gray-500 dark:text-gray-400 text-sm'>Số tiền</span>
-                <span className={`font-black text-lg ${isSuccess ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {formattedAmount}
-                </span>
-              </div>
+          {/* Order Details List */}
+          <div className='w-full bg-accent/50 rounded-2xl p-5 mb-8 flex flex-col gap-3'>
+            <div className='flex items-center justify-between'>
+              <span className='text-muted-foreground text-sm font-medium'>Mã đơn hàng</span>
+              <span className='font-mono text-xs font-bold bg-background border border-border/50 px-2.5 py-1 rounded-md text-foreground shadow-sm'>
+                {txnRef || '—'}
+              </span>
+            </div>
+            <div className='h-px w-full bg-border/50'></div>
+            <div className='flex items-center justify-between'>
+              <span className='text-muted-foreground text-sm font-medium'>Số tiền</span>
+              <span className={`text-xl font-extrabold ${isSuccess ? 'text-primary' : 'text-destructive'}`}>
+                {formattedAmount}
+              </span>
             </div>
           </div>
 
-          {/* Nút hành động */}
-          <div className='space-y-3'>
+          {/* Action Buttons */}
+          <div className='w-full flex flex-col gap-3'>
             {isSuccess ? (
-              <button
+              <Button 
                 onClick={() => navigate('/my-bookings')}
-                className='w-full px-6 py-4 bg-linear-to-r from-green-600 to-emerald-500 text-white font-black rounded-2xl hover:from-green-500 hover:to-emerald-400 transition-all active:scale-[0.98] shadow-xl shadow-green-600/20 text-base'
+                variant="default"
+                className="w-full py-6 rounded-2xl text-base font-semibold hover:-translate-y-0.5 transition-all shadow-md"
               >
                 Xem Đơn Đặt Sân
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button 
                 onClick={handleRetryBooking}
-                className='w-full px-6 py-4 bg-linear-to-r from-orange-500 to-amber-500 text-white font-black rounded-2xl hover:from-orange-400 hover:to-amber-400 transition-all active:scale-[0.98] shadow-xl shadow-orange-500/20 text-base'
+                variant="destructive"
+                className="w-full py-6 rounded-2xl text-base font-semibold hover:-translate-y-0.5 transition-all shadow-md"
               >
                 Đặt Lại Sân
-              </button>
+              </Button>
             )}
 
-            <button
+            <Button 
               onClick={() => navigate('/')}
-              className='w-full px-6 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-bold
-                   hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200 transition-all active:scale-[0.98]'
+              variant="outline"
+              className="w-full py-6 rounded-2xl text-base font-semibold"
             >
               Về Trang Chủ
-            </button>
+            </Button>
           </div>
         </div>
       </div>
