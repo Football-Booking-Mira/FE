@@ -568,449 +568,392 @@ const Checkout: React.FC = () => {
     };
 
     return (
-        <div className='min-h-screen bg-gray-50 dark:bg-gray-950 flex justify-center items-start py-12 px-4'>
-            <Card className='w-full max-w-2xl shadow-[0_20px_50px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] rounded-3xl overflow-hidden border-none bg-white dark:bg-gray-900'>
-                <div className='bg-linear-to-r from-green-600 to-emerald-500 text-white text-center py-8 px-4'>
-                    <h1 className='text-3xl font-black mb-1 tracking-tight'>Thanh Toán Đặt Sân</h1>
-                    <p className='text-green-100 text-sm font-medium'>Kiểm tra thông tin và hoàn tất thanh toán</p>
+        <div className='min-h-screen bg-slate-50 dark:bg-gray-950 py-10 px-4'>
+            <div className='max-w-6xl mx-auto'>
+
+                {/* PAGE HEADER */}
+                <div className='mb-8'>
+                    <h1 className='text-3xl font-extrabold tracking-tight text-foreground'>Thanh toán đặt sân</h1>
+                    <p className='text-sm text-muted-foreground mt-1'>Kiểm tra thông tin và hoàn tất thanh toán</p>
                 </div>
 
-                <CardContent className='p-8 space-y-8 bg-white dark:bg-gray-900'>
-                    {/* Thông tin đặt sân */}
-                    <div className='bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700'>
-                        <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2'>
-                            <span className='w-1.5 h-6 bg-green-500 rounded-full'></span>
-                            Thông tin đặt sân
-                        </h2>
+                {/* 2-COLUMN GRID */}
+                <div className='grid lg:grid-cols-12 gap-8 items-start'>
 
-                        <div className='grid grid-cols-2 gap-2 text-gray-500 dark:text-gray-400'>
-                            <span>Sân:</span>
-                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
-                                {bookingData.courtName}
-                            </span>
+                    {/* ── LEFT COLUMN (form + voucher) ── */}
+                    <div className='lg:col-span-7 space-y-6'>
 
-                            <span>Ngày:</span>
-                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
-                                {formatDate(bookingData.date)}
-                            </span>
-
-                            <span>Các khung giờ:</span>
-                            <div className='flex flex-col gap-1'>
-                                {bookingData.slots && bookingData.slots.length > 0 ? (
-                                    bookingData.slots.map((s, idx) => (
-                                        <span
-                                            key={idx}
-                                            className='font-semibold text-gray-900 dark:text-gray-100 min-w-[140px]'
-                                        >
-                                            {s.startTime} - {s.endTime}
-                                        </span>
-                                    ))
-                                ) : (
-                                    <span className='font-semibold text-gray-900 dark:text-gray-100 min-w-[140px]'>
-                                        {bookingData.startTime} - {bookingData.endTime}
-                                    </span>
-                                )}
-                            </div>
-
-                            <span>Tổng số giờ:</span>
-                            <span className='font-semibold text-gray-900 dark:text-gray-100'>{totalHours} giờ</span>
-
-                            {/*  breakdown */}
-                            <span>Tiền sân:</span>
-                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
-                                {formatCurrency(fieldMoney)}
-                            </span>
-
-                            <span>Tiền thiết bị:</span>
-                            <span className='font-semibold text-gray-900 dark:text-gray-100'>
-                                {formatCurrency(equipMoney)}
-                            </span>
-
-                            <span>Tổng thanh toán:</span>
-                            <span className='font-black text-green-600 dark:text-green-400 text-lg'>
-                                {formatCurrency(baseTotal)}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Voucher - chỉ khi tạo booking mới */}
-                    {!bookingData.isRetryPayment && (
-                        <div className='bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700'>
-                            <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2'>
-                                <span className='w-1.5 h-6 bg-blue-500 rounded-full'></span>
-                                Mã giảm giá (Voucher)
-                            </h2>
-
-                            {!voucherResult ? (
-                                <div className='space-y-4'>
-                                    <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
-                                        <p className='text-sm text-gray-500 dark:text-gray-400'>
-                                            Nhấn nút bên phải để xem danh sách các voucher đang hoạt
-                                            động và còn hạn, sau đó chọn một mã phù hợp.
-                                        </p>
-
-                                        <Dialog
-                                            open={voucherDialogOpen}
-                                            onOpenChange={(open) => {
-                                                setVoucherDialogOpen(open);
-                                                if (open) refetchPublicVouchers();
+                        {/* Thông tin người đặt */}
+                        <Card className='border border-border shadow-sm'>
+                            <CardContent className='p-6 space-y-4'>
+                                <h2 className='text-base font-semibold text-foreground'>Thông tin người đặt</h2>
+                                <div className='grid gap-4'>
+                                    <div>
+                                        <Label htmlFor='name'>Họ và tên</Label>
+                                        <Input
+                                            id='name'
+                                            value={name}
+                                            onChange={(e) => {
+                                                setName(e.target.value);
+                                                if (errors.name)
+                                                    setErrors((p) => ({ ...p, name: undefined }));
                                             }}
-                                        >
-                                            <DialogTrigger asChild>
-                                                <Button
-                                                    disabled={validatingVoucher}
-                                                    className='bg-blue-600 hover:bg-blue-700 text-white px-4'
-                                                >
-                                                    Chọn mã voucher
-                                                </Button>
-                                            </DialogTrigger>
-
-                                            <DialogContent>
-                                                <DialogHeader>
-                                                    <DialogTitle>Chọn mã voucher</DialogTitle>
-                                                    <DialogDescription>
-                                                        Danh sách các voucher đang hoạt động và còn
-                                                        hạn sử dụng. Chọn một mã để áp dụng cho đơn
-                                                        của bạn.
-                                                    </DialogDescription>
-                                                </DialogHeader>
-
-                                                {loadingPublicVouchers ? (
-                                                    <p className='text-sm text-gray-500 dark:text-gray-400'>
-                                                        Đang tải danh sách voucher...
-                                                    </p>
-                                                ) : publicVouchersError ? (
-                                                    <p className='text-sm text-red-600'>
-                                                        {publicVouchersError}
-                                                    </p>
-                                                ) : publicVouchers.length === 0 ? (
-                                                    <p className='text-sm text-gray-500 dark:text-gray-400'>
-                                                        Hiện tại chưa có voucher nào khả dụng.
-                                                    </p>
-                                                ) : (
-                                                    <div className='space-y-2 max-h-80 overflow-y-auto'>
-                                                        {publicVouchers.map((v) => {
-                                                            const isOutOfStock = v.remainingQuantity <= 0;
-                                                            const isMinOrderNotMet =
-                                                                v.minOrderValue > 0 &&
-                                                                baseTotal < v.minOrderValue;
-                                                            const isDisabled = isOutOfStock || isMinOrderNotMet;
-
-                                                            return (
-                                                                <button
-                                                                    key={v.code}
-                                                                    type='button'
-                                                                    onClick={() =>
-                                                                        handleSelectVoucherFromList(
-                                                                            v.code,
-                                                                            v.minOrderValue,
-                                                                            v.discountValue
-                                                                        )
-                                                                    }
-                                                                    disabled={isDisabled}
-                                                                    className={`w-full text-left border rounded-lg p-3 transition flex flex-col gap-1 ${
-                                                                        isDisabled
-                                                                            ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 opacity-50 cursor-not-allowed'
-                                                                            : 'border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-600 cursor-pointer'
-                                                                    }`}
-                                                                >
-                                                                    <div className='flex items-center justify-between'>
-                                                                        <span
-                                                                            className={`font-semibold ${
-                                                                                isDisabled
-                                                                                    ? 'text-gray-400 dark:text-gray-500'
-                                                                                    : 'text-blue-700 dark:text-blue-400'
-                                                                            }`}
-                                                                        >
-                                                                            {v.code}
-                                                                        </span>
-                                                                        <span
-                                                                            className={`text-sm font-semibold ${
-                                                                                isDisabled
-                                                                                    ? 'text-gray-400 dark:text-gray-500'
-                                                                                    : 'text-green-700 dark:text-green-400'
-                                                                            }`}
-                                                                        >
-                                                                            {v.discountDisplay}
-                                                                        </span>
-                                                                    </div>
-
-                                                                    {v.description && (
-                                                                        <p
-                                                                            className={`text-xs ${isDisabled ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'}`}
-                                                                        >
-                                                                            {v.description}
-                                                                        </p>
-                                                                    )}
-
-                                                                    <div className='flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400 mt-1'>
-                                                                        <span>
-                                                                            Còn lại:{' '}
-                                                                            {isOutOfStock ? (
-                                                                                <span className='font-semibold text-red-600'>
-                                                                                    Hết lượt sử dụng
-                                                                                </span>
-                                                                            ) : (
-                                                                                <span className='font-semibold text-green-700 dark:text-green-400'>
-                                                                                    {v.remainingQuantity}
-                                                                                </span>
-                                                                            )}
-                                                                        </span>
-
-                                                                        {v.minOrderValue > 0 && (
-                                                                            <span>
-                                                                                Đơn tối thiểu:{' '}
-                                                                                <span
-                                                                                    className={`font-semibold ${
-                                                                                        isDisabled
-                                                                                            ? 'text-red-600'
-                                                                                            : ''
-                                                                                    }`}
-                                                                                >
-                                                                                    {new Intl.NumberFormat(
-                                                                                        'vi-VN'
-                                                                                    ).format(
-                                                                                        v.minOrderValue
-                                                                                    )}{' '}
-                                                                                    VNĐ
-                                                                                </span>
-                                                                                {isDisabled && (
-                                                                                    <span className='ml-1 text-red-600 font-semibold'>
-                                                                                        (Không đủ
-                                                                                        điều kiện)
-                                                                                    </span>
-                                                                                )}
-                                                                            </span>
-                                                                        )}
-
-                                                                        <span>
-                                                                            Hạn dùng:{' '}
-                                                                            <span className='font-semibold'>
-                                                                                {new Date(
-                                                                                    v.startDate
-                                                                                ).toLocaleDateString(
-                                                                                    'vi-VN'
-                                                                                )}{' '}
-                                                                                -{' '}
-                                                                                {new Date(
-                                                                                    v.endDate
-                                                                                ).toLocaleDateString(
-                                                                                    'vi-VN'
-                                                                                )}
-                                                                            </span>
-                                                                        </span>
-                                                                    </div>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                            </DialogContent>
-                                        </Dialog>
-                                    </div>
-
-                                    {!isAuthenticated && (
-                                        <p className='text-sm text-amber-600'>
-                                            ⚠️ Vui lòng đăng nhập để sử dụng voucher
-                                        </p>
-                                    )}
-
-                                    {voucherError && (
-                                        <p className='text-sm text-red-600 bg-red-50 p-2 rounded'>
-                                            ❌ {voucherError}
-                                        </p>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className='space-y-3'>
-                                    <div className='bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-4'>
-                                        <div className='flex items-center justify-between mb-2'>
-                                            <div className='flex items-center gap-2'>
-                                                <span className='font-bold text-green-700 dark:text-green-400'>
-                                                    Voucher đã áp dụng: {voucherResult.code}
-                                                </span>
-                                            </div>
-                                            <Button
-                                                onClick={handleRemoveVoucher}
-                                                variant='outline'
-                                                size='sm'
-                                                className='text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                            >
-                                                Xóa
-                                            </Button>
-                                        </div>
-
-                                        <div className='grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-300'>
-                                            <span>Giảm giá:</span>
-                                            <span className='font-bold text-green-700 dark:text-green-400'>
-                                                -{formatCurrency(discountAmount)}
-                                            </span>
-
-                                            <span>Tổng tiền ban đầu:</span>
-                                            <span className='font-medium text-gray-400 dark:text-gray-500 line-through'>
-                                                {formatCurrency(baseTotal)}
-                                            </span>
-
-                                            <span>Tổng tiền sau giảm:</span>
-                                            <span className='font-black text-green-600 dark:text-green-400 text-lg'>
-                                                {formatCurrency(finalTotal)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Thông tin người đặt */}
-                    <div className='space-y-4'>
-                        <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2'>
-                            <span className='w-1.5 h-6 bg-emerald-500 rounded-full'></span>
-                            Thông tin người đặt
-                        </h2>
-                        <div className='grid gap-4'>
-                            <div>
-                                <Label htmlFor='name'>Họ và tên</Label>
-                                <Input
-                                    id='name'
-                                    value={name}
-                                    onChange={(e) => {
-                                        setName(e.target.value);
-                                        if (errors.name)
-                                            setErrors((p) => ({ ...p, name: undefined }));
-                                    }}
-                                    placeholder='Nhập tên'
-                                    className={`mt-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-green-500 dark:focus:border-green-400 focus:ring-green-200 dark:focus:ring-green-800 text-gray-900 dark:text-gray-100 ${
-                                        errors.name ? 'border-red-500 focus:border-red-500' : ''
-                                    }`}
-                                />
-                                {errors.name && (
-                                    <p className='text-sm text-red-500 mt-1'>{errors.name}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <Label htmlFor='phone'>Số điện thoại</Label>
-                                <Input
-                                    id='phone'
-                                    value={phone}
-                                    onChange={(e) => {
-                                        const raw = e.target.value.replace(/\D/g, '');
-                                        if (raw.length <= 10) setPhone(raw);
-                                        if (errors.phone)
-                                            setErrors((p) => ({ ...p, phone: undefined }));
-                                    }}
-                                    placeholder='Nhập số điện thoại 10 số'
-                                    className={`mt-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-green-500 dark:focus:border-green-400 focus:ring-green-200 dark:focus:ring-green-800 text-gray-900 dark:text-gray-100 ${
-                                        errors.phone ? 'border-red-500 focus:border-red-500' : ''
-                                    }`}
-                                />
-                                {errors.phone && (
-                                    <p className='text-sm text-red-500 mt-1'>{errors.phone}</p>
-                                )}
-                            </div>
-
-                            <div>
-                                <Label htmlFor='email'>Email</Label>
-                                <Input
-                                    id='email'
-                                    type='email'
-                                    value={email}
-                                    onChange={(e) => {
-                                        setEmail(e.target.value);
-                                        if (errors.email)
-                                            setErrors((p) => ({ ...p, email: undefined }));
-                                    }}
-                                    placeholder='Nhập email (vd: ten@gmail.com)'
-                                    className={`mt-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:border-green-500 dark:focus:border-green-400 focus:ring-green-200 dark:focus:ring-green-800 text-gray-900 dark:text-gray-100 ${
-                                        errors.email ? 'border-red-500 focus:border-red-500' : ''
-                                    }`}
-                                />
-                                {errors.email && (
-                                    <p className='text-sm text-red-500 mt-1'>{errors.email}</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Phương thức thanh toán */}
-                    <div className='space-y-4 pt-2'>
-                        <h2 className='font-black text-lg text-gray-900 dark:text-gray-100 flex items-center gap-2'>
-                            <span className='w-1.5 h-6 bg-linear-to-b from-emerald-400 to-green-600 rounded-full'></span>
-                            Phương thức thanh toán
-                        </h2>
-                        
-                        <div className='flex flex-col gap-3'>
-                            {[
-                                { value: 'vnpay', label: 'Thanh toán qua VNPay', desc: 'Thẻ nội địa, thẻ quốc tế, quét mã QR', iconImage: 'https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png' },
-                                { value: 'zalopay', label: 'Thanh toán qua ZaloPay', desc: 'Ví ZaloPay, thẻ ATM, thẻ quốc tế', iconImage: 'https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png' },
-                            ].map((method) => (
-                                <label
-                                    key={method.value}
-                                    className={`flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
-                                        paymentMethod === method.value
-                                            ? 'border-emerald-500 bg-emerald-50/50 dark:border-emerald-500 dark:bg-emerald-900/20 shadow-sm shadow-emerald-500/10'
-                                            : 'border-gray-100 dark:border-gray-700 hover:border-emerald-200 hover:bg-emerald-50/30 dark:hover:border-emerald-800'
-                                    }`}
-                                >
-                                    <div className='pt-1'>
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                            paymentMethod === method.value ? 'border-emerald-500' : 'border-gray-300 dark:border-gray-600'
-                                        }`}>
-                                            <div className={`w-2.5 h-2.5 rounded-full transition-transform duration-200 ${
-                                                paymentMethod === method.value ? 'bg-emerald-500 scale-100' : 'bg-transparent scale-0'
-                                            }`}></div>
-                                        </div>
-                                        <input
-                                            type='radio'
-                                            value={method.value}
-                                            checked={paymentMethod === method.value}
-                                            onChange={() => setPaymentMethod(method.value as 'vnpay' | 'zalopay')}
-                                            className='hidden'
-                                            name='paymentMethodGroup'
+                                            placeholder='Nhập tên'
+                                            className={`mt-1 ${errors.name ? 'border-red-500 focus:border-red-500' : ''}`}
                                         />
+                                        {errors.name && (
+                                            <p className='text-sm text-red-500 mt-1'>{errors.name}</p>
+                                        )}
                                     </div>
-                                    <div className='flex items-center gap-4 flex-1'>
-                                        <div className='w-14 h-14 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden shadow-xs flex items-center justify-center p-2.5 shrink-0'>
-                                            <img src={method.iconImage} alt={method.label} className='w-full h-full object-contain' />
+
+                                    <div>
+                                        <Label htmlFor='phone'>Số điện thoại</Label>
+                                        <Input
+                                            id='phone'
+                                            value={phone}
+                                            onChange={(e) => {
+                                                const raw = e.target.value.replace(/\D/g, '');
+                                                if (raw.length <= 10) setPhone(raw);
+                                                if (errors.phone)
+                                                    setErrors((p) => ({ ...p, phone: undefined }));
+                                            }}
+                                            placeholder='Nhập số điện thoại 10 số'
+                                            className={`mt-1 ${errors.phone ? 'border-red-500 focus:border-red-500' : ''}`}
+                                        />
+                                        {errors.phone && (
+                                            <p className='text-sm text-red-500 mt-1'>{errors.phone}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor='email'>Email</Label>
+                                        <Input
+                                            id='email'
+                                            type='email'
+                                            value={email}
+                                            onChange={(e) => {
+                                                setEmail(e.target.value);
+                                                if (errors.email)
+                                                    setErrors((p) => ({ ...p, email: undefined }));
+                                            }}
+                                            placeholder='Nhập email (vd: ten@gmail.com)'
+                                            className={`mt-1 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
+                                        />
+                                        {errors.email && (
+                                            <p className='text-sm text-red-500 mt-1'>{errors.email}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Voucher - chỉ khi tạo booking mới */}
+                        {!bookingData.isRetryPayment && (
+                            <Card className='border border-border shadow-sm'>
+                                <CardContent className='p-6 space-y-4'>
+                                    <h2 className='text-base font-semibold text-foreground'>Mã giảm giá (Voucher)</h2>
+
+                                    {!voucherResult ? (
+                                        <div className='space-y-3'>
+                                            <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
+                                                <p className='text-sm text-muted-foreground'>
+                                                    Nhấn nút bên phải để xem danh sách các voucher đang hoạt động và còn hạn, sau đó chọn một mã phù hợp.
+                                                </p>
+
+                                                <Dialog
+                                                    open={voucherDialogOpen}
+                                                    onOpenChange={(open) => {
+                                                        setVoucherDialogOpen(open);
+                                                        if (open) refetchPublicVouchers();
+                                                    }}
+                                                >
+                                                    <DialogTrigger asChild>
+                                                        <Button
+                                                            disabled={validatingVoucher}
+                                                            className='bg-emerald-600 hover:bg-emerald-700 text-white shrink-0'
+                                                        >
+                                                            Chọn mã voucher
+                                                        </Button>
+                                                    </DialogTrigger>
+
+                                                    <DialogContent className='max-w-lg'>
+                                                        <DialogHeader>
+                                                            <DialogTitle>Chọn mã voucher</DialogTitle>
+                                                            <DialogDescription>
+                                                                Danh sách các voucher đang hoạt động và còn hạn sử dụng. Chọn một mã để áp dụng cho đơn của bạn.
+                                                            </DialogDescription>
+                                                        </DialogHeader>
+
+                                                        {loadingPublicVouchers ? (
+                                                            <p className='text-sm text-muted-foreground py-4 text-center'>Đang tải danh sách voucher...</p>
+                                                        ) : publicVouchersError ? (
+                                                            <p className='text-sm text-destructive py-4'>{publicVouchersError}</p>
+                                                        ) : publicVouchers.length === 0 ? (
+                                                            <p className='text-sm text-muted-foreground py-4 text-center'>Hiện tại chưa có voucher nào khả dụng.</p>
+                                                        ) : (
+                                                            <div className='space-y-3 max-h-80 overflow-y-auto pr-1'>
+                                                                {publicVouchers.map((v) => {
+                                                                    const isOutOfStock = v.remainingQuantity <= 0;
+                                                                    const isMinOrderNotMet =
+                                                                        v.minOrderValue > 0 &&
+                                                                        baseTotal < v.minOrderValue;
+                                                                    const isDisabled = isOutOfStock || isMinOrderNotMet;
+
+                                                                    return (
+                                                                        <button
+                                                                            key={v.code}
+                                                                            type='button'
+                                                                            onClick={() =>
+                                                                                handleSelectVoucherFromList(
+                                                                                    v.code,
+                                                                                    v.minOrderValue,
+                                                                                    v.discountValue
+                                                                                )
+                                                                            }
+                                                                            disabled={isDisabled}
+                                                                            className={`w-full text-left border-2 border-dashed rounded-xl p-4 flex justify-between items-center transition-all ${
+                                                                                isDisabled
+                                                                                    ? 'border-border opacity-50 cursor-not-allowed bg-muted/30'
+                                                                                    : 'border-border hover:border-emerald-500 hover:bg-accent/50 cursor-pointer bg-card'
+                                                                            }`}
+                                                                        >
+                                                                            {/* LEFT: code + meta */}
+                                                                            <div className='space-y-1.5 flex-1 min-w-0 mr-4'>
+                                                                                <span className={`font-mono font-bold text-sm px-2 py-0.5 rounded inline-block ${isDisabled ? 'bg-muted text-muted-foreground' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
+                                                                                    {v.code}
+                                                                                </span>
+                                                                                {v.description && (
+                                                                                    <p className='text-xs text-muted-foreground truncate'>{v.description}</p>
+                                                                                )}
+                                                                                <div className='flex flex-wrap gap-3 text-xs text-muted-foreground'>
+                                                                                    <span>
+                                                                                        Còn lại:{' '}
+                                                                                        {isOutOfStock ? (
+                                                                                            <span className='font-semibold text-destructive'>Hết lượt</span>
+                                                                                        ) : (
+                                                                                            <span className='font-semibold text-emerald-600 dark:text-emerald-400'>{v.remainingQuantity}</span>
+                                                                                        )}
+                                                                                    </span>
+                                                                                    {v.minOrderValue > 0 && (
+                                                                                        <span>
+                                                                                            Đơn tối thiểu:{' '}
+                                                                                            <span className={`font-semibold ${isMinOrderNotMet ? 'text-destructive' : ''}`}>
+                                                                                                {new Intl.NumberFormat('vi-VN').format(v.minOrderValue)} VNĐ
+                                                                                            </span>
+                                                                                            {isMinOrderNotMet && <span className='ml-1 text-destructive'>(Không đủ)</span>}
+                                                                                        </span>
+                                                                                    )}
+                                                                                    <span>
+                                                                                        Hạn:{' '}
+                                                                                        <span className='font-semibold'>
+                                                                                            {new Date(v.startDate).toLocaleDateString('vi-VN')} - {new Date(v.endDate).toLocaleDateString('vi-VN')}
+                                                                                        </span>
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* RIGHT: discount value */}
+                                                                            <div className='text-lg font-bold text-foreground shrink-0'>
+                                                                                {v.discountDisplay}
+                                                                            </div>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </div>
+
+                                            {!isAuthenticated && (
+                                                <p className='text-sm text-amber-600 dark:text-amber-400'>
+                                                    ⚠️ Vui lòng đăng nhập để sử dụng voucher
+                                                </p>
+                                            )}
+
+                                            {voucherError && (
+                                                <p className='text-sm text-destructive bg-destructive/5 border border-destructive/20 px-3 py-2 rounded-lg'>
+                                                    ❌ {voucherError}
+                                                </p>
+                                            )}
                                         </div>
-                                        <div>
-                                            <h4 className={`font-bold transition-colors text-base ${
-                                                paymentMethod === method.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-gray-800 dark:text-gray-200'
-                                            }`}>{method.label}</h4>
-                                            <p className='text-sm text-gray-500 dark:text-gray-400 mt-1'>{method.desc}</p>
+                                    ) : (
+                                        <div className='border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 space-y-3'>
+                                            <div className='flex items-center justify-between'>
+                                                <div className='flex items-center gap-2'>
+                                                    <span className='font-mono font-bold text-sm bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded'>
+                                                        {voucherResult.code}
+                                                    </span>
+                                                    <span className='text-sm text-emerald-700 dark:text-emerald-400 font-medium'>đã áp dụng</span>
+                                                </div>
+                                                <Button
+                                                    onClick={handleRemoveVoucher}
+                                                    variant='outline'
+                                                    size='sm'
+                                                    className='text-destructive border-destructive/30 hover:bg-destructive/5'
+                                                >
+                                                    Xóa
+                                                </Button>
+                                            </div>
+
+                                            <div className='grid grid-cols-2 gap-2 text-sm'>
+                                                <span className='text-muted-foreground'>Giảm giá:</span>
+                                                <span className='font-bold text-emerald-600 dark:text-emerald-400'>-{formatCurrency(discountAmount)}</span>
+
+                                                <span className='text-muted-foreground'>Tổng tiền ban đầu:</span>
+                                                <span className='font-medium text-muted-foreground line-through'>{formatCurrency(baseTotal)}</span>
+
+                                                <span className='text-muted-foreground'>Tổng sau giảm:</span>
+                                                <span className='font-extrabold text-emerald-600 dark:text-emerald-400'>{formatCurrency(finalTotal)}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Phương thức thanh toán */}
+                        <Card className='border border-border shadow-sm'>
+                            <CardContent className='p-6 space-y-4'>
+                                <h2 className='text-base font-semibold text-foreground'>Phương thức thanh toán</h2>
+
+                                <div className='flex flex-col gap-3'>
+                                    {[
+                                        { value: 'vnpay', label: 'Thanh toán qua VNPay', desc: 'Thẻ nội địa, thẻ quốc tế, quét mã QR', iconImage: 'https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png' },
+                                        { value: 'zalopay', label: 'Thanh toán qua ZaloPay', desc: 'Ví ZaloPay, thẻ ATM, thẻ quốc tế', iconImage: 'https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png' },
+                                    ].map((method) => (
+                                        <label
+                                            key={method.value}
+                                            className={`flex items-start gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 border-2 ${
+                                                paymentMethod === method.value
+                                                    ? 'border-emerald-500 bg-emerald-50/50 dark:border-emerald-500 dark:bg-emerald-900/20 shadow-sm shadow-emerald-500/10'
+                                                    : 'border-border hover:border-emerald-200 hover:bg-emerald-50/30 dark:hover:border-emerald-800'
+                                            }`}
+                                        >
+                                            <div className='pt-1'>
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                                    paymentMethod === method.value ? 'border-emerald-500' : 'border-muted-foreground/40'
+                                                }`}>
+                                                    <div className={`w-2.5 h-2.5 rounded-full transition-transform duration-200 ${
+                                                        paymentMethod === method.value ? 'bg-emerald-500 scale-100' : 'bg-transparent scale-0'
+                                                    }`}></div>
+                                                </div>
+                                                <input
+                                                    type='radio'
+                                                    value={method.value}
+                                                    checked={paymentMethod === method.value}
+                                                    onChange={() => setPaymentMethod(method.value as 'vnpay' | 'zalopay')}
+                                                    className='hidden'
+                                                    name='paymentMethodGroup'
+                                                />
+                                            </div>
+                                            <div className='flex items-center gap-4 flex-1'>
+                                                <div className='w-12 h-12 bg-white dark:bg-gray-800 border border-border rounded-xl overflow-hidden flex items-center justify-center p-2 shrink-0'>
+                                                    <img src={method.iconImage} alt={method.label} className='w-full h-full object-contain' />
+                                                </div>
+                                                <div>
+                                                    <h4 className={`font-semibold text-sm transition-colors ${
+                                                        paymentMethod === method.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-foreground'
+                                                    }`}>{method.label}</h4>
+                                                    <p className='text-xs text-muted-foreground mt-0.5'>{method.desc}</p>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* ── RIGHT COLUMN (order summary — sticky) ── */}
+                    <div className='lg:col-span-5'>
+                        <div className='sticky top-24'>
+                            <Card className='border border-border shadow-sm'>
+                                <CardContent className='p-6 space-y-5'>
+                                    <h2 className='text-base font-semibold text-foreground'>Thông tin đặt sân</h2>
+
+                                    <div className='space-y-3 text-sm'>
+                                        <div className='flex justify-between'>
+                                            <span className='text-muted-foreground'>Sân:</span>
+                                            <span className='font-semibold text-foreground text-right'>{bookingData.courtName}</span>
+                                        </div>
+                                        <div className='flex justify-between'>
+                                            <span className='text-muted-foreground'>Ngày:</span>
+                                            <span className='font-semibold text-foreground'>{formatDate(bookingData.date)}</span>
+                                        </div>
+                                        <div className='flex justify-between items-start gap-4'>
+                                            <span className='text-muted-foreground shrink-0'>Các khung giờ:</span>
+                                            <div className='flex flex-col gap-1 text-right'>
+                                                {bookingData.slots && bookingData.slots.length > 0 ? (
+                                                    bookingData.slots.map((s, idx) => (
+                                                        <span key={idx} className='font-semibold text-foreground'>
+                                                            {s.startTime} - {s.endTime}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className='font-semibold text-foreground'>
+                                                        {bookingData.startTime} - {bookingData.endTime}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className='flex justify-between'>
+                                            <span className='text-muted-foreground'>Tổng số giờ:</span>
+                                            <span className='font-semibold text-foreground'>{totalHours} giờ</span>
                                         </div>
                                     </div>
-                                </label>
-                            ))}
+
+                                    <div className='border-t border-border pt-4 space-y-2 text-sm'>
+                                        <div className='flex justify-between'>
+                                            <span className='text-muted-foreground'>Tiền sân:</span>
+                                            <span className='font-medium text-foreground'>{formatCurrency(fieldMoney)}</span>
+                                        </div>
+                                        <div className='flex justify-between'>
+                                            <span className='text-muted-foreground'>Tiền thiết bị:</span>
+                                            <span className='font-medium text-foreground'>{formatCurrency(equipMoney)}</span>
+                                        </div>
+                                        {voucherResult && discountAmount > 0 && (
+                                            <div className='flex justify-between text-emerald-600 dark:text-emerald-400'>
+                                                <span>Giảm giá ({voucherResult.code}):</span>
+                                                <span className='font-semibold'>-{formatCurrency(discountAmount)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className='border-t border-border pt-4 flex justify-between items-center'>
+                                        <span className='text-sm font-semibold text-foreground'>Tổng thanh toán:</span>
+                                        <span className='text-xl font-extrabold text-emerald-600 dark:text-emerald-400'>
+                                            {formatCurrency(totalAmount)}
+                                        </span>
+                                    </div>
+
+                                    <Button
+                                        onClick={handleSubmit}
+                                        disabled={isPaying}
+                                        className='w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-5 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm'
+                                    >
+                                        {isPaying ? (
+                                            <>
+                                                <span className='animate-spin'>⏳</span>
+                                                <span>Đang chuyển sang {paymentMethod === 'zalopay' ? 'ZaloPay' : 'VNPay'}...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>Thanh toán ngay</span>
+                                                <span>→</span>
+                                            </>
+                                        )}
+                                    </Button>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
 
-                    <Button
-                        onClick={handleSubmit}
-                        disabled={isPaying}
-                        className='w-full mt-4 bg-linear-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:-translate-y-0.5 text-white py-6 rounded-xl font-black text-lg transition-all duration-200 active:scale-[0.98] disabled:from-gray-300 disabled:to-gray-400 dark:disabled:from-gray-700 dark:disabled:to-gray-800 disabled:cursor-not-allowed disabled:shadow-none disabled:transform-none border-none outline-none flex items-center justify-center gap-2'
-                    >
-                        {isPaying 
-                          ? (
-                              <>
-                                  <span className="animate-spin text-xl">⏳</span>
-                                  <span>Đang chuyển sang {paymentMethod === 'zalopay' ? 'ZaloPay' : 'VNPay'}...</span>
-                              </>
-                            )
-                          : (
-                              <>
-                                  <span>Thanh toán ngay</span>
-                                  <span className='inline-block w-1.5 h-1.5 bg-white/70 rounded-full mx-1 shrink-0'></span>
-                                  <span className='text-xl'>👉</span>
-                              </>
-                          )
-                        }
-                    </Button>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 };
 
 export default Checkout;
+
