@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Check, XCircle } from 'lucide-react';
+import { Check, XCircle, Home, ClipboardList } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -56,6 +56,7 @@ const PaymentResultPage: React.FC = () => {
   return (
     <div className='min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden'>
       
+      {/* Background Celebration Blobs */}
       {isSuccess && (
         <>
           <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/20 rounded-full blur-[100px] opacity-50 animate-pulse"></div>
@@ -63,26 +64,23 @@ const PaymentResultPage: React.FC = () => {
         </>
       )}
 
-      <div className='max-w-md w-full relative z-10'>
-        <div className='bg-card rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-border/40 p-10 text-center flex flex-col items-center transition-all'>
+      <div className='max-w-md md:max-w-lg mx-auto w-full relative z-10'>
+        <div className='bg-card rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-border/40 p-10 text-center flex flex-col items-center transition-all'>
           
           {/* Icon */}
-          <div className={`relative flex items-center justify-center w-24 h-24 mb-6 ${isSuccess ? '' : 'bg-destructive/10 rounded-full'}`}>
+          <div className={`relative flex items-center justify-center mb-6 ${isSuccess ? '' : 'bg-destructive/10 rounded-full w-24 h-24'}`}>
             {isSuccess ? (
-              <>
-                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-20"></div>
-                <div className="relative flex items-center justify-center w-full h-full bg-primary/10 rounded-full">
-                  <Check className='w-12 h-12 text-primary' strokeWidth={3} />
-                </div>
-              </>
+              <div className="bg-emerald-50 text-emerald-600 rounded-full p-6 shadow-sm">
+                <Check className='w-12 h-12 text-emerald-600' strokeWidth={3} />
+              </div>
             ) : (
               <XCircle className='w-14 h-14 text-destructive' />
             )}
           </div>
 
           {/* Title */}
-          <h1 className='text-2xl font-bold text-foreground tracking-tight mb-2'>
-            {isSuccess ? 'Đặt Sân Thành Công' : 'Thanh Toán Thất Bại'}
+          <h1 className='text-2xl md:text-3xl font-extrabold text-foreground tracking-tight mb-2'>
+            {isSuccess ? 'Đặt Sân Thành Công!' : 'Thanh Toán Thất Bại'}
           </h1>
 
           {/* Subtitle */}
@@ -92,18 +90,17 @@ const PaymentResultPage: React.FC = () => {
               : 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại hoặc chọn phương thức khác.'}
           </p>
 
-          {/* Order Details List */}
-          <div className='w-full bg-accent/50 rounded-2xl p-5 mb-8 flex flex-col gap-3'>
-            <div className='flex items-center justify-between'>
+          {/* Minimalist Order Details */}
+          <div className='w-full mb-8 flex flex-col gap-4 text-left px-2'>
+            <div className='flex flex-row items-center justify-between'>
               <span className='text-muted-foreground text-sm font-medium'>Mã đơn hàng</span>
-              <span className='font-mono text-xs font-bold bg-background border border-border/50 px-2.5 py-1 rounded-md text-foreground shadow-sm'>
+              <span className='font-mono text-xs tracking-wider text-muted-foreground bg-secondary/50 px-2.5 py-1 rounded-md border border-border/40'>
                 {txnRef || '—'}
               </span>
             </div>
-            <div className='h-px w-full bg-border/50'></div>
-            <div className='flex items-center justify-between'>
+            <div className='flex flex-row items-center justify-between'>
               <span className='text-muted-foreground text-sm font-medium'>Số tiền</span>
-              <span className={`text-xl font-extrabold ${isSuccess ? 'text-primary' : 'text-destructive'}`}>
+              <span className={`text-xl font-black ${isSuccess ? 'text-emerald-600' : 'text-destructive'}`}>
                 {formattedAmount}
               </span>
             </div>
@@ -112,30 +109,42 @@ const PaymentResultPage: React.FC = () => {
           {/* Action Buttons */}
           <div className='w-full flex flex-col gap-3'>
             {isSuccess ? (
-              <Button 
-                onClick={() => navigate('/my-bookings')}
-                variant="default"
-                className="w-full py-6 rounded-2xl text-base font-semibold hover:-translate-y-0.5 transition-all shadow-md"
-              >
-                Xem Đơn Đặt Sân
-              </Button>
+              <>
+                <Button 
+                  onClick={() => navigate('/my-bookings')}
+                  variant="outline"
+                  className="w-full py-6 rounded-2xl text-base font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-all shadow-sm flex items-center justify-center gap-2 group"
+                >
+                  <ClipboardList className='w-5 h-5 group-hover:scale-110 transition-transform' />
+                  Xem Đơn Đặt Sân
+                </Button>
+                <Button 
+                  onClick={() => navigate('/')}
+                  className="w-full py-6 rounded-2xl text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hover:-translate-y-0.5 transition-all shadow-md flex items-center justify-center gap-2 group"
+                >
+                  <Home className='w-5 h-5 group-hover:scale-110 transition-transform' />
+                  Về Trang Chủ
+                </Button>
+              </>
             ) : (
-              <Button 
-                onClick={handleRetryBooking}
-                variant="destructive"
-                className="w-full py-6 rounded-2xl text-base font-semibold hover:-translate-y-0.5 transition-all shadow-md"
-              >
-                Đặt Lại Sân
-              </Button>
+              <>
+                <Button 
+                  onClick={handleRetryBooking}
+                  variant="destructive"
+                  className="w-full py-6 rounded-2xl text-base font-semibold hover:-translate-y-0.5 transition-all shadow-md"
+                >
+                  Đặt Lại Sân
+                </Button>
+                <Button 
+                  onClick={() => navigate('/')}
+                  variant="outline"
+                  className="w-full py-6 rounded-2xl text-base font-semibold"
+                >
+                  <Home className='w-5 h-5 mr-2' />
+                  Về Trang Chủ
+                </Button>
+              </>
             )}
-
-            <Button 
-              onClick={() => navigate('/')}
-              variant="outline"
-              className="w-full py-6 rounded-2xl text-base font-semibold"
-            >
-              Về Trang Chủ
-            </Button>
           </div>
         </div>
       </div>
