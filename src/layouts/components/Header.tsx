@@ -54,10 +54,10 @@ const Header = () => {
     `;
 
     const getLinkInnerClass = (path: string) => `
-        px-4 py-2.5 text-[15px] font-semibold rounded-full transition-all duration-300
+        px-4 py-2.5 text-[15px] font-semibold rounded-xl transition-all duration-300
         ${location.pathname === path 
-            ? 'bg-green-50 dark:bg-green-900/40 text-green-600 dark:text-green-400 shadow-[0_2px_10px_-4px_rgba(34,197,94,0.3)]' 
-            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:text-green-600 dark:hover:text-green-400'
+            ? 'bg-emerald-50 dark:bg-green-900/40 text-emerald-600 dark:text-green-400 shadow-[0_2px_10px_-4px_rgba(16,185,129,0.3)]' 
+            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/80 hover:text-emerald-600 dark:hover:text-green-400'
         }
     `;
 
@@ -129,7 +129,7 @@ const Header = () => {
     ];
 
     return (
-        <Layout.Header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md px-4 md:px-8 lg:px-12 flex items-center h-20 shadow-xs border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300 w-full" style={{ lineHeight: 'normal' }}>
+        <Layout.Header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl px-4 md:px-8 lg:px-12 flex items-center h-20 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] border-b border-gray-100/80 dark:border-gray-800 sticky top-0 z-50 transition-colors duration-300 w-full" style={{ lineHeight: 'normal' }}>
             {/* 1. Logo Section (Left) */}
             <div className="flex-1 flex items-center h-full pl-2 sm:pl-4 md:pl-10 lg:pl-16">
                 <Link to='/' className="flex items-center gap-3 group">
@@ -139,7 +139,7 @@ const Header = () => {
                         className="h-12 md:h-14 object-contain group-hover:scale-105 transition-transform"
                     />
                     <div className="flex-col justify-center hidden sm:flex">
-                        <span className="text-lg font-bold text-green-500 font-sans leading-none tracking-tight mb-1">
+                        <span className="text-lg font-extrabold text-emerald-600 font-sans leading-none tracking-tight mb-1">
                             Sân bóng MIRA
                         </span>
                         <span className="text-xs text-gray-500 dark:text-gray-400 font-sans leading-none">
@@ -157,7 +157,7 @@ const Header = () => {
                             {item.label}
                         </div>
                         {location.pathname === item.path && (
-                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-linear-to-r from-green-500 to-emerald-400 rounded-t-full" />
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-linear-to-r from-emerald-500 to-teal-400 rounded-t-full" />
                         )}
                     </Link>
                 ))}

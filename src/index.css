@@ -116,11 +116,7 @@
     }
 }
 
-/* ==================================================== */
-/* PREMIUM ANT DESIGN DARK MODE OVERRIDES (TAILWIND SYNC)*/
-/* ==================================================== */
 
-/* Cards, Wrappers, Layouts */
 html.dark .ant-table,
 html.dark .ant-table-wrapper,
 html.dark .ant-form,
@@ -328,3 +324,111 @@ html.dark .ant-message-success .anticon { color: #34d399 !important; }
 html.dark .ant-message-error .anticon { color: #f87171 !important; }
 html.dark .ant-message-info .anticon { color: #60a5fa !important; }
 html.dark .ant-message-warning .anticon { color: #fbbf24 !important; }
+
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+html.dark .skeleton {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200% 100%;
+}
+
+.skeleton-card {
+    border-radius: 16px;
+    overflow: hidden;
+}
+.skeleton-card .skeleton-img {
+    width: 100%;
+    aspect-ratio: 4/3;
+}
+.skeleton-card .skeleton-line {
+    height: 14px;
+    margin: 12px 20px;
+    border-radius: 6px;
+}
+.skeleton-card .skeleton-line.short {
+    width: 60%;
+}
+.skeleton-card .skeleton-line.price {
+    width: 40%;
+    height: 20px;
+    margin-top: 16px;
+}
+
+
+.ticket-cutout {
+    position: relative;
+}
+.ticket-cutout::before,
+.ticket-cutout::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: #f8fafc;
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+}
+.ticket-cutout::before {
+    left: -10px;
+}
+.ticket-cutout::after {
+    right: -10px;
+}
+html.dark .ticket-cutout::before,
+html.dark .ticket-cutout::after {
+    background: #111827;
+}
+
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+
+
+.img-zoom-container {
+    overflow: hidden;
+}
+.img-zoom-container img {
+    transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.img-zoom-container:hover img {
+    transform: scale(1.05);
+}

@@ -3,6 +3,8 @@ import { io } from 'socket.io-client';
 import { DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 dayjs.locale('vi');
 
@@ -251,15 +253,22 @@ const BookingTimeSelector: React.FC<Props> = ({
             }
         });
 
-        chosenIndexes.sort((a, b) => a - b);
-        let breaks = 0;
-        for (let i = 0; i < chosenIndexes.length - 1; i++) {
-            if (chosenIndexes[i + 1] === chosenIndexes[i] + 1) breaks++;
+        let totalBreak = 0;
+        const sortedStarts = [...selectedSlots].sort((a, b) => timeToMin(a) - timeToMin(b));
+        for (let i = 0; i < sortedStarts.length - 1; i++) {
+            const currentSlot = TIME_SLOTS.find(s => s.start === sortedStarts[i]);
+            const nextSlot = TIME_SLOTS.find(s => s.start === sortedStarts[i + 1]);
+            if (currentSlot && nextSlot) {
+                const gap = timeToMin(nextSlot.start) - timeToMin(currentSlot.end);
+                if (gap > 0) {
+                   totalBreak += gap;
+                }
+            }
         }
 
         setTotalPrice(total);
         setSelectedHours(chosenSlots.length);
-        setBreakMinutes(breaks * BREAK_DURATION);
+        setBreakMinutes(totalBreak);
 
         onSlotSelectedRef.current(chosenSlots);
     }, [selectedSlots, selectedDateStr, basePrice, peakPrice]);
@@ -274,50 +283,80 @@ const BookingTimeSelector: React.FC<Props> = ({
                   .join(', ');
 
     return (
-        <div className='w-full max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 font-sans transition-colors'>
-            <div className='flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3'>
-                <h2 className='text-xl font-bold text-gray-900 dark:text-gray-100'>Chọn khung giờ</h2>
+        <Card className='w-full max-w-4xl mx-auto shadow-sm border-gray-100 dark:border-gray-700'>
+            <CardHeader className='pb-2'>
+                <div className='flex flex-col md:flex-row justify-between items-start md:items-center gap-3'>
+                    <CardTitle className='text-xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight'>
+                        Chọn khung giờ
+                    </CardTitle>
 
-                <div className='bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400 px-3 py-1 rounded-lg border border-yellow-200 dark:border-yellow-700/50 flex items-center gap-2 shadow-sm text-xs md:text-[13px]'>
-                    <span>⚠️</span>
-                    <span className='font-semibold'>
-                        Có {BREAK_DURATION} phút nghỉ dọn sân giữa các ca
-                    </span>
+                    <Badge variant="outline" className='bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-700/50 font-semibold text-xs rounded-lg px-3 py-1.5'>
+                        ⚠️ Có {BREAK_DURATION} phút nghỉ dọn sân giữa các ca
+                    </Badge>
                 </div>
-            </div>
+            </CardHeader>
 
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-6'>
-                <div>
-                    <label className='block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wider'>
-                        Chọn ngày
-                    </label>
-                    <DatePicker
-                        value={selectedDateStr ? dayjs(selectedDateStr, 'YYYY-MM-DD') : null}
-                        format='DD/MM/YYYY'
-                        allowClear={false}
-                        onChange={(d) =>
-                            setSelectedDateStr(d ? d.format('YYYY-MM-DD') : getLocalDateStr())
-                        }
-                        disabledDate={(current) =>
-                            !!current && current.isBefore(dayjs().startOf('day'))
-                        }
-                        className='w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 h-10 focus:ring-2 focus:ring-green-500 outline-none font-bold text-sm dark:text-gray-100'
-                    />
+            <CardContent className='space-y-6'>
+                {/* Date picker row */}
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                    <div>
+                        <label className='block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider'>
+                            Chọn ngày
+                        </label>
+                        <DatePicker
+                            value={selectedDateStr ? dayjs(selectedDateStr, 'YYYY-MM-DD') : null}
+                            format='DD/MM/YYYY'
+                            allowClear={false}
+                            onChange={(d) =>
+                                setSelectedDateStr(d ? d.format('YYYY-MM-DD') : getLocalDateStr())
+                            }
+                            disabledDate={(current) =>
+                                !!current && current.isBefore(dayjs().startOf('day'))
+                            }
+                            className='w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 h-10 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-sm dark:text-gray-100'
+                        />
 
-                    <div className='text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 font-medium'>
-                        📅 Đã chọn: {formatDateToVN(selectedDateStr)}
+                        <div className='text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 font-medium'>
+                            📅 Đã chọn: {formatDateToVN(selectedDateStr)}
+                        </div>
+                    </div>
+
+                    <div className='md:col-span-2 flex items-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed'>
+                        <div className='bg-gray-50 dark:bg-gray-800 rounded-xl p-3.5 border border-gray-100 dark:border-gray-700 w-full'>
+                            <p className='text-gray-600 dark:text-gray-300'>
+                                💡 Click vào ô giờ để chọn / bỏ chọn. Bạn có thể chọn nhiều ca trong cùng
+                                một ngày.
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                <div className='md:col-span-2 flex items-center text-xs text-gray-500 dark:text-gray-400 leading-relaxed italic'>
-                    <p>
-                        * Click vào ô giờ để chọn / bỏ chọn. Bạn có thể chọn nhiều ca trong cùng
-                        một ngày (ví dụ: 6h–7h, 7h15–8h15 và 19h45–20h45).
-                    </p>
+                {/* Legend */}
+                <div className='flex flex-wrap gap-3 text-xs'>
+                    <div className='flex items-center gap-1.5'>
+                        <span className='w-3 h-3 rounded-sm border border-gray-200 bg-white'></span>
+                        <span className='text-gray-500'>Trống</span>
+                    </div>
+                    <div className='flex items-center gap-1.5'>
+                        <span className='w-3 h-3 rounded-sm bg-emerald-600'></span>
+                        <span className='text-gray-500'>Đã chọn</span>
+                    </div>
+                    <div className='flex items-center gap-1.5'>
+                        <span className='w-3 h-3 rounded-sm bg-red-500'></span>
+                        <span className='text-gray-500'>Đã đặt</span>
+                    </div>
+                    <div className='flex items-center gap-1.5'>
+                        <span className='w-3 h-3 rounded-sm bg-gray-100 border border-dashed border-gray-300'></span>
+                        <span className='text-gray-500'>Quá hạn</span>
+                    </div>
+                    <div className='flex items-center gap-1.5'>
+                        <Badge variant="outline" className='bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-bold px-1.5 py-0 rounded'>CAO ĐIỂM</Badge>
+                        <span className='text-gray-500'>Từ {PEAK_START}h</span>
+                    </div>
                 </div>
-            </div>
 
-                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-4'>
+                {/* Time slots grid */}
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5'>
                     {TIME_SLOTS.map((slot, index) => {
                         const past = isPast(slot.start);
                         const booked = isBooked(slot.start, slot.end);
@@ -337,58 +376,53 @@ const BookingTimeSelector: React.FC<Props> = ({
                         const k = slotKeyOf(selectedDateStr, slot.start, slot.end);
                         const eqCount = equipmentCountBySlot?.[k] ?? 0;
 
-                        let btnClass =
-                            'border rounded-lg p-2 flex flex-col items-center justify-center transition-all duration-200 min-h-[90px] relative ';
-
-                    if (past) {
-                        btnClass +=
-                            'bg-red-50/30 dark:bg-red-900/10 border-red-100 dark:border-red-900/30 text-red-300 dark:text-red-900/50 cursor-not-allowed opacity-60';
-                    } else if (booked) {
-                        btnClass += 'bg-red-500 dark:bg-red-600 border-red-600 dark:border-red-700 text-white cursor-not-allowed';
-                    } else if (selected) {
-                        btnClass +=
-                            'bg-green-600 dark:bg-green-600 border-green-600 dark:border-green-500 text-white shadow-lg transform scale-[1.02] z-10';
-                    } else {
-                        btnClass +=
-                            'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-green-500 dark:hover:border-green-400 hover:bg-green-50 dark:hover:bg-gray-600 cursor-pointer text-gray-800 dark:text-gray-100 hover:shadow-sm';
-                    }
-
                         return (
                             <button
                                 key={index}
                                 onClick={() => handleSlotClick(slot.start, slot.end)}
                                 disabled={past || booked}
-                                className={btnClass}
                                 type='button'
+                                className={`
+                                    relative flex flex-col items-center justify-center rounded-xl p-2.5 min-h-[96px]
+                                    transition-all duration-200 border-2 text-sm
+                                    ${past
+                                        ? 'bg-gray-50 dark:bg-gray-800/50 border-dashed border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                        : booked
+                                        ? 'bg-red-500/10 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-400 dark:text-red-500 cursor-not-allowed'
+                                        : selected
+                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-600/20 scale-[1.02] z-10'
+                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 cursor-pointer text-gray-800 dark:text-gray-100 hover:shadow-sm'
+                                    }
+                                `}
                             >
-                                <span className='font-bold text-sm mb-1'>
-                                    {formatDisplayTime(slot.start)} - {formatDisplayTime(slot.end)}
+                                <span className='font-bold text-[13px] mb-1'>
+                                    {formatDisplayTime(slot.start)} – {formatDisplayTime(slot.end)}
                                 </span>
 
                                 {!past && !booked && (
                                     <span
-                                        className={`text-[11px] font-bold ${selected ? 'text-green-100' : 'text-green-700'}`}
+                                        className={`text-[11px] font-semibold ${selected ? 'text-emerald-100' : 'text-emerald-600 dark:text-emerald-400'}`}
                                     >
-                                        {price.toLocaleString('vi-VN')} VNĐ
+                                        {price.toLocaleString('vi-VN')}đ
                                     </span>
                                 )}
 
                                 {booked && (
-                                    <span className='text-[9px] font-extrabold uppercase tracking-wide bg-red-700 text-white px-2 py-0.5 rounded mt-1'>
-                                        ĐÃ ĐẶT
-                                    </span>
+                                    <Badge variant="destructive" className='text-[9px] font-bold uppercase mt-1 px-2 py-0 rounded-md'>
+                                        Đã đặt
+                                    </Badge>
                                 )}
 
                                 {past && !booked && (
-                                    <span className='text-[9px] font-black uppercase mt-1 text-red-500 dark:text-red-400 border border-red-200 dark:border-red-900/50 px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 shadow-sm'>
-                                        QUÁ HẠN
-                                    </span>
+                                    <Badge variant="secondary" className='text-[9px] font-bold uppercase mt-1 px-2 py-0 rounded-md text-gray-500 dark:text-gray-400'>
+                                        Quá hạn
+                                    </Badge>
                                 )}
 
                                 {!past && !booked && isPeak && (
-                                    <span className='absolute top-1 right-1 text-[9px] bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded font-bold'>
-                                        CAO ĐIỂM
-                                    </span>
+                                    <Badge variant="outline" className='absolute top-1.5 right-1.5 text-[8px] font-bold bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-700 px-1.5 py-0 rounded-md'>
+                                        Cao điểm
+                                    </Badge>
                                 )}
 
                                 {/*  NÚT THÊM THIẾT BỊ TRONG Ô CA (chỉ khi selected) */}
@@ -400,9 +434,9 @@ const BookingTimeSelector: React.FC<Props> = ({
                                             e.stopPropagation();
                                             onPickEquipment(slotObj);
                                         }}
-                                        className='mt-1 text-[9px] px-1.5 py-0.5 rounded bg-white/90 dark:bg-gray-100/10 text-green-800 dark:text-green-300 font-black border border-white/60 dark:border-gray-500/30 hover:bg-white dark:hover:bg-gray-100/20 transition-all shadow-sm'
+                                        className='mt-1.5 text-[9px] px-2 py-0.5 rounded-md bg-white/90 dark:bg-gray-100/10 text-emerald-800 dark:text-emerald-300 font-bold border border-white/60 dark:border-gray-500/30 hover:bg-white dark:hover:bg-gray-100/20 transition-all shadow-sm'
                                     >
-                                        {eqCount > 0 ? `Thiết bị (${eqCount})` : 'Thêm thiết bị'}
+                                        {eqCount > 0 ? `Thiết bị (${eqCount})` : '+ Thiết bị'}
                                     </div>
                                 )}
                             </button>
@@ -410,46 +444,48 @@ const BookingTimeSelector: React.FC<Props> = ({
                     })}
                 </div>
 
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-4 flex items-center gap-4 shadow-sm min-h-[80px]'>
-                    <div className='bg-blue-600 text-white p-2.5 rounded-full shadow-md shrink-0 flex items-center justify-center'>
-                        <span className='text-lg'>⏱</span>
-                    </div>
-                    <div className='flex-1'>
-                        <p className='text-[10px] text-blue-700 dark:text-blue-400 font-bold uppercase tracking-widest mb-1'>
-                            CÁC KHUNG GIỜ ĐÃ CHỌN
-                        </p>
-                        <p className='text-blue-900 dark:text-blue-100 font-bold text-sm leading-tight'>{selectedDisplay}</p>
-                    </div>
-                </div>
-
-                <div className='bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-xl p-4 flex flex-col justify-center shadow-sm min-h-[80px]'>
-                    <div className='flex justify-between items-center mb-1.5'>
-                        <p className='text-[10px] text-green-700 dark:text-green-400 font-bold uppercase tracking-widest'>
-                            TỔNG TIỀN DỰ KIẾN
-                        </p>
-                        <span className='text-[10px] bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-full font-bold'>
-                            VNĐ
-                        </span>
-                    </div>
-                    <div className='flex items-end justify-between mt-1'>
-                        <div className='flex flex-col gap-1'>
-                            <p className='text-[10px] text-green-600 dark:text-green-500'>
-                                (Giá cao điểm từ {PEAK_START}h)
-                            </p>
-                            {selectedHours > 0 && (
-                                <p className='text-[10px] text-red-500 dark:text-red-400 font-bold'>
-                                    {selectedHours} giờ chơi, nghỉ {breakMinutes} phút giữa các ca
-                                </p>
-                            )}
+                {/* Summary footer */}
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    <div className='bg-blue-50/80 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700/50 rounded-xl p-4 flex items-center gap-4 min-h-[80px]'>
+                        <div className='w-10 h-10 bg-blue-100 dark:bg-blue-800/40 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0'>
+                            <span className='text-lg'>⏱</span>
                         </div>
-                        <p className='text-2xl font-black text-green-700 dark:text-green-400'>
-                            {totalPrice.toLocaleString('vi-VN')}
-                        </p>
+                        <div className='flex-1 min-w-0'>
+                            <p className='text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest mb-1'>
+                                Khung giờ đã chọn
+                            </p>
+                            <p className='text-blue-900 dark:text-blue-100 font-bold text-sm leading-tight truncate'>{selectedDisplay}</p>
+                        </div>
+                    </div>
+
+                    <div className='bg-emerald-50/80 dark:bg-green-900/20 border border-emerald-100 dark:border-green-700/50 rounded-xl p-4 flex flex-col justify-center min-h-[80px]'>
+                        <div className='flex justify-between items-center mb-1.5'>
+                            <p className='text-[10px] text-emerald-600 dark:text-green-400 font-bold uppercase tracking-widest'>
+                                Tổng tiền dự kiến
+                            </p>
+                            <Badge variant="outline" className='text-[9px] bg-emerald-100 dark:bg-green-800 text-emerald-700 dark:text-green-200 border-emerald-200 dark:border-green-700 px-2 py-0 font-bold rounded-md'>
+                                VNĐ
+                            </Badge>
+                        </div>
+                        <div className='flex items-end justify-between mt-1'>
+                            <div className='flex flex-col gap-1'>
+                                <p className='text-[10px] text-emerald-600 dark:text-green-500'>
+                                    (Giá cao điểm từ {PEAK_START}h)
+                                </p>
+                                {selectedHours > 0 && (
+                                    <p className='text-[10px] text-red-500 dark:text-red-400 font-bold'>
+                                        {selectedHours} giờ chơi, nghỉ {breakMinutes} phút giữa các ca
+                                    </p>
+                                )}
+                            </div>
+                            <p className='text-2xl font-extrabold text-emerald-700 dark:text-green-400 tracking-tight'>
+                                {totalPrice.toLocaleString('vi-VN')}
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 };
 
