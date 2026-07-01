@@ -993,26 +993,26 @@ const MyBookings: React.FC = () => {
     return (
         <div className='min-h-screen bg-background py-8 md:py-12 transition-colors duration-300'>
             <ToastContainer position='top-right' autoClose={2500} theme='colored' />
-            <div className='max-w-[1440px] w-full mx-auto px-4 md:px-6 lg:px-8'>
+            <div className='max-w-7xl mx-auto px-4 md:px-8 py-8'>
                 <h1 className='text-2xl md:text-3xl font-extrabold text-foreground mb-6 md:mb-8 tracking-tight'>
                     Đơn đặt sân của tôi
                 </h1>
 
                 {/* TABS */}
                 <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full mb-6">
-                    <TabsList className="bg-card border border-border/60 h-auto p-1 rounded-xl flex overflow-x-auto no-scrollbar whitespace-nowrap pb-0 shadow-sm gap-0.5">
+                    <TabsList className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 mb-6 bg-transparent justify-start w-full h-auto p-0 border-0">
                         {TABS.map((tab) => (
                             <TabsTrigger 
                                 key={tab.key} 
                                 value={tab.key}
-                                className="shrink-0 rounded-lg px-3 md:px-4 py-2 text-xs md:text-sm font-semibold transition-all data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-md dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
                             >
                                 <span>{tab.label}</span>
                                 {tabCounts[tab.key] > 0 && (
-                                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                    <span className={`px-2 py-0.5 rounded-full text-xs ${
                                         activeTab === tab.key 
-                                            ? 'bg-white/20 text-white' 
-                                            : 'bg-muted text-muted-foreground'
+                                            ? 'bg-white/25 text-white' 
+                                            : 'bg-slate-300/50 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                                     }`}>
                                         {tabCounts[tab.key]}
                                     </span>
@@ -1334,103 +1334,49 @@ const MyBookings: React.FC = () => {
                                                             return (
                                                                 <React.Fragment key={`${booking._id}-${__itemIdx}`}>
                                                                     <div
-                                                                        className={`w-full bg-muted/30 p-3 md:p-4 rounded-lg flex items-start gap-3 transition-colors ${
+                                                                        className={`w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mb-4 transition-colors ${
                                                                             booking.status === 'cancelled' ? 'opacity-60' : ''
                                                                         }`}
                                                                     >
-                                                                    {/* CHECKBOX góc trái: Pay + Hủy + Hoàn */}
-                                                                    {(canRetryThis ||
-                                                                        canCancelThis ||
-                                                                        canRefundThis) && (
-                                                                        <div className='flex flex-col gap-2 pt-0.5 shrink-0'>
-                                                                            {canRetryThis && (
-                                                                                <Checkbox
-                                                                                    checked={(
-                                                                                        selectedPayByGroup[
-                                                                                            group
-                                                                                                ._id
-                                                                                        ] || []
-                                                                                    ).includes(
-                                                                                        booking._id
+                                                                    <div className='flex flex-col gap-3'>
+                                                                        {/* HEADER: Checkbox + SLOT TIME */}
+                                                                        <div className='flex items-center gap-3 mb-2'>
+                                                                            {(canRetryThis || canCancelThis || canRefundThis) && (
+                                                                                <div className='shrink-0'>
+                                                                                    {canRetryThis && (
+                                                                                        <Checkbox
+                                                                                            checked={(selectedPayByGroup[group._id] || []).includes(booking._id)}
+                                                                                            onChange={(e) => toggleSelectPay(group._id, booking._id, e.target.checked)}
+                                                                                        />
                                                                                     )}
-                                                                                    onChange={(e) =>
-                                                                                        toggleSelectPay(
-                                                                                            group._id,
-                                                                                            booking._id,
-                                                                                            e.target
-                                                                                                .checked
-                                                                                        )
-                                                                                    }
-                                                                                />
-                                                                            )}
-
-                                                                            {canCancelThis && (
-                                                                                <Checkbox
-                                                                                    checked={(
-                                                                                        selectedCancelByGroup[
-                                                                                            group
-                                                                                                ._id
-                                                                                        ] || []
-                                                                                    ).includes(
-                                                                                        booking._id
+                                                                                    {canCancelThis && (
+                                                                                        <Checkbox
+                                                                                            checked={(selectedCancelByGroup[group._id] || []).includes(booking._id)}
+                                                                                            onChange={(e) => toggleSelectCancel(group._id, booking._id, e.target.checked)}
+                                                                                        />
                                                                                     )}
-                                                                                    onChange={(e) =>
-                                                                                        toggleSelectCancel(
-                                                                                            group._id,
-                                                                                            booking._id,
-                                                                                            e.target
-                                                                                                .checked
-                                                                                        )
-                                                                                    }
-                                                                                />
-                                                                            )}
-
-                                                                            {canRefundThis && (
-                                                                                <Checkbox
-                                                                                    checked={(
-                                                                                        selectedRefundByGroup[
-                                                                                            group
-                                                                                                ._id
-                                                                                        ] || []
-                                                                                    ).includes(
-                                                                                        booking._id
+                                                                                    {canRefundThis && (
+                                                                                        <Checkbox
+                                                                                            checked={(selectedRefundByGroup[group._id] || []).includes(booking._id)}
+                                                                                            onChange={(e) => toggleSelectRefund(group._id, booking._id, e.target.checked)}
+                                                                                        />
                                                                                     )}
-                                                                                    onChange={(e) =>
-                                                                                        toggleSelectRefund(
-                                                                                            group._id,
-                                                                                            booking._id,
-                                                                                            e.target
-                                                                                                .checked
-                                                                                        )
-                                                                                    }
-                                                                                />
+                                                                                </div>
                                                                             )}
+                                                                            <span className='font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-md text-sm'>
+                                                                                Ca {__itemIdx + 1}:{' '}
+                                                                                {__slot
+                                                                                    ? `${__slot.startTime} - ${__slot.endTime}`
+                                                                                    : (Array.isArray(booking.slots) && booking.slots.length === 1)
+                                                                                        ? `${booking.slots[0].startTime} - ${booking.slots[0].endTime}`
+                                                                                        : `${booking.startTime} - ${booking.endTime}`
+                                                                                }
+                                                                            </span>
                                                                         </div>
-                                                                    )}
 
-                                                                    <div className='flex-1 min-w-0 flex flex-col md:flex-row md:items-start md:justify-between gap-3'>
-                                                                        {/* LEFT INFO */}
-                                                                        <div
-                                                                            className='min-w-0 flex-1 space-y-2'
-                                                                        >
-                                                                            {/* SLOT TIME */}
-                                                                            <div className='flex items-center gap-3'>
-                                                                                <p className='text-sm font-semibold text-foreground bg-secondary/70 px-3 py-1 rounded-md'>
-                                                                                    Ca {__itemIdx + 1}:{' '}
-                                                                                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                                                                                        {__slot
-                                                                                            ? `${__slot.startTime} - ${__slot.endTime}`
-                                                                                            : (Array.isArray(booking.slots) && booking.slots.length === 1)
-                                                                                                ? `${booking.slots[0].startTime} - ${booking.slots[0].endTime}`
-                                                                                                : `${booking.startTime} - ${booking.endTime}`
-                                                                                        }
-                                                                                    </span>
-                                                                                </p>
-                                                                            </div>
-
-                                                                            {/* TRẠNG THÁI ĐƠN */}
-                                                                            <div className='flex flex-wrap items-center gap-2 text-xs'>
-                                                                                <span className='text-muted-foreground font-medium'>
+                                                                        {/* TRẠNG THÁI ĐƠN */}
+                                                                            <div className='flex justify-between items-center text-sm py-1.5 border-b border-slate-100 dark:border-slate-700/50'>
+                                                                                <span className='text-slate-500 dark:text-slate-400 font-medium'>
                                                                                     Trạng thái:
                                                                                 </span>
                                                                                 <Badge
@@ -1453,8 +1399,8 @@ const MyBookings: React.FC = () => {
                                                                             </div>
 
                                                                             {/* TRẠNG THÁI THANH TOÁN */}
-                                                                            <div className='flex flex-wrap items-start gap-2 text-xs'>
-                                                                                <span className='text-muted-foreground font-medium'>
+                                                                            <div className='flex justify-between items-center text-sm py-1.5'>
+                                                                                <span className='text-slate-500 dark:text-slate-400 font-medium'>
                                                                                     Thanh toán:
                                                                                 </span>
 
@@ -1472,8 +1418,9 @@ const MyBookings: React.FC = () => {
                                                                                             .paymentStatus
                                                                                     ] || 'Không rõ'}
                                                                                 </Badge>
+                                                                            </div>
 
-                                                                                <div className='w-full mt-2 text-xs text-gray-700 dark:text-gray-300 space-y-1'>
+                                                                            <div className='w-full mt-2 text-xs text-gray-700 dark:text-gray-300 space-y-1'>
                                                                                     <div className='flex justify-between'>
                                                                                         <span>
                                                                                             Tiền sân
@@ -1567,7 +1514,6 @@ const MyBookings: React.FC = () => {
                                                                                         </div>
                                                                                     )}
                                                                                 </div>
-                                                                            </div>
 
                                                                             {/* THIẾT BỊ */}
                                                                             {Array.isArray(
@@ -1741,7 +1687,6 @@ const MyBookings: React.FC = () => {
                                                                                         ₫
                                                                                     </p>
                                                                                 )}
-                                                                        </div>
 
                                                                         {/* RIGHT ACTIONS */}
                                                                         <div className='shrink-0 flex flex-row md:flex-col md:items-end gap-2'>

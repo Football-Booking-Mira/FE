@@ -62,7 +62,7 @@ const Footer = () => {
                             <span className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
                                 <FaMapMarkerAlt className='text-emerald-400 text-xs' />
                             </span>
-                            <span className="leading-relaxed">Số 1 Trịnh Văn Bô, Xuân Phương, Hà Nội</span>
+                            <span className="leading-relaxed">Số 89 Chùa Láng, Phường Láng, Hà Nội</span>
                         </li>
                         <li className='flex items-center gap-3'>
                             <span className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center shrink-0">

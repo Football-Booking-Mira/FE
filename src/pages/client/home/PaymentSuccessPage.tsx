@@ -65,13 +65,13 @@ const PaymentResultPage: React.FC = () => {
       )}
 
       <div className='max-w-md md:max-w-lg mx-auto w-full relative z-10'>
-        <div className='bg-card rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-border/40 p-10 text-center flex flex-col items-center transition-all'>
+        <div className='bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl shadow-emerald-900/5 p-8 md:p-10 text-center flex flex-col items-center transition-all'>
           
           {/* Icon */}
           <div className={`relative flex items-center justify-center mb-6 ${isSuccess ? '' : 'bg-destructive/10 rounded-full w-24 h-24'}`}>
             {isSuccess ? (
-              <div className="bg-emerald-50 text-emerald-600 rounded-full p-6 shadow-sm">
-                <Check className='w-12 h-12 text-emerald-600' strokeWidth={3} />
+              <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-full p-6 shadow-sm">
+                <Check className='w-12 h-12 text-emerald-600 dark:text-emerald-400' strokeWidth={3} />
               </div>
             ) : (
               <XCircle className='w-14 h-14 text-destructive' />
@@ -79,69 +79,69 @@ const PaymentResultPage: React.FC = () => {
           </div>
 
           {/* Title */}
-          <h1 className='text-2xl md:text-3xl font-extrabold text-foreground tracking-tight mb-2'>
+          <h1 className='text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2'>
             {isSuccess ? 'Đặt Sân Thành Công!' : 'Thanh Toán Thất Bại'}
           </h1>
 
           {/* Subtitle */}
-          <p className='text-sm text-muted-foreground px-6 mb-8'>
+          <p className='text-sm text-slate-500 dark:text-slate-400 px-6 mb-8'>
             {isSuccess
               ? 'Cảm ơn bạn đã đặt sân. Chúc bạn có trận đấu vui vẻ! ⚽'
               : 'Giao dịch thanh toán chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại hoặc chọn phương thức khác.'}
           </p>
 
           {/* Minimalist Order Details */}
-          <div className='w-full mb-8 flex flex-col gap-4 text-left px-2'>
-            <div className='flex flex-row items-center justify-between'>
-              <span className='text-muted-foreground text-sm font-medium'>Mã đơn hàng</span>
-              <span className='font-mono text-xs tracking-wider text-muted-foreground bg-secondary/50 px-2.5 py-1 rounded-md border border-border/40'>
+          <div className='w-full mb-8 flex flex-col text-left'>
+            <div className='flex justify-between items-center py-4 border-b border-slate-100 dark:border-slate-800'>
+              <span className='text-slate-500 dark:text-slate-400 text-sm font-medium'>Mã đơn hàng</span>
+              <span className='font-mono text-xs bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 px-2 py-1 rounded text-slate-600 dark:text-slate-300'>
                 {txnRef || '—'}
               </span>
             </div>
-            <div className='flex flex-row items-center justify-between'>
-              <span className='text-muted-foreground text-sm font-medium'>Số tiền</span>
-              <span className={`text-xl font-black ${isSuccess ? 'text-emerald-600' : 'text-destructive'}`}>
+            <div className='flex justify-between items-center py-4'>
+              <span className='text-slate-500 dark:text-slate-400 text-sm font-medium'>Số tiền</span>
+              <span className={`text-2xl font-black ${isSuccess ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
                 {formattedAmount}
               </span>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className='w-full flex flex-col gap-3'>
+          <div className='w-full flex flex-col md:flex-row gap-3'>
             {isSuccess ? (
               <>
                 <Button 
-                  onClick={() => navigate('/my-bookings')}
-                  variant="outline"
-                  className="w-full py-6 rounded-2xl text-base font-semibold border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-all shadow-sm flex items-center justify-center gap-2 group"
-                >
-                  <ClipboardList className='w-5 h-5 group-hover:scale-110 transition-transform' />
-                  Xem Đơn Đặt Sân
-                </Button>
-                <Button 
                   onClick={() => navigate('/')}
-                  className="w-full py-6 rounded-2xl text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hover:-translate-y-0.5 transition-all shadow-md flex items-center justify-center gap-2 group"
+                  variant="outline"
+                  className="w-full py-6 rounded-xl text-base font-semibold shadow-sm flex items-center justify-center gap-2 group"
                 >
                   <Home className='w-5 h-5 group-hover:scale-110 transition-transform' />
                   Về Trang Chủ
+                </Button>
+                <Button 
+                  onClick={() => navigate('/my-bookings')}
+                  className="w-full py-6 rounded-xl text-base font-semibold bg-emerald-600 hover:bg-emerald-700 text-white hover:-translate-y-0.5 transition-all shadow-md flex items-center justify-center gap-2 group"
+                >
+                  <ClipboardList className='w-5 h-5 group-hover:scale-110 transition-transform' />
+                  Xem Đơn Đặt Sân
                 </Button>
               </>
             ) : (
               <>
                 <Button 
-                  onClick={handleRetryBooking}
-                  variant="destructive"
-                  className="w-full py-6 rounded-2xl text-base font-semibold hover:-translate-y-0.5 transition-all shadow-md"
-                >
-                  Đặt Lại Sân
-                </Button>
-                <Button 
                   onClick={() => navigate('/')}
                   variant="outline"
-                  className="w-full py-6 rounded-2xl text-base font-semibold"
+                  className="w-full py-6 rounded-xl text-base font-semibold shadow-sm flex items-center justify-center gap-2 group"
                 >
-                  <Home className='w-5 h-5 mr-2' />
+                  <Home className='w-5 h-5 group-hover:scale-110 transition-transform' />
                   Về Trang Chủ
+                </Button>
+                <Button 
+                  onClick={handleRetryBooking}
+                  variant="destructive"
+                  className="w-full py-6 rounded-xl text-base font-semibold hover:-translate-y-0.5 transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  Đặt Lại Sân
                 </Button>
               </>
             )}
