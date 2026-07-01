@@ -1,7 +1,10 @@
 import React, { useState } from "react";
-import { Form, Input, Button, message } from "antd";
-
-const { TextArea } = Input;
+import { Form, message } from "antd";
+import { Phone, Mail, MapPin, Clock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 const ContactPages: React.FC = () => {
   const [form] = Form.useForm();
@@ -40,133 +43,144 @@ const ContactPages: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 px-4 py-20 transition-colors">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-background text-foreground py-12 md:py-20 px-4 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-start">
+          
+          {/* Left Column: Contact Information */}
+          <div className="flex flex-col">
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Liên hệ với chúng tôi</h1>
+            <p className="text-muted-foreground mt-4 text-lg mb-10">
+              Bạn có câu hỏi hoặc cần hỗ trợ? Đừng ngần ngại liên hệ với đội ngũ Mira.
+            </p>
 
-{/* ===== THÔNG TIN LIÊN HỆ ===== */}
-<div className="text-center mb-16">
-  <h1 className="text-3xl md:text-4xl font-bold tracking-wide text-green-600 dark:text-green-500 mb-6">
-    HÃY LIÊN HỆ VỚI CHÚNG TÔI
-  </h1>
+            <div className="space-y-8">
+              <div className="flex items-start gap-4">
+                <div className="bg-primary/10 text-primary p-3 rounded-full shrink-0">
+                  <Phone className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-foreground">Điện thoại</h3>
+                  <a href="tel:0900000000" className="text-muted-foreground mt-1 hover:text-primary transition-colors">
+                    0900 000 000
+                  </a>
+                </div>
+              </div>
 
-  <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-2">
-    Nếu bạn có bất kỳ thắc mắc nào,
-  </p>
+              <div className="flex items-start gap-4">
+                <div className="bg-primary/10 text-primary p-3 rounded-full shrink-0">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-foreground">Email</h3>
+                  <a href="mailto:MiraFootball@gmail.com" className="text-muted-foreground mt-1 hover:text-primary transition-colors">
+                    MiraFootball@gmail.com
+                  </a>
+                </div>
+              </div>
 
-  <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-2">
-    hãy liên hệ với chúng tôi qua form điền thông tin bên dưới
-    hoặc gọi trực tiếp qua số điện thoại.
-  </p>
+              <div className="flex items-start gap-4">
+                <div className="bg-primary/10 text-primary p-3 rounded-full shrink-0">
+                  <MapPin className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-foreground">Địa chỉ</h3>
+                  <p className="text-muted-foreground mt-1">
+                    Số 89 Chùa Láng, Phường Láng, Hà Nội
+                  </p>
+                </div>
+              </div>
 
-  <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-6">
-    Hoặc gửi email tới{" "}
-    <span className="font-semibold text-green-600 dark:text-green-400">
-      MiraFootball@gmail.com
-    </span>
-  </p>
+              <div className="flex items-start gap-4">
+                <div className="bg-primary/10 text-primary p-3 rounded-full shrink-0">
+                  <Clock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg text-foreground">Giờ làm việc</h3>
+                  <p className="text-muted-foreground mt-1">
+                    06:00 - 23:00, Thứ 2 - Chủ Nhật
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-  {/* ===== SỐ ĐIỆN THOẠI NỔI BẬT ===== */}
-  <div className="inline-flex items-center gap-3 px-8 py-4 mb-10 rounded-full bg-white dark:bg-gray-800 border border-green-900 dark:border-green-600 shadow-sm transition-colors">
-    <span className="text-green-600 text-2xl">📞</span>
-    <a
-      href="tel:0900000000"
-      className="text-xl font-bold text-green-700 dark:text-green-400 hover:underline"
-    >
-      0900 000 000
-    </a>
-  </div>
+          {/* Right Column: Contact Form */}
+          <div>
+            <Card className="shadow-lg border-border bg-card rounded-2xl">
+              <CardHeader className="pb-6">
+                <CardTitle className="text-2xl font-bold">Gửi tin nhắn cho chúng tôi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form
+                  form={form}
+                  layout="vertical"
+                  onFinish={handleSubmit}
+                  requiredMark={false}
+                  className="flex flex-col gap-4"
+                >
+                  <Form.Item
+                    name="name"
+                    rules={[{ required: true, message: "Vui lòng nhập họ và tên" }]}
+                    className="mb-0"
+                    label={<span className="text-sm font-medium text-foreground">Họ và tên</span>}
+                  >
+                    <Input placeholder="Nhập họ và tên của bạn" className="mt-1" />
+                  </Form.Item>
 
-  <a href="/" className="text-base text-gray-600 dark:text-gray-400 hover:text-green-500 dark:hover:text-green-400 hover:underline block transition-colors">
-    ← Quay lại trang chủ
-  </a>
-</div>
+                  <Form.Item
+                    name="email"
+                    rules={[
+                      { required: true, message: "Vui lòng nhập email" },
+                      { type: "email", message: "Email không đúng định dạng" },
+                    ]}
+                    className="mb-0"
+                    label={<span className="text-sm font-medium text-foreground">Email</span>}
+                  >
+                    <Input placeholder="Nhập địa chỉ email" className="mt-1" />
+                  </Form.Item>
 
+                  <Form.Item
+                    name="phone"
+                    rules={[
+                      { required: true, message: "Vui lòng nhập số điện thoại" },
+                      {
+                        pattern: /^0\d{9}$/,
+                        message: "Số điện thoại phải bắt đầu bằng 0 và có 10 chữ số",
+                      },
+                    ]}
+                    className="mb-0"
+                    label={<span className="text-sm font-medium text-foreground">Số điện thoại</span>}
+                  >
+                    <Input placeholder="Nhập số điện thoại của bạn" className="mt-1" />
+                  </Form.Item>
 
+                  <Form.Item
+                    name="message"
+                    rules={[{ required: true, message: "Vui lòng nhập nội dung liên hệ" }]}
+                    className="mb-0"
+                    label={<span className="text-sm font-medium text-foreground">Nội dung tin nhắn</span>}
+                  >
+                    <Textarea 
+                      rows={5} 
+                      placeholder="Nhập nội dung cần hỗ trợ..." 
+                      className="mt-1 resize-none" 
+                    />
+                  </Form.Item>
 
-        {/* ===== FORM LIÊN HỆ ===== */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 px-8 py-10 transition-colors">
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            requiredMark={false}
-          >
-            <Form.Item
-              name="name"
-              rules={[{ required: true, message: "Vui lòng nhập họ và tên" }]}
-            >
-              <Input
-                placeholder="Họ và tên"
-                size="large"
-                style={{ fontSize: 16, height: 46, borderRadius: 10 }}
-              />
-            </Form.Item>
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full font-semibold text-md mt-2"
+                    size="lg"
+                  >
+                    {loading ? "ĐANG GỬI..." : "GỬI TIN NHẮN"}
+                  </Button>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
 
-            <Form.Item
-              name="email"
-              rules={[
-                { required: true, message: "Vui lòng nhập email" },
-                { type: "email", message: "Email không đúng định dạng" },
-              ]}
-            >
-              <Input
-                placeholder="Email"
-                size="large"
-                style={{ fontSize: 16, height: 46, borderRadius: 10 }}
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="phone"
-              rules={[
-                { required: true, message: "Vui lòng nhập số điện thoại" },
-                {
-                  pattern: /^0\d{9}$/,
-                  message: "Số điện thoại phải bắt đầu bằng 0 và có 10 chữ số",
-                },
-              ]}
-            >
-              <Input
-                placeholder="Số điện thoại"
-                size="large"
-                style={{ fontSize: 16, height: 46, borderRadius: 10 }}
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="message"
-              rules={[
-                { required: true, message: "Vui lòng nhập nội dung liên hệ" },
-              ]}
-            >
-              <TextArea
-                rows={5}
-                placeholder="Nội dung liên hệ"
-                style={{ fontSize: 16, borderRadius: 10 }}
-              />
-            </Form.Item>
-
-            <Form.Item className="mb-0">
-              <Button
-                htmlType="submit"
-                loading={loading}
-                block
-                size="large"
-                style={{
-                  background: "var(--color-green-600)",
-                  borderColor: "var(--color-green-600)",
-                  height: 48,
-                  fontSize: 14,
-                  letterSpacing: "0.12em",
-                  fontWeight: 600,
-                  borderRadius: 12,
-                  color: "#fff"
-                }}
-              >
-                GỬI LIÊN HỆ
-              </Button>
-            </Form.Item>
-          </Form>
         </div>
       </div>
     </div>
