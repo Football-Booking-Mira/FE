@@ -991,28 +991,28 @@ const MyBookings: React.FC = () => {
     }
 
     return (
-        <div className='bg-gray-50 dark:bg-gray-900 py-12 transition-colors duration-300'>
+        <div className='min-h-screen bg-background py-8 md:py-12 transition-colors duration-300'>
             <ToastContainer position='top-right' autoClose={2500} theme='colored' />
             <div className='max-w-[1440px] w-full mx-auto px-4 md:px-6 lg:px-8'>
-                <h1 className='text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center transition-colors'>
+                <h1 className='text-2xl md:text-3xl font-extrabold text-foreground mb-6 md:mb-8 tracking-tight'>
                     Đơn đặt sân của tôi
                 </h1>
 
                 {/* TABS */}
-                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full mb-6 mt-4 md:mt-0">
-                    <TabsList className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 h-auto p-1.5 rounded-2xl flex flex-wrap justify-center lg:justify-start shadow-sm backdrop-blur-xl bg-opacity-80">
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full mb-6">
+                    <TabsList className="bg-card border border-border/60 h-auto p-1 rounded-xl flex overflow-x-auto no-scrollbar whitespace-nowrap pb-0 shadow-sm gap-0.5">
                         {TABS.map((tab) => (
                             <TabsTrigger 
                                 key={tab.key} 
                                 value={tab.key}
-                                className="rounded-xl px-4 py-2.5 text-sm md:text-[15px] font-semibold transition-all data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm data-[state=active]:border-emerald-100 data-[state=active]:dark:bg-emerald-500/10 data-[state=active]:dark:text-emerald-400 data-[state=active]:dark:border-emerald-800/50"
+                                className="shrink-0 rounded-lg px-3 md:px-4 py-2 text-xs md:text-sm font-semibold transition-all data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
                             >
                                 <span>{tab.label}</span>
                                 {tabCounts[tab.key] > 0 && (
-                                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                                    <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
                                         activeTab === tab.key 
-                                            ? 'bg-emerald-200/50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' 
-                                            : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                                            ? 'bg-white/20 text-white' 
+                                            : 'bg-muted text-muted-foreground'
                                     }`}>
                                         {tabCounts[tab.key]}
                                     </span>
@@ -1025,7 +1025,7 @@ const MyBookings: React.FC = () => {
                 {/* LIST */}
                 <div className='transition-colors'>
                     {filteredGroups.length === 0 ? (
-                        <div className='bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm py-20 flex justify-center'>
+                        <div className='bg-card rounded-xl border border-border/50 shadow-sm py-20 flex justify-center'>
                             <Empty description='Không có đơn đặt sân nào' className='dark:opacity-80' />
                         </div>
                     ) : (
@@ -1163,42 +1163,40 @@ const MyBookings: React.FC = () => {
                                                                 return (
                                     <Card
                                         key={group._id}
-                                        className='shadow-sm hover:shadow-md transition-shadow mb-6 overflow-hidden'
+                                        className='shadow-sm hover:shadow-md transition-shadow rounded-xl mb-6 overflow-hidden border border-border/50'
                                     >
-                                        <div className='grid grid-cols-1 lg:grid-cols-12'>
+                                        <div className='flex flex-col lg:grid lg:grid-cols-12 lg:gap-0'>
                                             {/* LEFT */}
-                                            <div className='lg:col-span-8 p-5 md:p-6 border-b lg:border-b-0 lg:border-r border-border flex gap-4'>
+                                            <div className='lg:col-span-8 p-4 md:p-6 border-b lg:border-b-0 lg:border-r border-border/50'>
+                                            <div className='flex gap-4 mb-4'>
                                             {imageUrl && (
                                                 <img
                                                     src={imageUrl}
                                                     alt={first.courtId?.name || 'Sân bóng'}
-                                                    className='w-24 h-24 md:w-28 md:h-28 rounded-xl object-cover border border-gray-200 dark:border-gray-700'
+                                                    className='w-20 h-20 md:w-24 md:h-24 rounded-xl object-cover border border-border/50 shrink-0'
                                                 />
                                             )}
 
                                             <div className='flex-1 min-w-0'>
-                                                <div className='flex items-center gap-2 mb-2'>
-                                                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-linear-to-r from-gray-100 to-gray-50 dark:from-gray-700/50 dark:to-gray-800/50 border border-gray-200 dark:border-gray-600/50 shadow-xs">
-                                                        <span className='text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest'>Mã đơn</span>
-                                                        <div className='w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600'></div>
-                                                        <span className='text-xs font-black text-gray-800 dark:text-gray-100 tracking-tight uppercase'>
-                                                            {group.code || first.code}
-                                                        </span>
-                                                    </div>
-
+                                                <div className='flex items-center gap-2 mb-1.5'>
+                                                    <span className='font-mono text-[10px] tracking-wider text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-md border border-border/40'>
+                                                        {group.code || first.code}
+                                                    </span>
                                                 </div>
 
-                                                <h2 className='text-lg font-semibold text-gray-900 dark:text-gray-100'>
+                                                <h2 className='text-base md:text-lg font-bold text-foreground leading-tight'>
                                                     {first.courtId?.name || 'Sân bóng'}
                                                 </h2>
-                                                <p className='text-sm text-gray-600 dark:text-gray-300 mt-1'>
+                                                <p className='text-xs md:text-sm text-muted-foreground mt-0.5'>
                                                     {format(new Date(first.date), 'dd/MM/yyyy', {
                                                         locale: vi,
                                                     })}
                                                 </p>
 
+                                            </div>
+                                            </div>
                                                 {/* DANH SÁCH TỪNG CA */}
-                                                <div className='mt-3 flex flex-col'>
+                                                <div className='flex flex-col gap-3'>
                                                     {expandedItems.map(
                                                         ({ booking, caIdx: idx, isExpanded: __isExp, isFirstSlot, displaySlot: __slot, perSlotField: __perField, perSlotTotal: __perTotal }: any, __itemIdx: number) => {
                                                             const refundStatus =
@@ -1335,15 +1333,16 @@ const MyBookings: React.FC = () => {
 
                                                             return (
                                                                 <React.Fragment key={`${booking._id}-${__itemIdx}`}>
-                                                                    {__itemIdx > 0 && <Separator className="my-3 bg-gray-200 dark:bg-gray-700" />}
                                                                     <div
-                                                                        className='w-full relative py-2 transition-colors'
+                                                                        className={`w-full bg-muted/30 p-3 md:p-4 rounded-lg flex items-start gap-3 transition-colors ${
+                                                                            booking.status === 'cancelled' ? 'opacity-60' : ''
+                                                                        }`}
                                                                     >
                                                                     {/* CHECKBOX góc trái: Pay + Hủy + Hoàn */}
                                                                     {(canRetryThis ||
                                                                         canCancelThis ||
                                                                         canRefundThis) && (
-                                                                        <div className='absolute top-4 left-4 z-10 flex flex-col gap-2'>
+                                                                        <div className='flex flex-col gap-2 pt-0.5 shrink-0'>
                                                                             {canRetryThis && (
                                                                                 <Checkbox
                                                                                     checked={(
@@ -1409,16 +1408,14 @@ const MyBookings: React.FC = () => {
                                                                         </div>
                                                                     )}
 
-                                                                    <div className='flex flex-col md:flex-row md:items-start md:justify-between gap-3'>
+                                                                    <div className='flex-1 min-w-0 flex flex-col md:flex-row md:items-start md:justify-between gap-3'>
                                                                         {/* LEFT INFO */}
                                                                         <div
-                                                                            className={`min-w-0 flex-1 space-y-2 ${
-                                                                                hasAnyCheckbox ? 'pl-14' : ''
-                                                                            }`}
+                                                                            className='min-w-0 flex-1 space-y-2'
                                                                         >
                                                                             {/* SLOT TIME */}
                                                                             <div className='flex items-center gap-3'>
-                                                                                <p className='text-sm font-semibold text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg'>
+                                                                                <p className='text-sm font-semibold text-foreground bg-secondary/70 px-3 py-1 rounded-md'>
                                                                                     Ca {__itemIdx + 1}:{' '}
                                                                                     <span className="font-bold text-emerald-600 dark:text-emerald-400">
                                                                                         {__slot
@@ -1432,18 +1429,18 @@ const MyBookings: React.FC = () => {
                                                                             </div>
 
                                                                             {/* TRẠNG THÁI ĐƠN */}
-                                                                            <div className='flex flex-wrap items-center gap-2 text-xs md:text-sm'>
-                                                                                <span className='text-gray-500 dark:text-gray-300'>
-                                                                                    Trạng thái đơn:
+                                                                            <div className='flex flex-wrap items-center gap-2 text-xs'>
+                                                                                <span className='text-muted-foreground font-medium'>
+                                                                                    Trạng thái:
                                                                                 </span>
                                                                                 <Badge
                                                                                     variant="outline"
-                                                                                    className={`rounded-full px-3 py-1 font-semibold ${
-                                                                                        booking.status === 'completed' || booking.status === 'in_use' ? 'bg-emerald-100 text-emerald-700 border-transparent' :
-                                                                                        booking.status === 'cancelled' ? 'bg-red-100 text-red-700 border-transparent' :
-                                                                                        booking.status === 'pending' ? 'bg-amber-100 text-amber-700 border-transparent' :
-                                                                                        booking.status === 'confirmed' ? 'bg-blue-100 text-blue-700 border-transparent' :
-                                                                                        'bg-gray-100 text-gray-700 border-transparent'
+                                                                                    className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                                                                                        booking.status === 'completed' || booking.status === 'in_use' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' :
+                                                                                        booking.status === 'cancelled' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' :
+                                                                                        booking.status === 'pending' ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800' :
+                                                                                        booking.status === 'confirmed' ? 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' :
+                                                                                        'bg-muted text-muted-foreground'
                                                                                     }`}
                                                                                 >
                                                                                     {
@@ -1456,18 +1453,18 @@ const MyBookings: React.FC = () => {
                                                                             </div>
 
                                                                             {/* TRẠNG THÁI THANH TOÁN */}
-                                                                            <div className='flex flex-wrap items-start gap-2 text-xs md:text-sm'>
-                                                                                <span className='text-gray-500 dark:text-gray-300'>
+                                                                            <div className='flex flex-wrap items-start gap-2 text-xs'>
+                                                                                <span className='text-muted-foreground font-medium'>
                                                                                     Thanh toán:
                                                                                 </span>
 
                                                                                 <Badge
                                                                                     variant="outline"
-                                                                                    className={`rounded-full px-3 py-1 font-semibold ${
-                                                                                        booking.paymentStatus === 'paid' || booking.paymentStatus === 'partial' ? 'bg-emerald-100 text-emerald-700 border-transparent' :
-                                                                                        booking.paymentStatus === 'unpaid' ? 'bg-red-100 text-red-700 border-transparent' :
-                                                                                        booking.paymentStatus === 'refunded' ? 'bg-amber-100 text-amber-700 border-transparent' :
-                                                                                        'bg-gray-100 text-gray-700 border-transparent'
+                                                                                    className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                                                                                        booking.paymentStatus === 'paid' || booking.paymentStatus === 'partial' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' :
+                                                                                        booking.paymentStatus === 'unpaid' ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' :
+                                                                                        booking.paymentStatus === 'refunded' ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800' :
+                                                                                        'bg-muted text-muted-foreground'
                                                                                     }`}
                                                                                 >
                                                                                     {PAYMENT_LABELS[
@@ -1803,11 +1800,10 @@ const MyBookings: React.FC = () => {
                                                     )}
                                                 </div>
                                             </div>
-                                        </div>
 
                                         {/* RIGHT – tổng tiền + action cấp đơn */}
-                                        <div className='lg:col-span-4 bg-muted/10'>
-                                            <div className='p-5 md:p-6 h-full flex flex-col'>
+                                        <div className='lg:col-span-4'>
+                                            <div className='p-4 md:p-6 h-full flex flex-col lg:sticky lg:top-24 bg-slate-50/50 dark:bg-slate-900/30 rounded-none lg:rounded-none border-0'>
                                                 {/* Header */}
                                                 <div className='pb-4'>
                                                     <div className='flex items-center justify-between'>
