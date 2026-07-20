@@ -29,6 +29,14 @@ export interface VoucherStatsBooking {
     _id: string;
     code: string;
     status: string;
+    customerInfo?: {
+      name?: string;
+      phone?: string;
+    };
+    customerId?: {
+      name?: string;
+      phone?: string;
+    };
   };
   userId: {
     _id: string;

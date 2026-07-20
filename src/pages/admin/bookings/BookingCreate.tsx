@@ -1,528 +1,606 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Modal,
-  Form,
-  Input,
-  List,
-  Avatar,
-  Spin,
-} from "antd";
 import dayjs, { Dayjs } from "dayjs";
+import { toast } from "sonner";
 import {
-  Search,
-  UserPlus,
-  Users,
-  Shield,
-  Clock,
-  CalendarPlus,
-  Zap,
-  DollarSign,
-  CheckCircle2,
-  User,
-  Mail,
-  Phone,
-  ChevronRight,
-  Wallet,
-  CreditCard,
-  X,
+    Search,
+    UserPlus,
+    Users,
+    Shield,
+    Clock,
+    CalendarPlus,
+    Zap,
+    CheckCircle2,
+    User as UserIcon,
+    Mail,
+    Phone,
+    ChevronRight,
+    Wallet,
+    X,
+    Loader2
 } from "lucide-react";
-import { UserOutlined } from "@ant-design/icons";
+
 import api from "@/common/utils/api";
 import { PAYMENT_METHOD } from "@/common/constants/enums.ts";
-import { toast } from "react-toastify";
 import BookingTimeSelector, {
-  type SelectedSlot,
+    type SelectedSlot,
 } from "@/components/BookingTimeSelector";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
-const { TextArea } = Input;
+const formatVND = (v: number = 0) =>
+    `${v.toLocaleString('vi-VN')}đ`;
 
 interface Customer {
-  _id: string;
-  name: string;
-  phone: string;
-  email?: string;
+    _id: string;
+    name: string;
+    phone: string;
+    email?: string;
 }
 
 interface Court {
-  _id: string;
-  name: string;
-  type: string;
-  basePrice: number;
-  peakPrice: number;
-  address?: string;
-  images?: string[];
-  isBooked?: boolean;
+    _id: string;
+    name: string;
+    type: string;
+    basePrice: number;
+    peakPrice: number;
+    address?: string;
+    images?: string[];
+    isBooked?: boolean;
 }
 
 const COURT_TYPE_LABELS: Record<string, string> = {
-  indoor: "Trong nhà",
-  outdoor: "Ngoài trời",
-  vip: "Sân VIP",
+    indoor: "Trong nhà",
+    outdoor: "Ngoài trời",
+    vip: "Sân VIP",
 };
 
-const COURT_TYPE_CONFIG: Record<string, { gradient: string; shadow: string }> = {
-  indoor: { gradient: 'from-emerald-500 to-teal-600', shadow: 'shadow-emerald-500/20' },
-  outdoor: { gradient: 'from-blue-500 to-cyan-600', shadow: 'shadow-blue-500/20' },
-  vip: { gradient: 'from-amber-500 to-orange-600', shadow: 'shadow-amber-500/20' },
+const COURT_TYPE_CONFIG: Record<string, { bg: string; border: string; text: string }> = {
+    indoor: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-600 dark:text-emerald-400' },
+    outdoor: { bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-600 dark:text-blue-400' },
+    vip: { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-600 dark:text-amber-400' },
 };
 
 const generateBookingCode = (dateStr: string) => {
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const cleanDate = dateStr.replace(/-/g, "");
-  return `BK-${cleanDate}-${random}`;
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const cleanDate = dateStr.replace(/-/g, "");
+    return `BK-${cleanDate}-${random}`;
 };
 
 const BookingCreate: React.FC = () => {
-  const navigate = useNavigate();
+    const navigate = useNavigate();
 
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customerList, setCustomerList] = useState<Customer[]>([]);
-  const [customerLoading, setCustomerLoading] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isCustomerListModalOpen, setCustomerListModalOpen] = useState(false);
-  const [isCustomerCreateModalOpen, setCustomerCreateModalOpen] = useState(false);
-  const [createCustomerForm] = Form.useForm();
-  const [customerSaving, setCustomerSaving] = useState(false);
+    const [customerSearch, setCustomerSearch] = useState("");
+    const [customerList, setCustomerList] = useState<Customer[]>([]);
+    const [customerLoading, setCustomerLoading] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+    const [isCustomerListModalOpen, setCustomerListModalOpen] = useState(false);
+    
+    // Add customer form state
+    const [isCustomerCreateModalOpen, setCustomerCreateModalOpen] = useState(false);
+    const [newCustomerName, setNewCustomerName] = useState("");
+    const [newCustomerPhone, setNewCustomerPhone] = useState("");
+    const [newCustomerEmail, setNewCustomerEmail] = useState("");
+    const [formErrors, setFormErrors] = useState<{name?: string, phone?: string}>({});
+    const [customerSaving, setCustomerSaving] = useState(false);
 
-  const [courts, setCourts] = useState<Court[]>([]);
-  const [courtLoading, setCourtLoading] = useState(false);
-  const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
+    const [courts, setCourts] = useState<Court[]>([]);
+    const [courtLoading, setCourtLoading] = useState(false);
+    const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
 
-  const [date, setDate] = useState<Dayjs | null>(null);
-  const [startTime, setStartTime] = useState<string | undefined>();
-  const [endTime, setEndTime] = useState<string | undefined>();
-  const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
+    const [date, setDate] = useState<Dayjs | null>(null);
+    const [startTime, setStartTime] = useState<string | undefined>();
+    const [endTime, setEndTime] = useState<string | undefined>();
+    const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
 
+    const [fieldPrice, setFieldPrice] = useState(0);
+    const depositAmount = Math.round(fieldPrice * 0.5);
+    const [isDepositPaid, setIsDepositPaid] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
-  const [fieldPrice, setFieldPrice] = useState(0);
-  const depositAmount = Math.round(fieldPrice * 0.5);
-  const [isDepositPaid, setIsDepositPaid] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+    useEffect(() => {
+        const fetchCourts = async () => {
+            try {
+                setCourtLoading(true);
+                const res = await api.get("/courts", { params: { status: "active" } });
+                const data = res.data?.data || res.data;
+                setCourts(Array.isArray(data) ? data : []);
+            } catch { 
+                toast.error("Không tải được danh sách sân"); 
+            } finally { 
+                setCourtLoading(false); 
+            }
+        };
+        fetchCourts();
+    }, []);
 
-  useEffect(() => {
-    const fetchCourts = async () => {
-      try {
-        setCourtLoading(true);
-        const res = await api.get("/courts", { params: { status: "active" } });
-        const data = res.data?.data || res.data;
-        setCourts(Array.isArray(data) ? data : []);
-      } catch { toast.error("Không tải được danh sách sân"); }
-      finally { setCourtLoading(false); }
-    };
-    fetchCourts();
-  }, []);
-
-  const handleSearchCustomer = async () => {
-    try {
-      setCustomerLoading(true);
-      const res = await api.get("/users", { params: { search: customerSearch.trim() } });
-      const data = res.data?.data || res.data;
-      setCustomerList(Array.isArray(data) ? data : []);
-      setCustomerListModalOpen(true);
-    } catch { toast.error("Không tìm được khách hàng"); }
-    finally { setCustomerLoading(false); }
-  };
-
-  const handleSlotSelected = useCallback((slots: SelectedSlot[]) => {
-    if (!slots.length) {
-      setSelectedSlots([]); setDate(null); setStartTime(undefined); setEndTime(undefined);
-      setFieldPrice(0); setIsDepositPaid(false);
-      return;
-    }
-    const sorted = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
-    setSelectedSlots(sorted);
-    setDate(dayjs(sorted[0].date));
-    setStartTime(sorted[0].startTime);
-    setEndTime(sorted[sorted.length - 1].endTime);
-    setFieldPrice(sorted.reduce((sum, s) => sum + (s.price || 0), 0));
-    setIsDepositPaid(false);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedCourt) {
-      setSelectedSlots([]); setFieldPrice(0); setDate(null);
-      setStartTime(undefined); setEndTime(undefined); setIsDepositPaid(false);
-    }
-  }, [selectedCourt]);
-
-  const handleCreateCustomer = async (values?: any) => {
-    try {
-      const formValues = values && !values.errorFields && !values.target ? values : await createCustomerForm.validateFields();
-      setCustomerSaving(true);
-      const token = localStorage.getItem("token");
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const res = await fetch(`${API_URL}/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
-        body: JSON.stringify({ name: formValues.name, phone: formValues.phone, email: formValues.email || "" }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.status !== 200 && res.status !== 201) return toast.error(data.message || "Không thể thêm khách hàng");
-      setSelectedCustomer(data.user || data.data || data);
-      toast.success("Thêm khách hàng thành công!");
-      setCustomerCreateModalOpen(false);
-      createCustomerForm.resetFields();
-    } catch (err: any) {
-      if (err?.errorFields) return; // validation failed, form will display errors
-      toast.error("Có lỗi xảy ra khi tạo khách hàng");
-    } finally {
-      setCustomerSaving(false);
-    }
-  };
-
-  const handleSubmitBooking = async () => {
-    if (!selectedCourt) return toast.error("Vui lòng chọn sân");
-    if (!date || !startTime || !endTime) return toast.error("Vui lòng chọn ngày giờ");
-    if (!selectedCustomer) return toast.error("Vui lòng chọn hoặc thêm khách hàng");
-    if (!selectedSlots.length) return toast.error("Vui lòng chọn ít nhất một ca giờ");
-
-    const dateStr = date.format("YYYY-MM-DD");
-    const now = dayjs();
-    const bookingDay = date.startOf("day");
-    const bookingStart = dayjs(`${dateStr} ${startTime}`);
-    const isFutureMatch = bookingDay.isAfter(now, "day") || (bookingDay.isSame(now, "day") && bookingStart.isAfter(now));
-
-
-
-    setSubmitting(true);
-    try {
-      const bookingCode = generateBookingCode(dateStr);
-      const slotsPayload = selectedSlots.map((s) => ({ startTime: s.startTime, endTime: s.endTime }));
-      const res = await api.post("/bookings", {
-        courtId: selectedCourt._id, customerId: selectedCustomer._id, date: dateStr,
-        startTime, endTime, slots: slotsPayload, totalFieldAmount: fieldPrice, note: "",
-        isOffline: true, paymentMethod: PAYMENT_METHOD?.CASH || "cash",
-        paidAtCreation: isDepositPaid, isDepositPaid, depositAmount,
-        customerInfo: { name: selectedCustomer.name, phone: selectedCustomer.phone, email: selectedCustomer.email || "" },
-        bookingCode,
-      });
-      const bookingData = res.data?.data || res.data;
-      const displayCode = Array.isArray(bookingData) ? bookingData[0]?.code : bookingData?.code;
-      toast.success(`Đặt sân thành công — Mã: ${displayCode || bookingCode}`);
-      navigate("/admin/bookings");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Tạo đơn thất bại");
-    } finally { setSubmitting(false); }
-  };
-
-  const SummaryRow = ({ label, value, icon, accent }: { label: string; value: React.ReactNode; icon?: React.ReactNode; accent?: boolean }) => (
-    <div className="flex items-center justify-between py-3 border-b border-slate-50 dark:border-white/5 last:border-0">
-      <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">{icon}{label}</span>
-      <span className={`text-sm font-bold ${accent ? 'text-emerald-500' : 'text-slate-700 dark:text-white'}`}>{value || <span className="text-slate-300 dark:text-slate-600 font-semibold normal-case text-xs">Chưa chọn</span>}</span>
-    </div>
-  );
-
-  return (
-    <div className="px-4 pb-16 pt-6 space-y-8">
-      {/* Header */}
-      <div className="relative">
-        <div className="absolute -left-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-3xl" />
-        <h1 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-4 italic">
-          <div className="p-3.5 bg-linear-to-br from-blue-600 to-indigo-700 rounded-[20px] shadow-2xl shadow-blue-500/40 -rotate-3 flex items-center justify-center border border-white/20">
-            <CalendarPlus size={28} className="text-white" />
-          </div>
-          <span className="relative">
-            ĐẶT SÂN NHANH
-            <div className="absolute -bottom-2 left-0 w-1/2 h-1.5 bg-blue-500/30 rounded-full" />
-          </span>
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-6 font-semibold text-sm">
-          Tạo đơn đặt sân tại quầy cho khách • Nhanh gọn, chính xác
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Step 1: Customer */}
-          <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-7 shadow-sm">
-            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-lg shadow-blue-500/30">1</div>
-              Chọn khách hàng
-            </h3>
-
-            {selectedCustomer ? (
-              <div className="flex items-center gap-4 p-4 bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-200 dark:border-emerald-500/20 rounded-2xl">
-                <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
-                  <User size={20} />
-                </div>
-                <div className="flex-1">
-                  <div className="font-black text-slate-800 dark:text-white">{selectedCustomer.name}</div>
-                  <div className="text-xs text-slate-400 font-medium">{selectedCustomer.phone} {selectedCustomer.email && `• ${selectedCustomer.email}`}</div>
-                </div>
-                <span className="px-3 py-1 bg-emerald-500 text-white text-[9px] font-black rounded-xl uppercase shadow">Đã chọn</span>
-                <button onClick={() => setSelectedCustomer(null)} className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-all text-slate-400 hover:text-red-500">
-                  <X size={16} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="flex-1 relative">
-                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-                  <input
-                    type="text" placeholder="Nhập SĐT hoặc tên khách hàng..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearchCustomer()}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-white/5 border-2 border-slate-100 dark:border-white/10 rounded-2xl font-semibold text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600 focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
-                  />
-                </div>
-                <button onClick={handleSearchCustomer} className="px-5 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-2xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200 dark:border-white/10">
-                  {customerLoading ? <Spin size="small" /> : <><Users size={16} className="inline mr-1.5" />Tìm</>}
-                </button>
-                <button onClick={() => setCustomerCreateModalOpen(true)} className="px-5 py-3 bg-blue-500 text-white rounded-2xl font-bold text-sm hover:bg-blue-600 shadow-lg shadow-blue-500/30 transition-all flex items-center gap-1.5">
-                  <UserPlus size={16} /> Thêm
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Step 2: Court */}
-          <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-7 shadow-sm">
-            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-emerald-500 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-lg shadow-emerald-500/30">2</div>
-              Chọn sân
-            </h3>
-
-            {courtLoading ? (
-              <div className="flex items-center justify-center py-12"><Spin size="large" /></div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {courts.map((court) => {
-                  const isActive = selectedCourt?._id === court._id;
-                  const imageUrl = court.images?.[0] || "";
-                  const cfg = COURT_TYPE_CONFIG[court.type] || COURT_TYPE_CONFIG.indoor;
-                  return (
-                    <button key={court._id} onClick={() => setSelectedCourt(court)}
-                      className={`group text-left rounded-3xl border-2 overflow-hidden transition-all duration-300 ${
-                        isActive
-                          ? 'border-blue-500 shadow-xl shadow-blue-500/10 dark:shadow-blue-500/5 ring-4 ring-blue-500/10'
-                          : 'border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 hover:shadow-lg'
-                      }`}
-                    >
-                      <div className="flex gap-0">
-                        {imageUrl && (
-                          <div className="w-28 h-28 shrink-0 overflow-hidden">
-                            <img src={imageUrl} alt={court.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                          </div>
-                        )}
-                        <div className="flex-1 p-4 flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-black text-sm text-slate-800 dark:text-white">{court.name}</span>
-                              {isActive && <CheckCircle2 size={14} className="text-blue-500" />}
-                            </div>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 bg-linear-to-r ${cfg.gradient} text-white text-[9px] font-black rounded-lg uppercase`}>
-                              <Shield size={9} /> {COURT_TYPE_LABELS[court.type] || court.type}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400 font-bold">
-                            <span className="flex items-center gap-1"><DollarSign size={10} className="text-emerald-400" />{court.basePrice.toLocaleString("vi-VN")}đ</span>
-                            <span className="flex items-center gap-1"><Zap size={10} className="text-amber-400" />{court.peakPrice.toLocaleString("vi-VN")}đ</span>
-                          </div>
-                        </div>
-                      </div>
-                      {court.isBooked && (
-                        <div className="px-4 py-1.5 bg-rose-500/10 text-rose-500 text-[10px] font-black text-center uppercase">Đã đặt</div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Step 3: Time */}
-          <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-7 shadow-sm">
-            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3 mb-6">
-              <div className="w-8 h-8 bg-violet-500 rounded-xl flex items-center justify-center text-white text-xs font-black shadow-lg shadow-violet-500/30">3</div>
-              Chọn thời gian
-            </h3>
-            {selectedCourt ? (
-              <BookingTimeSelector
-                courtId={selectedCourt._id}
-                basePrice={selectedCourt.basePrice}
-                peakPrice={selectedCourt.peakPrice}
-                onSlotSelected={handleSlotSelected}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-300 dark:text-slate-600">
-                <Clock size={40} className="mb-3 opacity-40" />
-                <p className="font-bold text-sm">Vui lòng chọn sân trước</p>
-              </div>
-            )}
-          </div>
-
-
-        </div>
-
-        {/* Right Column: Summary */}
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden sticky top-6">
-            <div className="p-6 bg-linear-to-br from-blue-600 to-indigo-700 text-white relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10"><CreditCard size={80} /></div>
-              <div className="relative z-10">
-                <div className="text-[10px] font-black uppercase opacity-60 mb-1">Tóm tắt đơn</div>
-                <div className="text-xl font-black">Đặt sân</div>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-0">
-              <SummaryRow label="Khách hàng" value={selectedCustomer?.name} icon={<User size={12} />} />
-              <SummaryRow label="Sân" value={selectedCourt?.name} icon={<Shield size={12} />} />
-              <SummaryRow label="Ngày đặt" value={date?.format("DD/MM/YYYY")} icon={<CalendarPlus size={12} />} />
-              <SummaryRow label="Khung giờ" value={selectedSlots.length ? selectedSlots.map((s) => `${s.startTime}–${s.endTime}`).join(", ") : undefined} icon={<Clock size={12} />} />
-            </div>
-
-            <div className="px-6 pb-4">
-              <div className="bg-slate-50 dark:bg-white/5 rounded-2xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-slate-400">Tiền sân</span>
-                  <span className="text-lg font-black text-slate-800 dark:text-white">{fieldPrice.toLocaleString("vi-VN")} đ</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400">Cọc 50%</span>
-                  <span className="text-sm font-black text-amber-500">{depositAmount.toLocaleString("vi-VN")} đ</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 pb-4">
-              <button
-                onClick={() => setIsDepositPaid((v) => !v)}
-                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${
-                  isDepositPaid
-                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30'
-                    : 'bg-transparent text-slate-400 border-slate-200 dark:border-white/10 hover:border-emerald-400 hover:text-emerald-500'
-                }`}
-              >
-                <Wallet size={16} />
-                {isDepositPaid ? "Đã cọc" : "Chưa cọc (ấn để xác nhận)"}
-              </button>
-            </div>
-
-            <div className="px-6 pb-6">
-              <button
-                onClick={handleSubmitBooking}
-                disabled={!selectedCustomer || !selectedCourt || submitting}
-                className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-linear-to-r from-blue-600 to-indigo-700 text-white rounded-2xl font-black text-sm hover:shadow-xl hover:shadow-blue-500/30 active:scale-[0.98] transition-all disabled:opacity-40 border border-white/20"
-              >
-                {submitting ? <Spin size="small" /> : <><CheckCircle2 size={20} /> XÁC NHẬN ĐẶT SÂN</>}
-              </button>
-            </div>
-
-            <div className="px-6 pb-6 text-[11px] font-medium text-slate-400 space-y-1">
-              <p>* Đơn đặt sẽ được tự động xác nhận.</p>
-              <p>* Khách thanh toán tại quầy / cọc theo chính sách.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal Danh sách khách hàng */}
-      <Modal title="Danh sách khách hàng" open={isCustomerListModalOpen} onCancel={() => setCustomerListModalOpen(false)} footer={null} width={700}>
-        <List
-          dataSource={customerList}
-          renderItem={(item) => (
-            <List.Item style={{ cursor: "pointer" }} onClick={() => { setSelectedCustomer(item); setCustomerListModalOpen(false); }}>
-              <List.Item.Meta avatar={<Avatar icon={<UserOutlined />} />} title={item.name} description={<>{item.phone}{item.email && ` · ${item.email}`}</>} />
-            </List.Item>
-          )}
-        />
-      </Modal>
-
-      {/* Modal Thêm khách hàng */}
-      <Modal 
-        title={
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-white/5">
-            <div className="p-2.5 bg-blue-500/10 dark:bg-blue-500/20 rounded-xl text-blue-500 flex items-center justify-center">
-              <UserPlus size={18} />
-            </div>
-            <div>
-              <span className="text-base font-black text-slate-800 dark:text-white tracking-tight block">
-                Thêm khách hàng mới
-              </span>
-              <span className="text-[11px] text-slate-400 font-semibold block mt-0.5">
-                Nhập thông tin chi tiết khách hàng bên dưới
-              </span>
-            </div>
-          </div>
+    const handleSearchCustomer = async () => {
+        if (!customerSearch.trim()) {
+            toast.error("Vui lòng nhập tên hoặc số điện thoại");
+            return;
         }
-        open={isCustomerCreateModalOpen} 
-        onCancel={() => { setCustomerCreateModalOpen(false); createCustomerForm.resetFields(); }} 
-        footer={null}
-        destroyOnHidden
-      >
-        <Form 
-          form={createCustomerForm} 
-          layout="vertical"
-          onFinish={handleCreateCustomer}
-          className="mt-5 space-y-4"
-        >
-          <Form.Item 
-            label={<span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Họ tên</span>} 
-            name="name" 
-            rules={[
-              { required: true, message: "Vui lòng nhập họ tên" },
-              { min: 2, message: "Họ tên phải có ít nhất 2 ký tự" }
-            ]}
-          >
-            <Input 
-              prefix={<User size={16} className="text-slate-400 mr-1.5" />}
-              placeholder="Nhập họ tên khách hàng" 
-              className="!w-full !py-2.5 !bg-slate-50 dark:!bg-white/5 !border-2 !border-slate-100 dark:!border-white/10 !rounded-2xl font-semibold text-sm !text-slate-700 dark:!text-slate-200 placeholder:!text-slate-300 dark:placeholder:!text-slate-600 focus-within:!border-blue-400 focus-within:!ring-4 focus-within:!ring-blue-500/10 !outline-none transition-all shadow-xs"
-            />
-          </Form.Item>
+        try {
+            setCustomerLoading(true);
+            const res = await api.get("/users", { params: { search: customerSearch.trim() } });
+            const data = res.data?.data || res.data;
+            const list = Array.isArray(data) ? data : [];
+            setCustomerList(list);
+            if (list.length === 0) {
+                toast.error("Không tìm thấy khách hàng");
+            } else {
+                setCustomerListModalOpen(true);
+            }
+        } catch { 
+            toast.error("Không tìm được khách hàng"); 
+        } finally { 
+            setCustomerLoading(false); 
+        }
+    };
 
-          <Form.Item 
-            label={<span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Số điện thoại</span>} 
-            name="phone" 
-            rules={[
-              { required: true, message: "Vui lòng nhập số điện thoại" }, 
-              { pattern: /^0[0-9]{9}$/, message: "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0" }
-            ]}
-          >
-            <Input 
-              prefix={<Phone size={16} className="text-slate-400 mr-1.5" />}
-              placeholder="Nhập số điện thoại (ví dụ: 0944444402)" 
-              className="!w-full !py-2.5 !bg-slate-50 dark:!bg-white/5 !border-2 !border-slate-100 dark:!border-white/10 !rounded-2xl font-semibold text-sm !text-slate-700 dark:!text-slate-200 placeholder:!text-slate-300 dark:placeholder:!text-slate-600 focus-within:!border-blue-400 focus-within:!ring-4 focus-within:!ring-blue-500/10 !outline-none transition-all shadow-xs"
-            />
-          </Form.Item>
+    const handleSlotSelected = useCallback((slots: SelectedSlot[]) => {
+        if (!slots.length) {
+            setSelectedSlots([]); 
+            setDate(null); 
+            setStartTime(undefined); 
+            setEndTime(undefined);
+            setFieldPrice(0); 
+            setIsDepositPaid(false);
+            return;
+        }
+        const sorted = [...slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
+        setSelectedSlots(sorted);
+        setDate(dayjs(sorted[0].date));
+        setStartTime(sorted[0].startTime);
+        setEndTime(sorted[sorted.length - 1].endTime);
+        setFieldPrice(sorted.reduce((sum, s) => sum + (s.price || 0), 0));
+        setIsDepositPaid(false);
+    }, []);
 
-          <Form.Item 
-            label={<span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email</span>} 
-            name="email" 
-            rules={[{ type: "email", message: "Email không đúng định dạng" }]}
-          >
-            <Input 
-              prefix={<Mail size={16} className="text-slate-400 mr-1.5" />}
-              placeholder="Nhập email (tùy chọn)" 
-              className="!w-full !py-2.5 !bg-slate-50 dark:!bg-white/5 !border-2 !border-slate-100 dark:!border-white/10 !rounded-2xl font-semibold text-sm !text-slate-700 dark:!text-slate-200 placeholder:!text-slate-300 dark:placeholder:!text-slate-600 focus-within:!border-blue-400 focus-within:!ring-4 focus-within:!ring-blue-500/10 !outline-none transition-all shadow-xs"
-            />
-          </Form.Item>
+    useEffect(() => {
+        if (!selectedCourt) {
+            setSelectedSlots([]); 
+            setFieldPrice(0); 
+            setDate(null);
+            setStartTime(undefined); 
+            setEndTime(undefined); 
+            setIsDepositPaid(false);
+        }
+    }, [selectedCourt]);
 
-          <div className="flex justify-end gap-3 pt-5 border-t border-slate-100 dark:border-white/5 mt-6">
-            <button 
-              type="button"
-              onClick={() => { setCustomerCreateModalOpen(false); createCustomerForm.resetFields(); }}
-              className="px-5 py-2.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200 dark:border-white/10 cursor-pointer active:scale-95"
-            >
-              Hủy
-            </button>
-            <button 
-              type="submit"
-              disabled={customerSaving}
-              className="px-6 py-2.5 bg-blue-500 text-white rounded-xl font-black text-sm hover:bg-blue-600 shadow-lg shadow-blue-500/30 transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
-            >
-              {customerSaving ? <Spin size="small" className="brightness-200" /> : null}
-              Lưu
-            </button>
-          </div>
-        </Form>
-      </Modal>
-    </div>
-  );
+    const handleCreateCustomer = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const errors: {name?: string, phone?: string} = {};
+        if (!newCustomerName.trim()) errors.name = "Vui lòng nhập họ tên";
+        else if (newCustomerName.trim().length < 2) errors.name = "Họ tên phải có ít nhất 2 ký tự";
+        
+        if (!newCustomerPhone.trim()) errors.phone = "Vui lòng nhập số điện thoại";
+        else if (!/^0[0-9]{9}$/.test(newCustomerPhone.trim())) {
+            errors.phone = "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0";
+        }
+        
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            return;
+        }
+        setFormErrors({});
+
+        try {
+            setCustomerSaving(true);
+            const token = localStorage.getItem("token");
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+            const res = await fetch(`${API_URL}/users`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+                body: JSON.stringify({ name: newCustomerName, phone: newCustomerPhone, email: newCustomerEmail || "" }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.status !== 200 && res.status !== 201) return toast.error(data.message || "Không thể thêm khách hàng");
+            setSelectedCustomer(data.user || data.data || data);
+            toast.success("Thêm khách hàng thành công!");
+            setCustomerCreateModalOpen(false);
+            
+            // Clear form fields
+            setNewCustomerName("");
+            setNewCustomerPhone("");
+            setNewCustomerEmail("");
+        } catch (err: any) {
+            toast.error("Có lỗi xảy ra khi tạo khách hàng");
+        } finally {
+            setCustomerSaving(false);
+        }
+    };
+
+    const handleSubmitBooking = async () => {
+        if (!selectedCourt) return toast.error("Vui lòng chọn sân");
+        if (!date || !startTime || !endTime) return toast.error("Vui lòng chọn ngày giờ");
+        if (!selectedCustomer) return toast.error("Vui lòng chọn hoặc thêm khách hàng");
+        if (!selectedSlots.length) return toast.error("Vui lòng chọn ít nhất một ca giờ");
+
+        const dateStr = date.format("YYYY-MM-DD");
+
+        setSubmitting(true);
+        try {
+            const bookingCode = generateBookingCode(dateStr);
+            const slotsPayload = selectedSlots.map((s) => ({ startTime: s.startTime, endTime: s.endTime }));
+            const res = await api.post("/bookings", {
+                courtId: selectedCourt._id, 
+                customerId: selectedCustomer._id, 
+                date: dateStr,
+                startTime, 
+                endTime, 
+                slots: slotsPayload, 
+                totalFieldAmount: fieldPrice, 
+                note: "",
+                isOffline: true, 
+                paymentMethod: PAYMENT_METHOD?.CASH || "cash",
+                paidAtCreation: isDepositPaid, 
+                isDepositPaid, 
+                depositAmount,
+                customerInfo: { name: selectedCustomer.name, phone: selectedCustomer.phone, email: selectedCustomer.email || "" },
+                bookingCode,
+            });
+            const bookingData = res.data?.data || res.data;
+            const displayCode = Array.isArray(bookingData) ? bookingData[0]?.code : bookingData?.code;
+            toast.success(`Đặt sân thành công — Mã: ${displayCode || bookingCode}`);
+            navigate("/admin/bookings");
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || "Tạo đơn thất bại");
+        } finally { 
+            setSubmitting(false); 
+        }
+    };
+
+    const SummaryRow = ({ label, value, icon, accent }: { label: string; value: React.ReactNode; icon?: React.ReactNode; accent?: boolean }) => (
+        <div className="flex items-center justify-between py-2.5 text-xs border-b border-border/40 last:border-0">
+            <span className="text-muted-foreground flex items-center gap-2">{icon}{label}</span>
+            <span className={`font-semibold text-right max-w-[180px] truncate ${accent ? 'text-emerald-600' : 'text-foreground'}`}>
+                {value || <span className="text-muted-foreground/45 text-[10px] font-normal italic">Chưa chọn</span>}
+            </span>
+        </div>
+    );
+
+    return (
+        <div className="px-4 pb-16 pt-6 space-y-6 max-w-7xl mx-auto">
+            {/* Header Title */}
+            <div className="text-left">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">Đặt sân nhanh</h1>
+                <p className="text-xs text-muted-foreground mt-0.5">Tạo đơn đặt sân tại quầy trực tiếp cho khách</p>
+            </div>
+
+            {/* Split Screen Grid Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                {/* Left Column (8 cols): Step Wizard */}
+                <div className="lg:col-span-8 space-y-6">
+                    
+                    {/* Step 1: Select Customer */}
+                    <div className="bg-card rounded-2xl border border-border/80 p-5 shadow-xs text-left">
+                        <h2 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2.5 mb-4">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-600 text-xs font-black shrink-0">1</span>
+                            Chọn khách hàng
+                        </h2>
+
+                        {selectedCustomer ? (
+                            <div className="flex items-center gap-3 p-3.5 bg-muted/20 border border-border rounded-xl">
+                                <div className="w-10 h-10 bg-indigo-500/10 text-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+                                    <UserIcon size={18} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-foreground text-sm leading-snug">{selectedCustomer.name}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+                                        {selectedCustomer.phone} {selectedCustomer.email && `· ${selectedCustomer.email}`}
+                                    </div>
+                                </div>
+                                <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold rounded-lg border border-emerald-500/20 uppercase shrink-0">Đã chọn</span>
+                                <button onClick={() => setSelectedCustomer(null)} className="p-1.5 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 rounded-lg transition-colors shrink-0">
+                                    <X size={15} />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <div className="flex-1 relative">
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none" />
+                                    <input
+                                        type="text" 
+                                        placeholder="Nhập số điện thoại hoặc tên khách..."
+                                        value={customerSearch}
+                                        onChange={(e) => setCustomerSearch(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchCustomer()}
+                                        className="w-full h-10 pl-9 pr-4 bg-card border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-indigo-400"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                                    <Button onClick={handleSearchCustomer} className="flex-1 sm:flex-none h-10 px-4 bg-muted hover:bg-muted/80 text-foreground border border-border font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-none">
+                                        {customerLoading ? <Loader2 size={13} className="animate-spin text-indigo-500" /> : <><Users size={13} />Tìm</>}
+                                    </Button>
+                                    <Button onClick={() => setCustomerCreateModalOpen(true)} className="flex-1 sm:flex-none h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10">
+                                        <UserPlus size={13} /> Thêm khách mới
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Step 2: Select Pitch */}
+                    <div className="bg-card rounded-2xl border border-border/80 p-5 shadow-xs text-left">
+                        <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2.5 mb-5">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-600 text-xs font-black shrink-0">2</span>
+                            Chọn sân
+                        </h3>
+
+                        {courtLoading ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                                <Loader2 size={24} className="animate-spin text-indigo-500" />
+                                <span className="text-xs font-semibold">Đang tải danh sách sân...</span>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                {courts.map((court) => {
+                                    const isActive = selectedCourt?._id === court._id;
+                                    const imageUrl = court.images?.[0] || "";
+                                    const typeConf = COURT_TYPE_CONFIG[court.type] || { bg: 'bg-muted', border: 'border-border', text: 'text-muted-foreground' };
+                                    
+                                    return (
+                                        <button 
+                                            key={court._id} 
+                                            onClick={() => setSelectedCourt(court)}
+                                            className={`group text-left rounded-xl border-2 overflow-hidden transition-all duration-200 ${
+                                                isActive
+                                                    ? 'border-indigo-600 bg-indigo-500/[0.03] ring-1 ring-indigo-500/35 scale-[1.01]'
+                                                    : 'border-border/80 hover:border-indigo-400 hover:bg-muted/10'
+                                            }`}
+                                        >
+                                            <div className="flex gap-2">
+                                                {imageUrl && (
+                                                    <div className="w-24 h-24 shrink-0 overflow-hidden relative border-r border-border/40">
+                                                        <img src={imageUrl} alt={court.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                                    </div>
+                                                )}
+                                                <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                                                    <div>
+                                                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                                                            <span className="font-bold text-foreground text-xs leading-none truncate">{court.name}</span>
+                                                            {isActive && <CheckCircle2 size={13} className="text-indigo-600 shrink-0" />}
+                                                        </div>
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 ${typeConf.bg} ${typeConf.border} ${typeConf.text} border text-[8px] font-extrabold rounded-md uppercase tracking-wider`}>
+                                                            {COURT_TYPE_LABELS[court.type] || court.type}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 mt-2 text-[10px] font-semibold font-mono">
+                                                        <span className="flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-bold">{court.basePrice.toLocaleString('vi-VN')}đ</span>
+                                                        <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400 font-bold"><Zap size={10} className="text-amber-500 shrink-0" />{court.peakPrice.toLocaleString('vi-VN')}đ</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {court.isBooked && (
+                                                <div className="px-4 py-1 bg-rose-500/10 text-rose-600 text-[8px] font-black text-center uppercase tracking-wider rounded-b-xl border-t border-rose-500/10">
+                                                    Đang có người đặt
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Step 3: Time Slot Selector */}
+                    <div className="bg-card rounded-2xl border border-border/80 p-5 shadow-xs text-left">
+                        <h3 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2.5 mb-5">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-600 text-xs font-black shrink-0">3</span>
+                            Chọn thời gian
+                        </h3>
+                        {selectedCourt ? (
+                            <BookingTimeSelector
+                                courtId={selectedCourt._id}
+                                basePrice={selectedCourt.basePrice}
+                                peakPrice={selectedCourt.peakPrice}
+                                onSlotSelected={handleSlotSelected}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
+                                <Clock size={36} className="opacity-25" />
+                                <p className="font-semibold text-xs">Vui lòng chọn sân trước</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right Column (4 cols): Sticky Checkout Receipt */}
+                <div className="lg:col-span-4 lg:sticky lg:top-6 space-y-4">
+                    <div className="bg-card rounded-2xl border border-border/85 shadow-md overflow-hidden text-left">
+                        
+                        {/* Summary Header */}
+                        <div className="p-5 border-b border-border/60 bg-muted/20">
+                            <div className="text-[10px] font-black uppercase text-muted-foreground tracking-wider leading-none">Tóm tắt đơn</div>
+                            <div className="text-base font-extrabold text-foreground mt-1.5 flex items-center gap-2">
+                                <Shield size={16} className="text-indigo-500" />
+                                Đơn đặt sân mới
+                            </div>
+                        </div>
+
+                        {/* Order breakdown */}
+                        <div className="p-5 space-y-0.5">
+                            <SummaryRow label="Khách hàng" value={selectedCustomer?.name} icon={<UserIcon size={12} />} />
+                            <SummaryRow label="Sân thi đấu" value={selectedCourt?.name} icon={<Shield size={12} />} />
+                            <SummaryRow label="Ngày đặt" value={date?.format('DD/MM/YYYY')} icon={<CalendarPlus size={12} />} />
+                            <SummaryRow 
+                                label="Khung giờ" 
+                                value={selectedSlots.length ? selectedSlots.map((s) => `${s.startTime}-${s.endTime}`).join(', ') : undefined} 
+                                icon={<Clock size={12} />} 
+                            />
+                        </div>
+
+                        {/* Pricing section */}
+                        <div className="px-5 py-4 bg-muted/10 border-y border-border/50 space-y-2 text-xs">
+                            <div className="flex items-center justify-between font-semibold">
+                                <span className="text-muted-foreground">Tiền sân</span>
+                                <span className="font-mono text-foreground">{formatVND(fieldPrice)}</span>
+                            </div>
+                            <div className="flex items-center justify-between font-semibold">
+                                <span className="text-muted-foreground">Tiền cọc 50%</span>
+                                <span className="font-mono text-amber-600 dark:text-amber-400">{formatVND(depositAmount)}</span>
+                            </div>
+                        </div>
+
+                        {/* Deposit toggle flag check */}
+                        <div className="p-5">
+                            <button
+                                type="button"
+                                onClick={() => setIsDepositPaid((v) => !v)}
+                                className={`w-full flex items-center justify-center gap-2 h-10 px-4 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border-2 ${
+                                    isDepositPaid
+                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-500/10 hover:bg-emerald-700'
+                                        : 'bg-transparent text-muted-foreground border-border/80 hover:border-indigo-500 hover:text-indigo-600'
+                                }`}
+                            >
+                                <Wallet size={14} />
+                                {isDepositPaid ? 'Đã thu tiền cọc' : 'Chưa cọc (ấn để xác nhận)'}
+                            </button>
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="px-5 pb-5">
+                            <Button
+                                onClick={handleSubmitBooking}
+                                disabled={!selectedCustomer || !selectedCourt || submitting}
+                                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5"
+                            >
+                                {submitting ? <Loader2 size={14} className="animate-spin text-white" /> : <><CheckCircle2 size={14} /> XÁC NHẬN ĐẶT SÂN</>}
+                            </Button>
+                        </div>
+
+                        {/* Policies footer detail */}
+                        <div className="px-5 py-4 bg-muted/20 border-t border-border/40 text-[10px] font-semibold text-muted-foreground leading-relaxed space-y-1">
+                            <p className="flex items-center gap-1">• Đơn đặt sân offline sẽ được tự động xác nhận.</p>
+                            <p className="flex items-center gap-1">• Khách thanh toán số tiền còn lại tại quầy khi đá xong.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            {/* Modal Customers Search List (Radix Dialog style) */}
+            <Dialog open={isCustomerListModalOpen} onOpenChange={(v) => !v && setCustomerListModalOpen(false)}>
+                <DialogContent className="sm:max-w-md max-h-[80vh] overflow-y-auto p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
+                    <DialogHeader className="px-5 py-4 border-b border-border bg-muted/20">
+                        <DialogTitle className="text-sm font-extrabold text-foreground uppercase tracking-wider text-left">Kết quả tìm kiếm</DialogTitle>
+                        <DialogDescription className="text-[10px] text-muted-foreground mt-0.5 text-left">Chọn một khách hàng bên dưới</DialogDescription>
+                    </DialogHeader>
+                    <div className="p-4 divide-y divide-border/50 max-h-[50vh] overflow-y-auto no-scrollbar">
+                        {customerList.map((item) => (
+                            <button
+                                key={item._id}
+                                onClick={() => { setSelectedCustomer(item); setCustomerListModalOpen(false); }}
+                                className="w-full text-left p-3 flex items-center justify-between hover:bg-muted/40 rounded-xl transition-all duration-150"
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
+                                        <UserIcon size={14} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-bold text-foreground leading-snug truncate">{item.name}</div>
+                                        <div className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">{item.phone}</div>
+                                    </div>
+                                </div>
+                                <ChevronRight size={14} className="text-muted-foreground/60 shrink-0" />
+                            </button>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Modal Create Customer Form (Radix Dialog style) */}
+            <Dialog open={isCustomerCreateModalOpen} onOpenChange={(v) => !v && setCustomerCreateModalOpen(false)}>
+                <DialogContent className="sm:max-w-md p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
+                    <DialogHeader className="px-5 py-4 border-b border-border bg-muted/20">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2 bg-indigo-500/15 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                                <UserPlus size={16} />
+                            </div>
+                            <div className="text-left">
+                                <DialogTitle className="text-sm font-extrabold text-foreground uppercase tracking-wider">
+                                    Thêm khách hàng mới
+                                </DialogTitle>
+                                <DialogDescription className="text-[10px] text-muted-foreground mt-0.5">
+                                    Nhập thông tin chi tiết khách hàng bên dưới
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <form onSubmit={handleCreateCustomer} className="p-5 space-y-4 text-left">
+                        {/* Name Input */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5">Họ tên <span className="text-rose-500">*</span></label>
+                            <div className="relative">
+                                <UserIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                                <input
+                                    type="text"
+                                    placeholder="Nhập họ tên khách hàng"
+                                    value={newCustomerName}
+                                    onChange={(e) => setNewCustomerName(e.target.value)}
+                                    className={`w-full h-10 pl-9 pr-4 bg-card border ${formErrors.name ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
+                                />
+                            </div>
+                            {formErrors.name && <p className="text-[10px] text-rose-500 font-semibold pl-0.5">{formErrors.name}</p>}
+                        </div>
+
+                        {/* Phone Input */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5">Số điện thoại <span className="text-rose-500">*</span></label>
+                            <div className="relative">
+                                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                                <input
+                                    type="text"
+                                    placeholder="Nhập số điện thoại (ví dụ: 0944444402)"
+                                    value={newCustomerPhone}
+                                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                                    className={`w-full h-10 pl-9 pr-4 bg-card border ${formErrors.phone ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
+                                />
+                            </div>
+                            {formErrors.phone && <p className="text-[10px] text-rose-500 font-semibold pl-0.5">{formErrors.phone}</p>}
+                        </div>
+
+                        {/* Email Input */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5">Email (tùy chọn)</label>
+                            <div className="relative">
+                                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                                <input
+                                    type="text"
+                                    placeholder="Nhập email khách hàng"
+                                    value={newCustomerEmail}
+                                    onChange={(e) => setNewCustomerEmail(e.target.value)}
+                                    className="w-full h-10 pl-9 pr-4 bg-card border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center justify-end gap-3.5 pt-4 border-t border-border/60 mt-5">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => { setCustomerCreateModalOpen(false); setFormErrors({}); }}
+                                className="text-xs font-semibold h-10 px-4 rounded-xl text-muted-foreground hover:bg-muted"
+                            >
+                                Hủy bỏ
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={customerSaving}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-10 px-5 rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/10 disabled:opacity-50"
+                            >
+                                {customerSaving ? <Loader2 size={13} className="animate-spin text-white" /> : null}
+                                Lưu khách hàng
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
 };
 
 export default BookingCreate;

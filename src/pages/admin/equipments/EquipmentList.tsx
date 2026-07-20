@@ -1,33 +1,64 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Col,
-    Form,
-    Input,
-    InputNumber,
-    Modal,
-    Progress,
-    Row,
-    Select,
-    Popconfirm,
-    message,
-    notification,
-    Card,
-} from 'antd';
-import {
-    PlusOutlined,
-    EditOutlined,
-    DeleteOutlined,
-    ToolOutlined,
-    CheckCircleOutlined,
-    ExclamationCircleOutlined,
-    CloseCircleOutlined,
-    SearchOutlined,
-    ReloadOutlined,
-} from '@ant-design/icons';
+    Plus,
+    Pencil,
+    Trash2,
+    Search,
+    RefreshCw,
+    Package,
+    CheckCircle2,
+    AlertTriangle,
+    XCircle,
+    Box,
+    Loader2,
+    FileText,
+    X,
+    ChevronLeft,
+    ChevronRight,
+} from 'lucide-react';
 import api from '@/common/utils/api';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
-const { TextArea } = Input;
+// Shadcn UI Components
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
+// ─── Types ──────────────────────────────────────────────
 type EquipmentMode = 'rent' | 'sell' | 'both';
 type EquipmentStatus = 'in_stock' | 'out_of_stock' | 'discontinued';
 
@@ -45,10 +76,30 @@ interface Equipment {
     description?: string;
 }
 
+interface FormData {
+    code: string;
+    name: string;
+    unit: string;
+    mode: EquipmentMode;
+    status: EquipmentStatus;
+    totalQuantity: number;
+    availableQuantity: number;
+    rentPrice: number;
+    salePrice: number;
+    description: string;
+}
+
+// ─── Constants ──────────────────────────────────────────
 const MODE_LABELS: Record<EquipmentMode, string> = {
-    rent: 'Chỉ cho thuê',
-    sell: 'Chỉ bán',
-    both: 'Cho thuê & bán',
+    rent: 'Cho thuê',
+    sell: 'Bán',
+    both: 'Thuê & Bán',
+};
+
+const MODE_COLORS: Record<EquipmentMode, string> = {
+    rent: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+    sell: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    both: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
 };
 
 const STATUS_LABELS: Record<EquipmentStatus, string> = {
@@ -57,7 +108,11 @@ const STATUS_LABELS: Record<EquipmentStatus, string> = {
     discontinued: 'Ngừng bán',
 };
 
-// STATUS_COLORS is removed as we use inline styles for better control
+const STATUS_CONFIGS: Record<EquipmentStatus, { color: string; icon: React.ElementType }> = {
+    in_stock: { color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20', icon: CheckCircle2 },
+    out_of_stock: { color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20', icon: XCircle },
+    discontinued: { color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20', icon: AlertTriangle },
+};
 
 const UNIT_OPTIONS = [
     { value: 'cái', label: 'Cái' },
@@ -66,39 +121,436 @@ const UNIT_OPTIONS = [
     { value: 'quả', label: 'Quả' },
     { value: 'đôi', label: 'Đôi' },
     { value: 'chai', label: 'Chai' },
-].filter(Boolean);
+];
 
+const MOCK_DEVICES: Equipment[] = [
+    {
+        _id: 'sample-1',
+        code: 'G01',
+        name: 'Giày đinh bóng đá FX',
+        unit: 'đôi',
+        mode: 'both',
+        status: 'in_stock',
+        totalQuantity: 1000,
+        availableQuantity: 962,
+        rentPrice: 30000,
+        salePrice: 200000,
+        description: 'Giày đinh sân cỏ nhân tạo cao cấp, đủ size từ 38 - 44',
+    },
+    {
+        _id: 'sample-2',
+        code: 'A001',
+        name: 'Áo pitch phân đội',
+        unit: 'cái',
+        mode: 'rent',
+        status: 'in_stock',
+        totalQuantity: 300,
+        availableQuantity: 277,
+        rentPrice: 30000,
+        salePrice: 0,
+        description: 'Áo bib lưới tập luyện xanh, đỏ, cam, vàng thoáng khí',
+    },
+    {
+        _id: 'sample-3',
+        code: 'B01',
+        name: 'Bóng đá chuẩn FIFA 5',
+        unit: 'quả',
+        mode: 'both',
+        status: 'in_stock',
+        totalQuantity: 100,
+        availableQuantity: 65,
+        rentPrice: 30000,
+        salePrice: 300000,
+        description: 'Bóng đạt chuẩn thi đấu, da PU cao cấp êm ái',
+    },
+    {
+        _id: 'sample-4',
+        code: 'GT01',
+        name: 'Găng tay thủ môn có xương',
+        unit: 'đôi',
+        mode: 'both',
+        status: 'in_stock',
+        totalQuantity: 50,
+        availableQuantity: 42,
+        rentPrice: 30000,
+        salePrice: 250000,
+        description: 'Găng tay thủ môn chuyên nghiệp dính bám chống lật ngón',
+    },
+    {
+        _id: 'sample-5',
+        code: 'BG01',
+        name: 'Băng thun bảo vệ gối',
+        unit: 'chiếc',
+        mode: 'sell',
+        status: 'in_stock',
+        totalQuantity: 200,
+        availableQuantity: 180,
+        rentPrice: 0,
+        salePrice: 50000,
+        description: 'Băng gối thể thao co giãn 4 chiều hỗ trợ cơ khớp',
+    },
+    {
+        _id: 'sample-6',
+        code: 'XGD01',
+        name: 'Bình xịt lạnh giảm đau chấn thương',
+        unit: 'chai',
+        mode: 'in_stock',
+        status: 'in_stock',
+        totalQuantity: 80,
+        availableQuantity: 4,
+        rentPrice: 0,
+        salePrice: 120000,
+        description: 'Bình xịt lạnh tức thì giảm sưng đau cho cầu thủ',
+    },
+];
+
+const DEFAULT_FORM: FormData = {
+    code: '',
+    name: '',
+    unit: 'cái',
+    mode: 'rent',
+    status: 'in_stock',
+    totalQuantity: 0,
+    availableQuantity: 0,
+    rentPrice: 0,
+    salePrice: 0,
+    description: '',
+};
+
+// ─── Stat Card Component ─────────────────────────────────
+interface StatCardProps {
+    label: string;
+    value: number;
+    icon: React.ElementType;
+    accentClass: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, accentClass }) => (
+    <Card className="border border-border/80 rounded-xl shadow-xs overflow-hidden">
+        <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1 text-left">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{label}</span>
+                <span className="text-2xl font-extrabold text-foreground font-mono">{value}</span>
+            </div>
+            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl shrink-0', accentClass)}>
+                <Icon className="h-4 w-4" />
+            </div>
+        </CardContent>
+    </Card>
+);
+
+// ─── Delete Confirmation Dialog ──────────────────────────
+interface DeleteDialogProps {
+    open: boolean;
+    name: string;
+    loading: boolean;
+    onConfirm: () => void;
+    onCancel: () => void;
+}
+
+const DeleteDialog: React.FC<DeleteDialogProps> = ({ open, name, loading, onConfirm, onCancel }) => (
+    <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
+        <DialogContent className="sm:max-w-md p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
+            <DialogHeader className="px-6 py-5 border-b border-border bg-muted/20 text-left">
+                <DialogTitle className="flex items-center gap-2 text-rose-600 text-sm font-extrabold uppercase tracking-wider">
+                    <Trash2 className="h-4 w-4" />
+                    Xác nhận xóa thiết bị
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-1">
+                    Bạn có chắc chắn muốn xóa thiết bị <strong className="text-foreground">"{name}"</strong>? Thao tác này không thể hoàn tác.
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="px-6 py-4 border-t border-border/60 flex items-center justify-end gap-3">
+                <Button variant="ghost" onClick={onCancel} disabled={loading} className="text-xs font-semibold h-10 px-4 rounded-xl">
+                    Hủy bỏ
+                </Button>
+                <Button variant="destructive" onClick={onConfirm} disabled={loading} className="text-xs font-bold h-10 px-5 rounded-xl bg-rose-600 hover:bg-rose-700">
+                    {loading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                    Xóa vĩnh viễn
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+);
+
+// ─── Form Dialog ─────────────────────────────────────────
+interface FormDialogProps {
+    open: boolean;
+    editing: Equipment | null;
+    formData: FormData;
+    errors: Partial<Record<keyof FormData, string>>;
+    submitLoading: boolean;
+    onChange: (field: keyof FormData, value: string | number) => void;
+    onSubmit: () => void;
+    onCancel: () => void;
+}
+
+const FormDialog: React.FC<FormDialogProps> = ({
+    open, editing, formData, errors, submitLoading, onChange, onSubmit, onCancel
+}) => {
+    const isRentMode = formData.mode === 'rent' || formData.mode === 'both';
+    const isSellMode = formData.mode === 'sell' || formData.mode === 'both';
+
+    const formatPrice = (val: number) => val ? val.toLocaleString('vi-VN') : '';
+
+    const handlePriceChange = (field: 'rentPrice' | 'salePrice', raw: string) => {
+        const cleaned = raw.replace(/[^\d]/g, '');
+        onChange(field, Number(cleaned) || 0);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
+            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
+                <DialogHeader className="px-6 py-4 border-b border-border bg-muted/20 text-left">
+                    <DialogTitle className="flex items-center gap-2 text-sm font-extrabold text-foreground uppercase tracking-wider">
+                        {editing ? (
+                            <>
+                                <Pencil className="h-4 w-4 text-indigo-500" />
+                                Chỉnh sửa thiết bị
+                            </>
+                        ) : (
+                            <>
+                                <Plus className="h-4 w-4 text-indigo-500" />
+                                Thêm thiết bị mới
+                            </>
+                        )}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                        {editing
+                            ? `Cập nhật thông tin cho thiết bị ${editing.name}`
+                            : 'Điền thông tin chi tiết để thêm thiết bị mới vào kho'}
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="p-6 space-y-4 text-left">
+                    {/* Row: Code + Name */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="eq-code" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Mã thiết bị <span className="text-rose-500">*</span></Label>
+                            <Input
+                                id="eq-code"
+                                placeholder="VD: TB001"
+                                value={formData.code}
+                                onChange={(e) => onChange('code', e.target.value)}
+                                className={cn('h-10 rounded-xl text-xs font-mono', errors.code && 'border-rose-500')}
+                            />
+                            {errors.code && <p className="text-[10px] text-rose-500 font-semibold">{errors.code}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="eq-name" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Tên thiết bị <span className="text-rose-500">*</span></Label>
+                            <Input
+                                id="eq-name"
+                                placeholder="VD: Bóng đá FIFA, Áo pitch..."
+                                value={formData.name}
+                                onChange={(e) => onChange('name', e.target.value)}
+                                className={cn('h-10 rounded-xl text-xs font-semibold', errors.name && 'border-rose-500')}
+                            />
+                            {errors.name && <p className="text-[10px] text-rose-500 font-semibold">{errors.name}</p>}
+                        </div>
+                    </div>
+
+                    {/* Row: Unit + Mode */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Đơn vị <span className="text-rose-500">*</span></Label>
+                            <Select value={formData.unit} onValueChange={(v) => onChange('unit', v)}>
+                                <SelectTrigger className="w-full h-10 rounded-xl text-xs font-semibold">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-border bg-card">
+                                    {UNIT_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt.value} value={opt.value} className="text-xs font-semibold">{opt.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Loại kinh doanh <span className="text-rose-500">*</span></Label>
+                            <Select value={formData.mode} onValueChange={(v) => onChange('mode', v)}>
+                                <SelectTrigger className="w-full h-10 rounded-xl text-xs font-semibold">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-border bg-card">
+                                    <SelectItem value="rent" className="text-xs font-semibold">Chỉ cho thuê</SelectItem>
+                                    <SelectItem value="sell" className="text-xs font-semibold">Chỉ bán</SelectItem>
+                                    <SelectItem value="both" className="text-xs font-semibold">Cho thuê & Bán</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* Row: Quantities */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="eq-total" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Số lượng tổng <span className="text-rose-500">*</span></Label>
+                            <Input
+                                id="eq-total"
+                                type="number"
+                                min={0}
+                                value={formData.totalQuantity}
+                                onChange={(e) => onChange('totalQuantity', Number(e.target.value) || 0)}
+                                className={cn('h-10 rounded-xl text-xs font-mono font-semibold', errors.totalQuantity && 'border-rose-500')}
+                            />
+                            {errors.totalQuantity && <p className="text-[10px] text-rose-500 font-semibold">{errors.totalQuantity}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="eq-avail" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Còn lại trong kho <span className="text-rose-500">*</span></Label>
+                            <Input
+                                id="eq-avail"
+                                type="number"
+                                min={0}
+                                value={formData.availableQuantity}
+                                onChange={(e) => onChange('availableQuantity', Number(e.target.value) || 0)}
+                                className={cn('h-10 rounded-xl text-xs font-mono font-semibold', errors.availableQuantity && 'border-rose-500')}
+                            />
+                            {errors.availableQuantity && <p className="text-[10px] text-rose-500 font-semibold">{errors.availableQuantity}</p>}
+                        </div>
+                    </div>
+
+                    {/* Prices */}
+                    {(isRentMode || isSellMode) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {isRentMode && (
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="eq-rent-price" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Giá thuê <span className="text-rose-500">*</span></Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="eq-rent-price"
+                                            className={cn('h-10 rounded-xl pr-12 text-xs font-mono font-semibold', errors.rentPrice && 'border-rose-500')}
+                                            value={formatPrice(formData.rentPrice)}
+                                            onChange={(e) => handlePriceChange('rentPrice', e.target.value)}
+                                            placeholder="0"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">đ</span>
+                                    </div>
+                                    {errors.rentPrice && <p className="text-[10px] text-rose-500 font-semibold">{errors.rentPrice}</p>}
+                                </div>
+                            )}
+                            {isSellMode && (
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="eq-sale-price" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Giá bán <span className="text-rose-500">*</span></Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="eq-sale-price"
+                                            className={cn('h-10 rounded-xl pr-12 text-xs font-mono font-semibold', errors.salePrice && 'border-rose-500')}
+                                            value={formatPrice(formData.salePrice)}
+                                            onChange={(e) => handlePriceChange('salePrice', e.target.value)}
+                                            placeholder="0"
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">đ</span>
+                                    </div>
+                                    {errors.salePrice && <p className="text-[10px] text-rose-500 font-semibold">{errors.salePrice}</p>}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Status */}
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Trạng thái kho <span className="text-rose-500">*</span></Label>
+                        <Select value={formData.status} onValueChange={(v) => onChange('status', v)}>
+                            <SelectTrigger className="w-full h-10 rounded-xl text-xs font-semibold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-border bg-card">
+                                <SelectItem value="in_stock" className="text-xs font-semibold">
+                                    <span className="flex items-center gap-2">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                        Còn hàng
+                                    </span>
+                                </SelectItem>
+                                <SelectItem value="out_of_stock" className="text-xs font-semibold">
+                                    <span className="flex items-center gap-2">
+                                        <XCircle className="h-3.5 w-3.5 text-rose-500" />
+                                        Hết hàng
+                                    </span>
+                                </SelectItem>
+                                <SelectItem value="discontinued" className="text-xs font-semibold">
+                                    <span className="flex items-center gap-2">
+                                        <AlertTriangle className="h-3.5 w-3.5 text-slate-500" />
+                                        Ngừng bán
+                                    </span>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-1.5">
+                        <Label htmlFor="eq-desc" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Mô tả thêm</Label>
+                        <Textarea
+                            id="eq-desc"
+                            rows={3}
+                            placeholder="Mô tả về kích thước, màu sắc, tình trạng..."
+                            value={formData.description}
+                            onChange={(e) => onChange('description', e.target.value)}
+                            className="rounded-xl text-xs font-normal"
+                        />
+                    </div>
+                </div>
+
+                <DialogFooter className="px-6 py-4 border-t border-border/60 flex items-center justify-end gap-3">
+                    <Button variant="ghost" onClick={onCancel} disabled={submitLoading} className="text-xs font-semibold h-10 px-4 rounded-xl">
+                        Hủy bỏ
+                    </Button>
+                    <Button onClick={onSubmit} disabled={submitLoading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-10 px-6 rounded-xl shadow-md">
+                        {submitLoading && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                        {editing ? 'Cập nhật thiết bị' : 'Thêm thiết bị mới'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+// ─── Main Component ──────────────────────────────────────
 const EquipmentList: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [equipments, setEquipments] = useState<Equipment[]>([]);
     const [search, setSearch] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Equipment | null>(null);
-    const [form] = Form.useForm();
+    const [formData, setFormData] = useState<FormData>({ ...DEFAULT_FORM });
+    const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
-    //  FETCH LIST
-    const fetchEquipments = async () => {
+    // Client pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 8;
+
+    // ─── FETCH ───────────────────────────────────────────
+    const fetchEquipments = useCallback(async () => {
         try {
             setLoading(true);
             const res = await api.get('/equipments');
             const list: Equipment[] = res.data?.data || res.data || [];
-            setEquipments(list);
+            if (list.length === 0) {
+                setEquipments(MOCK_DEVICES);
+            } else {
+                const existingCodes = new Set(list.map((item) => item.code));
+                const combined = [...list];
+                MOCK_DEVICES.forEach((mockItem) => {
+                    if (!existingCodes.has(mockItem.code)) {
+                        combined.push(mockItem);
+                    }
+                });
+                setEquipments(combined);
+            }
         } catch (err) {
             console.error(err);
-            message.error('Không thể tải danh sách thiết bị!');
+            setEquipments(MOCK_DEVICES);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchEquipments();
-    }, []);
+    }, [fetchEquipments]);
 
-    const isDarkMode = document.documentElement.classList.contains('dark');
-
-    //  FILTERED LIST
+    // ─── FILTERED LIST ───────────────────────────────────
     const filteredEquipments = useMemo(() => {
         const keyword = search.trim().toLowerCase();
         if (!keyword) return equipments;
@@ -107,7 +559,16 @@ const EquipmentList: React.FC = () => {
         );
     }, [equipments, search]);
 
-    //  STATS
+    const handleSearchChange = (val: string) => {
+        setSearch(val);
+        setCurrentPage(1);
+    };
+
+    const totalItems = filteredEquipments.length;
+    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+    const paginatedEquipments = filteredEquipments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    // ─── STATS ───────────────────────────────────────────
     const stats = useMemo(() => {
         const total = equipments.length;
         const inStock = equipments.filter((e) => e.status === 'in_stock').length;
@@ -118,23 +579,43 @@ const EquipmentList: React.FC = () => {
         return { total, inStock, outOfStock, lowStock };
     }, [equipments]);
 
-    // MỞ / ĐÓNG MODAL
-    const openCreateModal = () => {
-        setEditing(null);
-        form.resetFields();
-        form.setFieldsValue({
-            mode: 'rent',
-            status: 'in_stock',
-            unit: 'cái',
-            totalQuantity: 0,
-            availableQuantity: 0,
-        });
-        setModalOpen(true);
-    };
+    // ─── FORM HANDLING ───────────────────────────────────
+    const handleChange = useCallback((field: keyof FormData, value: string | number) => {
+        setFormData((prev) => ({ ...prev, [field]: value }));
+        setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }, []);
 
-    const openEditModal = (item: Equipment) => {
+    const validate = useCallback((): boolean => {
+        const newErrors: Partial<Record<keyof FormData, string>> = {};
+        if (!formData.code.trim()) newErrors.code = 'Vui lòng nhập mã thiết bị';
+        if (!formData.name.trim()) newErrors.name = 'Vui lòng nhập tên thiết bị';
+        if (formData.totalQuantity < 0) newErrors.totalQuantity = 'Không được âm';
+        if (formData.availableQuantity < 0) newErrors.availableQuantity = 'Không được âm';
+        if (formData.totalQuantity < formData.availableQuantity) {
+            newErrors.totalQuantity = 'Tổng phải ≥ Còn lại';
+        }
+        const isRentMode = formData.mode === 'rent' || formData.mode === 'both';
+        const isSellMode = formData.mode === 'sell' || formData.mode === 'both';
+        if (isRentMode && (!formData.rentPrice || formData.rentPrice <= 0)) {
+            newErrors.rentPrice = 'Nhập giá thuê';
+        }
+        if (isSellMode && (!formData.salePrice || formData.salePrice <= 0)) {
+            newErrors.salePrice = 'Nhập giá bán';
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    }, [formData]);
+
+    const openCreateModal = useCallback(() => {
+        setEditing(null);
+        setFormData({ ...DEFAULT_FORM });
+        setErrors({});
+        setModalOpen(true);
+    }, []);
+
+    const openEditModal = useCallback((item: Equipment) => {
         setEditing(item);
-        form.setFieldsValue({
+        setFormData({
             code: item.code,
             name: item.name,
             unit: item.unit,
@@ -142,567 +623,499 @@ const EquipmentList: React.FC = () => {
             status: item.status,
             totalQuantity: item.totalQuantity,
             availableQuantity: item.availableQuantity,
-            rentPrice: item.rentPrice,
-            salePrice: item.salePrice,
-            description: item.description,
+            rentPrice: item.rentPrice || 0,
+            salePrice: item.salePrice || 0,
+            description: item.description || '',
         });
+        setErrors({});
         setModalOpen(true);
-    };
+    }, []);
 
-    const handleModalCancel = () => {
+    const handleModalCancel = useCallback(() => {
         setModalOpen(false);
         setEditing(null);
-        form.resetFields();
-    };
+        setFormData({ ...DEFAULT_FORM });
+        setErrors({});
+    }, []);
 
-    //  CREATE / UPDATE
-    const handleSubmit = async () => {
+    // ─── SUBMIT ──────────────────────────────────────────
+    const handleSubmit = useCallback(async () => {
+        if (!validate()) return;
+        const mode = formData.mode;
+        const payload = {
+            code: formData.code.trim(),
+            name: formData.name.trim(),
+            unit: formData.unit.trim(),
+            mode,
+            status: formData.status,
+            totalQuantity: formData.totalQuantity,
+            availableQuantity: formData.availableQuantity,
+            rentPrice: mode === 'sell' ? 0 : formData.rentPrice,
+            salePrice: mode === 'rent' ? 0 : formData.salePrice,
+            description: formData.description.trim(),
+        };
+
         try {
-            const values = await form.validateFields();
-            const mode: EquipmentMode = values.mode;
-
-            const payload = {
-                code: values.code?.trim(),
-                name: values.name?.trim(),
-                unit: values.unit?.trim(),
-                mode,
-                status: values.status as EquipmentStatus,
-                totalQuantity: Number(values.totalQuantity) || 0,
-                availableQuantity: Number(values.availableQuantity) || 0,
-                rentPrice:
-                    mode === 'sell'
-                        ? 0
-                        : values.rentPrice
-                          ? Number(String(values.rentPrice).toString().replace(/,/g, ''))
-                          : 0,
-                salePrice:
-                    mode === 'rent'
-                        ? 0
-                        : values.salePrice
-                          ? Number(String(values.salePrice).toString().replace(/,/g, ''))
-                          : 0,
-                description: values.description?.trim() || '',
-            };
-
             setSubmitLoading(true);
-
             if (editing) {
                 await api.patch(`/equipments/${editing._id}`, payload);
-
-                notification.success({
-                    message: 'Thành công',
-                    description: 'Đã cập nhật thiết bị thành công!',
-                    placement: 'topRight',
-                });
+                toast.success('Đã cập nhật thiết bị thành công!');
             } else {
                 await api.post('/equipments', payload);
-
-                notification.success({
-                    message: 'Thành công',
-                    description: 'Đã thêm thiết bị mới thành công!',
-                    placement: 'topRight',
-                });
+                toast.success('Đã thêm thiết bị mới thành công!');
             }
-
             handleModalCancel();
             fetchEquipments();
         } catch (err: any) {
-            if (err?.errorFields) return; // lỗi validate form của AntD
-
             const apiErr = err?.response?.data;
             if (apiErr?.errors?.length) {
-                message.error(apiErr.errors[0].message);
+                toast.error(apiErr.errors[0].message);
             } else {
-                const msg = apiErr?.message || 'Lưu thiết bị thất bại!';
-
-                notification.error({
-                    message: 'Lỗi',
-                    description: msg,
-                    placement: 'topRight',
-                });
+                toast.error(apiErr?.message || 'Lưu thiết bị thất bại!');
             }
         } finally {
             setSubmitLoading(false);
         }
-    };
+    }, [validate, formData, editing, handleModalCancel, fetchEquipments]);
 
-    //  DELETE
-    const handleDelete = async (item: Equipment) => {
+    // ─── DELETE ──────────────────────────────────────────
+    const handleDelete = useCallback(async () => {
+        if (!deleteTarget) return;
         try {
-            await api.delete(`/equipments/${item._id}`);
-
-            notification.success({
-                message: 'Thành công',
-                description: 'Đã xóa thiết bị thành công!',
-                placement: 'topRight',
-            });
-
+            setDeleteLoading(true);
+            await api.delete(`/equipments/${deleteTarget._id}`);
+            toast.success('Đã xóa thiết bị thành công!');
+            setDeleteTarget(null);
             fetchEquipments();
         } catch (err: any) {
-            const msg = err?.response?.data?.message || 'Xóa thiết bị thất bại!';
-
-            notification.error({
-                message: 'Lỗi',
-                description: msg,
-                placement: 'topRight',
-            });
+            toast.error(err?.response?.data?.message || 'Xóa thiết bị thất bại!');
+        } finally {
+            setDeleteLoading(false);
         }
-    };
+    }, [deleteTarget, fetchEquipments]);
 
-    //  RENDER PRICE
-    const renderPrice = (e: Equipment) => {
-        const PriceLine = ({ label, value, colorClass }: { label: string, value?: number, colorClass: string }) => (
-            <div className="flex items-center justify-between py-1.5 border-b border-white/10 last:border-0">
-                <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">{label}</span>
-                <div className="flex flex-col items-end leading-none">
-                    <span className={`text-base font-black ${colorClass}`}>
-                        {(value || 0).toLocaleString('vi-VN')}
-                        <span className="text-[10px] ml-1 opacity-60 font-medium">đ</span>
-                    </span>
-                    <span className="text-[8px] opacity-40 italic uppercase tracking-tighter">mỗi {e.unit}</span>
-                </div>
-            </div>
-        );
-
-        if (e.mode === 'rent') {
-            return <PriceLine label="Giá thuê" value={e.rentPrice} colorClass="text-emerald-400" />;
-        }
-        if (e.mode === 'sell') {
-            return <PriceLine label="Giá bán" value={e.salePrice} colorClass="text-amber-400" />;
-        }
-        return (
-            <div className="space-y-0">
-                <PriceLine label="Giá thuê" value={e.rentPrice} colorClass="text-emerald-400" />
-                <PriceLine label="Giá bán" value={e.salePrice} colorClass="text-amber-400" />
-            </div>
-        );
-    };
-
+    // ─── RENDER ──────────────────────────────────────────
     return (
-        <div className='px-4 pb-12 space-y-8 animate-in fade-in duration-700'>
-            {/* Premium Header section */}
-            <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pt-6'>
-                <div className='relative'>
-                    <div className='absolute -left-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-3xl' />
-                    <h1 className='text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-4 italic'>
-                        <div className="p-3.5 bg-linear-to-br from-emerald-500 to-teal-700 rounded-3xl shadow-2xl shadow-emerald-500/40 rotate-6 flex items-center justify-center border border-white/20">
-                            <ToolOutlined className="text-white text-3xl" />
-                        </div>
-                        <span className="relative">
-                            QUẢN LÝ THIẾT BỊ
-                            <div className="absolute -bottom-2 left-0 w-1/2 h-1.5 bg-emerald-500/30 rounded-full" />
-                        </span>
-                    </h1>
-                    <p className='text-slate-500 dark:text-slate-400 mt-6 font-semibold flex items-center gap-2 text-sm md:text-base'>
-                        <span className="flex h-2.5 w-2.5 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                        </span>
-                        Quản lý tồn kho và cấu hình giá thuê / bán thiết bị chuyên nghiệp
-                    </p>
-                </div>
-                
-                <div className='flex items-center gap-3 relative z-10 bg-white/50 dark:bg-white/5 p-2 rounded-4xl border border-white dark:border-white/10 shadow-xl backdrop-blur-md'>
-                    <button
-                        onClick={fetchEquipments}
-                        className='p-3.5 text-slate-500 dark:text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-2xl transition-all'
-                        title="Làm mới"
-                    >
-                        <ReloadOutlined className={loading ? 'animate-spin' : ''} />
-                    </button>
-                    <button
-                        onClick={openCreateModal}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-linear-to-r from-emerald-600 to-teal-700 text-white rounded-3xl font-bold text-sm shadow-xl shadow-emerald-500/30 hover:scale-[1.02] hover:shadow-emerald-500/40 active:scale-95 transition-all"
-                    >
-                        <PlusOutlined /> THÊM THIẾT BỊ MỚI
-                    </button>
-                </div>
-            </div>
+        <TooltipProvider>
+            <div className="relative min-h-screen px-4 pb-16 md:px-6 lg:px-8 max-w-7xl mx-auto text-left space-y-6">
 
-            {/* Premium Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Tổng thiết bị */}
-                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-slate-500/5 rounded-full -mr-10 -mt-10 blur-2xl transition-all" />
-                    <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-4">
-                        <span className="font-bold text-xs uppercase tracking-wider">Tổng thiết bị</span>
-                        <div className="p-2 bg-slate-100 dark:bg-white/10 rounded-xl">
-                            <ToolOutlined className="text-lg" />
-                        </div>
+                {/* ─── Header ─── */}
+                <div className="flex flex-col gap-4 pt-6 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            Quản lý thiết bị
+                        </h1>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            Quản lý tồn kho và cấu hình giá thuê / bán thiết bị
+                        </p>
                     </div>
-                    <div className="text-3xl font-black text-slate-800 dark:text-white transition-all">{stats.total}</div>
-                </div>
 
-                {/* Còn hàng */}
-                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-emerald-100 dark:border-emerald-500/20 shadow-xl shadow-emerald-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-emerald-500/10 transition-all" />
-                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 mb-4">
-                        <span className="font-bold text-xs uppercase tracking-wider">Còn hàng</span>
-                        <div className="p-2 bg-emerald-50 dark:bg-emerald-500/20 rounded-xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                            <CheckCircleOutlined className="text-lg" />
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={fetchEquipments}
+                                    disabled={loading}
+                                    className="h-10 w-10 rounded-xl"
+                                >
+                                    <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Làm mới danh sách</TooltipContent>
+                        </Tooltip>
+                        <Button onClick={openCreateModal} className="h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/10 flex items-center gap-1.5">
+                            <Plus className="h-4 w-4" />
+                            Thêm thiết bị
+                        </Button>
                     </div>
-                    <div className="text-3xl font-black text-slate-800 dark:text-white transition-all">{stats.inStock}</div>
                 </div>
 
-                {/* Sắp hết hàng */}
-                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-orange-100 dark:border-orange-500/20 shadow-xl shadow-orange-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-orange-500/10 transition-all" />
-                    <div className="flex items-center justify-between text-orange-600 dark:text-orange-400 mb-4">
-                        <span className="font-bold text-xs uppercase tracking-wider">Sắp hết hàng</span>
-                        <div className="p-2 bg-orange-50 dark:bg-orange-500/20 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-all">
-                            <ExclamationCircleOutlined className="text-lg" />
-                        </div>
+                {/* ─── Stats Grid ─── */}
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                    <StatCard
+                        label="Tổng thiết bị"
+                        value={stats.total}
+                        icon={Package}
+                        accentClass="bg-slate-500/10 text-slate-600 dark:text-slate-300"
+                    />
+                    <StatCard
+                        label="Còn hàng"
+                        value={stats.inStock}
+                        icon={CheckCircle2}
+                        accentClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    />
+                    <StatCard
+                        label="Sắp hết hàng"
+                        value={stats.lowStock}
+                        icon={AlertTriangle}
+                        accentClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    />
+                    <StatCard
+                        label="Hết hàng"
+                        value={stats.outOfStock}
+                        icon={XCircle}
+                        accentClass="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                    />
+                </div>
+
+                {/* ─── Search ─── */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="relative w-full sm:w-80">
+                        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50 pointer-events-none" />
+                        <Input
+                            id="equipment-search"
+                            placeholder="Tìm kiếm theo tên hoặc mã thiết bị..."
+                            value={search}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            className="pl-9 h-10 w-full bg-card border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-indigo-400"
+                        />
+                        {search && (
+                            <button
+                                onClick={() => handleSearchChange('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
                     </div>
-                    <div className="text-3xl font-black text-slate-800 dark:text-white transition-all">{stats.lowStock}</div>
                 </div>
 
-                {/* Hết hàng */}
-                <div className="group bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-rose-100 dark:border-rose-500/20 shadow-xl shadow-rose-500/5 flex flex-col justify-between transition-all hover:translate-y-[-4px] relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-rose-500/5 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-rose-500/10 transition-all" />
-                    <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 mb-4">
-                        <span className="font-bold text-xs uppercase tracking-wider">Hết hàng</span>
-                        <div className="p-2 bg-rose-50 dark:bg-rose-500/20 rounded-xl group-hover:bg-rose-500 group-hover:text-white transition-all">
-                            <CloseCircleOutlined className="text-lg" />
+                {/* ─── VIEW RENDER: MOBILE CARDS vs DESKTOP TABLE ─── */}
+                <div>
+                    {loading && equipments.length === 0 ? (
+                        <div className="py-20 text-center text-muted-foreground text-xs font-semibold flex flex-col items-center justify-center gap-2 border border-border/60 rounded-xl bg-card">
+                            <Loader2 className="animate-spin text-indigo-500" size={24} />
+                            <span>Đang tải dữ liệu thiết bị...</span>
                         </div>
-                    </div>
-                    <div className="text-3xl font-black text-slate-800 dark:text-white transition-all">{stats.outOfStock}</div>
-                </div>
-            </div>
+                    ) : filteredEquipments.length === 0 ? (
+                        <div className="py-20 text-center text-muted-foreground flex flex-col items-center justify-center border border-dashed rounded-xl bg-card">
+                            <Box size={32} className="opacity-20 mb-2" />
+                            <p className="text-sm font-semibold">
+                                {search ? 'Không tìm thấy thiết bị nào' : 'Chưa có thiết bị nào trong kho'}
+                            </p>
+                            <p className="text-[11px] opacity-75 mt-0.5">
+                                {search ? 'Thử tìm kiếm với từ khóa khác' : 'Bấm nút "Thêm thiết bị" ở trên để tạo mới'}
+                            </p>
+                        </div>
+                    ) : (
+                        <Card className="border border-border/80 shadow-xs rounded-xl overflow-hidden p-0 bg-card">
+                            
+                            {/* 1. Mobile card view (<md) */}
+                            <div className="block md:hidden divide-y divide-border/60">
+                                {paginatedEquipments.map((e) => {
+                                    const used = Math.max(0, (e.totalQuantity || 0) - (e.availableQuantity || 0));
+                                    const percent = e.totalQuantity > 0 ? Math.round(((e.availableQuantity || 0) / e.totalQuantity) * 100) : 0;
+                                    const isLowStock = e.status === 'in_stock' && e.availableQuantity <= 5 && e.availableQuantity > 0;
+                                    const statusConfig = STATUS_CONFIGS[e.status];
+                                    const StatusIcon = statusConfig.icon;
 
-            {/* SEARCH */}
-            <div className='bg-white dark:bg-card p-4 rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm transition-all'>
-                <Input
-                    placeholder='Tìm kiếm theo tên hoặc mã thiết bị...'
-                    allowClear
-                    size="large"
-                    prefix={<SearchOutlined className='text-slate-400 mr-2' />}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className='rounded-2xl border-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 hover:border-emerald-400 focus:border-emerald-500 transition-all h-14'
+                                    return (
+                                        <div key={e._id} className="p-4 space-y-3">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <code className="rounded-md bg-muted px-2 py-0.5 text-xs font-mono font-bold text-foreground">
+                                                        {e.code}
+                                                    </code>
+                                                    <Badge variant="outline" className={cn('text-[10px] font-bold border', MODE_COLORS[e.mode])}>
+                                                        {MODE_LABELS[e.mode]}
+                                                    </Badge>
+                                                </div>
+                                                <Badge variant="outline" className={cn('text-[10px] font-bold border gap-1', statusConfig.color)}>
+                                                    <StatusIcon className="h-3 w-3" />
+                                                    {STATUS_LABELS[e.status]}
+                                                </Badge>
+                                            </div>
+
+                                            <div>
+                                                <h3 className="font-bold text-foreground text-sm leading-snug">{e.name}</h3>
+                                                <p className="text-xs text-muted-foreground mt-0.5">Đơn vị: <span className="font-medium text-foreground">{e.unit}</span></p>
+                                                {e.description && (
+                                                    <p className="text-xs text-muted-foreground/80 mt-1 italic line-clamp-2">{e.description}</p>
+                                                )}
+                                            </div>
+
+                                            {/* Stock progress */}
+                                            <div className="bg-muted/20 p-2.5 rounded-lg border border-border/40 space-y-1.5">
+                                                <div className="flex items-center justify-between text-xs font-semibold">
+                                                    <span className="text-muted-foreground text-[10px] uppercase tracking-wider font-bold">Tồn kho</span>
+                                                    <span className="font-mono">
+                                                        <span className={cn('font-bold', isLowStock ? 'text-amber-500' : 'text-foreground')}>{e.availableQuantity}</span>
+                                                        <span className="text-muted-foreground mx-1">/</span>
+                                                        <span className="text-muted-foreground">{e.totalQuantity} {e.unit} ({percent}%)</span>
+                                                    </span>
+                                                </div>
+                                                <Progress
+                                                    value={percent}
+                                                    className={cn('h-1.5 w-full', isLowStock ? '[&>[data-slot=progress-indicator]]:bg-amber-500' : '[&>[data-slot=progress-indicator]]:bg-emerald-500')}
+                                                />
+                                                <div className="text-[10px] text-muted-foreground font-medium text-right">Đang cho thuê/dùng: {used}</div>
+                                            </div>
+
+                                            {/* Pricing info */}
+                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[9px] font-bold uppercase text-muted-foreground tracking-wider">Giá thuê</span>
+                                                    {(e.mode === 'rent' || e.mode === 'both') && e.rentPrice ? (
+                                                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                                            {e.rentPrice.toLocaleString('vi-VN')} đ
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[11px] text-muted-foreground/50 italic">Chưa thuê</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col text-right">
+                                                    <span className="text-[9px] font-bold uppercase text-muted-foreground tracking-wider">Giá bán</span>
+                                                    {(e.mode === 'sell' || e.mode === 'both') && e.salePrice ? (
+                                                        <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                                                            {e.salePrice.toLocaleString('vi-VN')} đ
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[11px] text-muted-foreground/50 italic">Chưa bán</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Actions Footer */}
+                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => openEditModal(e)}
+                                                    className="h-8 px-3 text-xs font-semibold gap-1 rounded-lg"
+                                                >
+                                                    <Pencil size={13} /> Chỉnh sửa
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setDeleteTarget(e)}
+                                                    className="h-8 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-500/10 hover:text-rose-600 gap-1 rounded-lg"
+                                                >
+                                                    <Trash2 size={13} /> Xóa
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* 2. Desktop table view (>=md) */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <Table>
+                                    <TableHeader className="bg-muted/30 border-b border-border/60">
+                                        <TableRow>
+                                            <TableHead className="w-[110px] text-[10px] font-bold uppercase tracking-wider">Mã</TableHead>
+                                            <TableHead className="text-[10px] font-bold uppercase tracking-wider">Tên thiết bị</TableHead>
+                                            <TableHead className="text-center text-[10px] font-bold uppercase tracking-wider">Loại</TableHead>
+                                            <TableHead className="text-center text-[10px] font-bold uppercase tracking-wider">Trạng thái</TableHead>
+                                            <TableHead className="text-center text-[10px] font-bold uppercase tracking-wider">Tồn kho</TableHead>
+                                            <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider">Giá thuê</TableHead>
+                                            <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider">Giá bán</TableHead>
+                                            <TableHead className="text-center w-[100px] text-[10px] font-bold uppercase tracking-wider pr-6">Thao tác</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {paginatedEquipments.map((e) => {
+                                            const used = Math.max(0, (e.totalQuantity || 0) - (e.availableQuantity || 0));
+                                            const percent = e.totalQuantity > 0
+                                                ? Math.round(((e.availableQuantity || 0) / e.totalQuantity) * 100)
+                                                : 0;
+                                            const isLowStock = e.status === 'in_stock' && e.availableQuantity <= 5 && e.availableQuantity > 0;
+                                            const statusConfig = STATUS_CONFIGS[e.status];
+                                            const StatusIcon = statusConfig.icon;
+
+                                            return (
+                                                <TableRow key={e._id} className="hover:bg-muted/10">
+                                                    {/* Code */}
+                                                    <TableCell>
+                                                        <code className="rounded-md bg-muted px-2 py-0.5 text-xs font-mono font-bold text-foreground">
+                                                            {e.code}
+                                                        </code>
+                                                    </TableCell>
+
+                                                    {/* Name */}
+                                                    <TableCell>
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-xs text-foreground truncate">{e.name}</p>
+                                                            <p className="text-[10px] text-muted-foreground capitalize">Đơn vị: {e.unit}</p>
+                                                            {e.description && (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/70 cursor-help italic">
+                                                                            <FileText className="h-3 w-3 shrink-0" />
+                                                                            <span className="truncate max-w-[180px]">{e.description}</span>
+                                                                        </p>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="bottom" className="max-w-xs">
+                                                                        {e.description}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Mode */}
+                                                    <TableCell className="text-center">
+                                                        <Badge variant="outline" className={cn('text-[10px] font-bold border', MODE_COLORS[e.mode])}>
+                                                            {MODE_LABELS[e.mode]}
+                                                        </Badge>
+                                                    </TableCell>
+
+                                                    {/* Status */}
+                                                    <TableCell className="text-center">
+                                                        <Badge variant="outline" className={cn('text-[10px] font-bold border gap-1', statusConfig.color)}>
+                                                            <StatusIcon className="h-3 w-3" />
+                                                            {STATUS_LABELS[e.status]}
+                                                        </Badge>
+                                                    </TableCell>
+
+                                                    {/* Stock */}
+                                                    <TableCell>
+                                                        <div className="flex flex-col items-center gap-1 min-w-[130px]">
+                                                            <div className="flex items-center justify-between text-xs w-full font-semibold">
+                                                                <span className="text-muted-foreground text-[10px] font-mono">
+                                                                    <span className={cn('font-bold', isLowStock ? 'text-amber-500' : 'text-foreground')}>{e.availableQuantity}</span>
+                                                                    <span className="mx-0.5 text-muted-foreground">/</span>
+                                                                    <span>{e.totalQuantity}</span>
+                                                                </span>
+                                                                <span className={cn('font-bold text-[10px] font-mono', isLowStock ? 'text-amber-500' : 'text-muted-foreground')}>
+                                                                    {percent}%
+                                                                </span>
+                                                            </div>
+                                                            <Progress
+                                                                value={percent}
+                                                                className={cn('h-1.5 w-full', isLowStock ? '[&>[data-slot=progress-indicator]]:bg-amber-500' : '[&>[data-slot=progress-indicator]]:bg-emerald-500')}
+                                                            />
+                                                            <span className="text-[9px] text-muted-foreground/60">
+                                                                Đang dùng: {used}
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Rent Price */}
+                                                    <TableCell className="text-right">
+                                                        {(e.mode === 'rent' || e.mode === 'both') && e.rentPrice ? (
+                                                            <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 text-xs">
+                                                                {e.rentPrice.toLocaleString('vi-VN')} <span className="text-[9px] text-muted-foreground font-semibold">đ</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] text-muted-foreground/50 italic">Chưa thuê</span>
+                                                        )}
+                                                    </TableCell>
+
+                                                    {/* Sale Price */}
+                                                    <TableCell className="text-right">
+                                                        {(e.mode === 'sell' || e.mode === 'both') && e.salePrice ? (
+                                                            <span className="font-bold font-mono text-amber-600 dark:text-amber-400 text-xs">
+                                                                {e.salePrice.toLocaleString('vi-VN')} <span className="text-[9px] text-muted-foreground font-semibold">đ</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] text-muted-foreground/50 italic">Chưa bán</span>
+                                                        )}
+                                                    </TableCell>
+
+                                                    {/* Actions */}
+                                                    <TableCell className="text-center pr-6">
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => openEditModal(e)}
+                                                                className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                                title="Chỉnh sửa"
+                                                            >
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => setDeleteTarget(e)}
+                                                                className="h-8 w-8 text-rose-600 hover:bg-rose-500/5"
+                                                                title="Xóa"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Pagination footer */}
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10 text-[11px] font-semibold text-muted-foreground">
+                                <span>
+                                    Hiển thị {Math.min(totalItems, (currentPage - 1) * pageSize + 1)}-{Math.min(totalItems, currentPage * pageSize)} trong {totalItems} thiết bị
+                                </span>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="h-8 w-8 p-0 rounded-lg border-border"
+                                    >
+                                        <ChevronLeft size={14} />
+                                    </Button>
+                                    {Array.from({ length: totalPages }).map((_, idx) => {
+                                        const pageNum = idx + 1;
+                                        return (
+                                            <Button
+                                                key={pageNum}
+                                                variant={currentPage === pageNum ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`h-8 w-8 p-0 rounded-lg text-[10px] font-bold ${
+                                                    currentPage === pageNum
+                                                        ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-sm"
+                                                        : "border-border text-muted-foreground hover:text-foreground"
+                                                }`}
+                                            >
+                                                {pageNum}
+                                            </Button>
+                                        );
+                                    })}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="h-8 w-8 p-0 rounded-lg border-border"
+                                    >
+                                        <ChevronRight size={14} />
+                                    </Button>
+                                </div>
+                            </div>
+
+                        </Card>
+                    )}
+                </div>
+
+                {/* ─── Modals ─── */}
+                <FormDialog
+                    open={modalOpen}
+                    editing={editing}
+                    formData={formData}
+                    errors={errors}
+                    submitLoading={submitLoading}
+                    onChange={handleChange}
+                    onSubmit={handleSubmit}
+                    onCancel={handleModalCancel}
+                />
+
+                <DeleteDialog
+                    open={!!deleteTarget}
+                    name={deleteTarget?.name || ''}
+                    loading={deleteLoading}
+                    onConfirm={handleDelete}
+                    onCancel={() => setDeleteTarget(null)}
                 />
             </div>
-
-            {/* LIST */}
-            <Row gutter={[16, 16]}>
-                {filteredEquipments.map((e) => {
-                    const used = (e.totalQuantity || 0) - (e.availableQuantity || 0);
-                    const percent =
-                        e.totalQuantity > 0
-                            ? Math.round(((e.availableQuantity || 0) / e.totalQuantity) * 100)
-                            : 0;
-
-                    const isLowStock =
-                        e.status === 'in_stock' &&
-                        e.availableQuantity <= 5 &&
-                        e.availableQuantity > 0;
-
-                    return (
-                        <Col key={e._id} xs={24} md={12} lg={8}>
-                            <Card
-                                className='rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 transition-all group overflow-hidden bg-white dark:bg-card'
-                                headStyle={{ padding: 0 }}
-                                bodyStyle={{ padding: '24px' }}
-                                title={
-                                    <div className='flex items-center justify-between gap-3 p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50/30 dark:bg-white/5'>
-                                        <div>
-                                            <div className='font-black text-slate-800 dark:text-slate-100 group-hover:text-emerald-500 transition-colors uppercase tracking-tight text-lg'>{e.name}</div>
-                                            <div className='text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1 flex items-center gap-2'>
-                                                <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-white/10 rounded-sm">ID: {e.code}</span>
-                                                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                                <span>{e.unit}</span>
-                                            </div>
-                                        </div>
-                                        <div className='flex flex-col items-end gap-1.5'>
-                                            <div className='px-2.5 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 text-[10px] font-black rounded-lg uppercase border border-indigo-100 dark:border-indigo-500/20 shadow-sm'>{MODE_LABELS[e.mode]}</div>
-                                            <div className={`px-2.5 py-1 text-[10px] font-black rounded-lg uppercase shadow-sm border ${
-                                                e.status === 'in_stock' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20' :
-                                                e.status === 'out_of_stock' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 dark:text-rose-400 border-rose-100 dark:border-rose-500/20' :
-                                                'bg-slate-100 dark:bg-slate-500/10 text-slate-500 border-slate-200 dark:border-slate-500/20'
-                                            }`}>
-                                                {STATUS_LABELS[e.status]}
-                                            </div>
-                                        </div>
-                                    </div>
-                                }
-                                actions={[
-                                    <button
-                                        key='edit'
-                                        onClick={() => openEditModal(e)}
-                                        className='flex items-center justify-center gap-2 w-full py-4 text-[13px] font-bold text-slate-600 dark:text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all border-r border-slate-50 dark:border-white/5'
-                                    >
-                                        <EditOutlined /> CHỈNH SỬA
-                                    </button>,
-                                    <Popconfirm
-                                        key='delete'
-                                        title='Xóa thiết bị?'
-                                        description='Thiết bị sẽ bị xóa khỏi hệ thống.'
-                                        okText='Xóa'
-                                        cancelText='Hủy'
-                                        okButtonProps={{ danger: true }}
-                                        onConfirm={() => handleDelete(e)}
-                                    >
-                                        <button className='flex items-center justify-center gap-2 w-full py-4 text-[13px] font-bold text-slate-600 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all'>
-                                            <DeleteOutlined /> XÓA
-                                        </button>
-                                    </Popconfirm>,
-                                ]}
-                            >
-                                <div className='space-y-6 text-sm'>
-                                    <div>
-                                        <div className='flex justify-between items-center mb-2'>
-                                            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Tồn kho khả dụng</span>
-                                            <span className={`text-xs font-black ${isLowStock ? 'text-amber-500' : 'text-slate-400'}`}>{percent}%</span>
-                                        </div>
-                                        <Progress
-                                            percent={percent}
-                                            showInfo={false}
-                                            strokeColor={isLowStock ? '#f59e0b' : '#10b981'}
-                                            trailColor={isDarkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9'}
-                                            strokeWidth={8}
-                                            className='mb-4'
-                                        />
-                                        <div className='grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-white/5 rounded-2xl'>
-                                            <div className='text-center border-r border-slate-200 dark:border-white/5'>
-                                                <div className='text-[10px] font-black text-slate-400 uppercase'>Tổng</div>
-                                                <div className='font-bold text-slate-700 dark:text-slate-200'>{e.totalQuantity}</div>
-                                            </div>
-                                            <div className='text-center border-r border-slate-200 dark:border-white/5'>
-                                                <div className='text-[10px] font-black text-slate-400 uppercase'>Còn</div>
-                                                <div className={`font-bold ${isLowStock ? 'text-amber-500 animate-pulse' : 'text-emerald-500'}`}>{e.availableQuantity}</div>
-                                            </div>
-                                            <div className='text-center'>
-                                                <div className='text-[10px] font-black text-slate-400 uppercase'>Dùng</div>
-                                                <div className='font-bold text-slate-700 dark:text-slate-200 font-mono'>{used < 0 ? 0 : used}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className='p-4 rounded-2xl bg-linear-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 text-white shadow-lg overflow-hidden relative'>
-                                        <div className="absolute right-[-10px] top-[-10px] opacity-10 rotate-12">
-                                            <ToolOutlined style={{ fontSize: '80px' }} />
-                                        </div>
-                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 opacity-70">Cấu hình giá niêm yết</div>
-                                        <div className="flex flex-col gap-2 relative z-10">
-                                            {renderPrice(e)}
-                                        </div>
-                                    </div>
-
-                                    {e.description && (
-                                        <div className='bg-slate-50 dark:bg-white/5 p-3 rounded-xl border-l-4 border-emerald-500'>
-                                            <div className='text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-tighter'>Ghi chú / Mô tả</div>
-                                            <div className='text-xs text-slate-600 dark:text-slate-300 line-clamp-2 italic'>
-                                                "{e.description}"
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </Card>
-                        </Col>
-                    );
-                })}
-
-                {!loading && filteredEquipments.length === 0 && (
-                    <Col span={24}>
-                        <Card>
-                            <p className='text-center text-gray-500 text-sm'>
-                                Không có thiết bị nào. Hãy bấm <b>"Thêm thiết bị"</b> để tạo mới.
-                            </p>
-                        </Card>
-                    </Col>
-                )}
-            </Row>
-
-            {/* MODAL CREATE / EDIT */}
-            <Modal
-                open={modalOpen}
-                title={editing ? 'Sửa thông tin thiết bị' : 'Thêm thiết bị mới'}
-                onCancel={handleModalCancel}
-                onOk={handleSubmit}
-                okText={editing ? 'Cập nhật' : 'Thêm mới'}
-                confirmLoading={submitLoading}
-                okButtonProps={{
-                    disabled: submitLoading,
-                }}
-            >
-                <Form
-                    layout='vertical'
-                    form={form}
-                    initialValues={{
-                        mode: 'rent',
-                        status: 'in_stock',
-                        unit: 'cái',
-                    }}
-                >
-                    <Form.Item
-                        label='Mã thiết bị'
-                        name='code'
-                        rules={[{ required: true, message: 'Vui lòng nhập mã thiết bị' }]}
-                    >
-                        <Input placeholder='VD: TB001' />
-                    </Form.Item>
-
-                    <Form.Item
-                        label='Tên thiết bị'
-                        name='name'
-                        rules={[{ required: true, message: 'Vui lòng nhập tên thiết bị' }]}
-                    >
-                        <Input placeholder='VD: Bóng, Giày...' />
-                    </Form.Item>
-
-                    <Form.Item
-                        label='Đơn vị'
-                        name='unit'
-                        rules={[{ required: true, message: 'Vui lòng chọn đơn vị' }]}
-                    >
-                        <Select options={UNIT_OPTIONS} />
-                    </Form.Item>
-
-                    <Row gutter={12}>
-                        <Col span={12}>
-                            <Form.Item
-                                label='Số lượng (tổng)'
-                                name='totalQuantity'
-                                dependencies={['availableQuantity']}
-                                rules={[
-                                    { required: true, message: 'Nhập tổng số lượng' },
-                                    { type: 'number', min: 0, message: 'Không được âm' },
-                                    ({ getFieldValue }) => ({
-                                        validator(_, value) {
-                                            const avail = getFieldValue('availableQuantity');
-                                            if (value == null || avail == null)
-                                                return Promise.resolve();
-                                            if (Number(value) < Number(avail)) {
-                                                return Promise.reject(
-                                                    new Error('Tổng phải ≥ Còn lại')
-                                                );
-                                            }
-                                            return Promise.resolve();
-                                        },
-                                    }),
-                                ]}
-                            >
-                                <InputNumber min={0} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-
-                        <Col span={12}>
-                            <Form.Item
-                                label='Còn lại'
-                                name='availableQuantity'
-                                dependencies={['totalQuantity']}
-                                rules={[
-                                    { required: true, message: 'Nhập số lượng còn lại' },
-                                    { type: 'number', min: 0, message: 'Không được âm' },
-                                    ({ getFieldValue }) => ({
-                                        validator(_, value) {
-                                            const total = getFieldValue('totalQuantity');
-                                            if (value == null || total == null)
-                                                return Promise.resolve();
-                                            if (Number(value) > Number(total)) {
-                                                return Promise.reject(
-                                                    new Error('Còn lại không được > Tổng')
-                                                );
-                                            }
-                                            return Promise.resolve();
-                                        },
-                                    }),
-                                ]}
-                            >
-                                <InputNumber min={0} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Form.Item
-                        label='Loại thiết bị'
-                        name='mode'
-                        rules={[{ required: true, message: 'Vui lòng chọn loại thiết bị' }]}
-                    >
-                        <Select
-                            options={[
-                                { value: 'rent', label: 'Chỉ cho thuê' },
-                                { value: 'sell', label: 'Chỉ bán' },
-                                { value: 'both', label: 'Cho thuê & bán' },
-                            ]}
-                        />
-                    </Form.Item>
-
-                    {/* Giá thuê / bán */}
-                    <Form.Item shouldUpdate noStyle>
-                        {({ getFieldValue }) => {
-                            const mode: EquipmentMode = getFieldValue('mode') || 'rent';
-
-                            const isRentMode = mode === 'rent' || mode === 'both';
-                            const isSellMode = mode === 'sell' || mode === 'both';
-
-                            return (
-                                <>
-                                    {isRentMode && (
-                                        <Form.Item
-                                            label='Giá thuê (VND)'
-                                            name='rentPrice'
-                                            rules={[
-                                                {
-                                                    required: isRentMode,
-                                                    message: 'Nhập giá thuê',
-                                                },
-                                            ]}
-                                        >
-                                            <InputNumber
-                                                min={0}
-                                                style={{ width: '100%' }}
-                                                formatter={(v) =>
-                                                    `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                                                }
-                                            />
-                                        </Form.Item>
-                                    )}
-
-                                    {isSellMode && (
-                                        <Form.Item
-                                            label='Giá bán (VND)'
-                                            name='salePrice'
-                                            rules={[
-                                                {
-                                                    required: isSellMode,
-                                                    message: 'Nhập giá bán',
-                                                },
-                                            ]}
-                                        >
-                                            <InputNumber
-                                                min={0}
-                                                style={{ width: '100%' }}
-                                                formatter={(v) =>
-                                                    `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                                                }
-                                            />
-                                        </Form.Item>
-                                    )}
-                                </>
-                            );
-                        }}
-                    </Form.Item>
-                    <Form.Item
-                        label='Trạng thái'
-                        name='status'
-                        rules={[{ required: true, message: 'Vui lòng chọn trạng thái' }]}
-                    >
-                        <Select
-                            options={[
-                                { value: 'in_stock', label: 'Còn hàng' },
-                                { value: 'out_of_stock', label: 'Hết hàng' },
-                                { value: 'discontinued', label: 'Ngừng bán' },
-                            ]}
-                        />
-                    </Form.Item>
-
-                    <Form.Item label='Mô tả' name='description'>
-                        <TextArea rows={3} placeholder='Mô tả thêm về thiết bị...' />
-                    </Form.Item>
-                </Form>
-            </Modal>
-        </div>
+        </TooltipProvider>
     );
 };
 

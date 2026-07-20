@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { User, Edit2, Trash2, X, Save, Mail, Phone, Shield, CheckCircle, XCircle, Calendar, Upload as UploadIcon } from 'lucide-react';
+import { User, Edit2, Trash2, X, Save, Mail, Phone, Shield, CheckCircle, XCircle, Calendar, Clock, Upload as UploadIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { message, Upload, Avatar } from 'antd';
 import type { RcFile } from "antd/es/upload/interface";
 import api from "@/common/utils/api";
@@ -277,10 +279,10 @@ const Profile: React.FC = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-                <Alert className="max-w-md border-red-200 bg-red-50">
-                    <XCircle className="h-5 w-5 text-red-600" />
-                    <AlertDescription className="text-red-800 ml-2">
+            <div className="min-h-screen bg-background flex items-center justify-center p-4">
+                <Alert className="max-w-md border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800">
+                    <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    <AlertDescription className="text-red-800 dark:text-red-300 ml-2">
                         {error}
                     </AlertDescription>
                 </Alert>
@@ -289,12 +291,12 @@ const Profile: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 py-8 px-4">
-            <div className="max-w-4xl mx-auto">
+        <div className="min-h-screen bg-background py-8 px-4 transition-colors duration-300">
+            <div className="px-4">
                 {/* Toast Notification */}
                 {toast && (
                     <div className={`fixed top-6 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-sm border ${toast.type === 'success'
-                        ? 'bg-green-500/90 border-green-400'
+                        ? 'bg-emerald-500/90 border-emerald-400'
                         : 'bg-red-500/90 border-red-400'
                         } text-white animate-slide-in flex items-center gap-3`}>
                         {toast.type === 'success' ? (
@@ -307,135 +309,124 @@ const Profile: React.FC = () => {
                 )}
 
                 {/* Main Card */}
-                <div className="bg-white dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-                    {/* Header with gradient */}
-                    <div className="relative bg-linear-to-r from-blue-600 via-blue-700 to-indigo-700 px-8 py-12">
-                        <div className="flex items-start justify-between">
-                            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
-                                <div className="relative">
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-lg">
-                                        {user?.avatar ? (
-                                            <img src={user.avatar} alt={user.name} className="w-20 h-20 rounded-xl object-cover" />
-                                        ) : (
-                                            <User className="w-20 h-20 text-blue-600" />
-                                        )}
+                <div className="max-w-4xl mx-auto mt-10 bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+                    {/* Cover Header */}
+                    <div className="h-32 bg-gradient-to-r from-emerald-100 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 w-full"></div>
+
+                    {/* Profile Header (Avatar & Name) */}
+                    <div className="px-6 sm:px-10 pb-8">
+                        <div className="flex flex-col sm:flex-row items-center sm:items-end gap-6 -mt-12 mb-8">
+                            {/* Avatar Container */}
+                            <div className="relative shrink-0">
+                                {user?.avatar ? (
+                                    <img src={user.avatar} alt={user.name} className="w-24 h-24 rounded-full border-4 border-background shadow-md object-cover bg-white dark:bg-muted" />
+                                ) : (
+                                    <div className="w-24 h-24 rounded-full border-4 border-background shadow-md bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center">
+                                        <User className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
                                     </div>
-                                    <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center ${user?.status === 'active' ? 'bg-green-500' : 'bg-red-500'
+                                )}
+                                <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-background ${user?.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                            </div>
+                            {/* User Info */}
+                            <div className="flex flex-col items-center sm:items-start pb-1">
+                                <h2 className="text-2xl font-bold text-foreground">{user?.name}</h2>
+                                <div className="flex flex-wrap gap-2 mt-2 justify-center sm:justify-start">
+                                    <Badge variant="outline" className={`text-xs font-semibold border ${getRoleBadgeColor(user?.role || '')}`}>
+                                        <Shield className="w-3 h-3 mr-1" />
+                                        {user?.role?.toUpperCase()}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+                                        {user?.status === 'active' ? 'Đang hoạt động' : 'Không hoạt động'}
+                                    </Badge>
+                                    <Badge variant="outline" className={`text-xs font-semibold ${user?.isEmailVerified
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800'
+                                        : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800'
                                         }`}>
-                                        {user?.status === 'active' ? (
-                                            <CheckCircle className="w-4 h-4 text-white" />
-                                        ) : (
-                                            <XCircle className="w-4 h-4 text-white" />
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="text-white">
-                                    <h1 className="text-3xl font-bold mb-2">{user?.name}</h1>
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getRoleBadgeColor(user?.role || '')}`}>
-                                            <Shield className="w-3 h-3 inline mr-1" />
-                                            {user?.role?.toUpperCase()}
-                                        </span>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(user?.status || '')}`}>
-                                            {user?.status === 'active' ? 'Đang hoạt động' : 'Không hoạt động'}
-                                        </span>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${user?.isEmailVerified
-                                            ? 'bg-green-100 text-green-800 border-green-200'
-                                            : 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                                            }`}>
-                                            <Mail className="w-3 h-3 inline mr-1" />
-                                            {user?.isEmailVerified ? 'Email đã xác thực' : 'Chưa xác thực email'}
-                                        </span>
-                                    </div>
+                                        <Mail className="w-3 h-3 mr-1" />
+                                        {user?.isEmailVerified ? 'Email đã xác thực' : 'Chưa xác thực email'}
+                                    </Badge>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Content */}
-                    <div className="p-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div className="px-6 sm:px-10 pb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                             {/* Email */}
-                            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 hover:border-blue-300 transition-all">
-                                <div className="flex items-start gap-3">
-                                    <div className="bg-blue-100 rounded-lg p-2.5">
-                                        <Mail className="w-5 h-5 text-blue-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Email</label>
-                                        <p className="text-base text-slate-900 font-medium truncate">{user?.email}</p>
-                                    </div>
+                            <div className="p-4 rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors flex items-center gap-4">
+                                <div className="bg-emerald-100/50 dark:bg-emerald-900/30 p-2.5 rounded-full shrink-0">
+                                    <Mail className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium block mb-0.5">Email</label>
+                                    <p className="text-sm font-semibold text-foreground truncate">{user?.email}</p>
                                 </div>
                             </div>
 
                             {/* Phone */}
-                            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 hover:border-blue-300 transition-all">
-                                <div className="flex items-start gap-3">
-                                    <div className="bg-green-100 rounded-lg p-2.5">
-                                        <Phone className="w-5 h-5 text-green-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Số điện thoại</label>
-                                        <p className="text-base text-slate-900 font-medium">{user?.phone || 'Chưa cập nhật'}</p>
-                                    </div>
+                            <div className="p-4 rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors flex items-center gap-4">
+                                <div className="bg-emerald-100/50 dark:bg-emerald-900/30 p-2.5 rounded-full shrink-0">
+                                    <Phone className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium block mb-0.5">Số điện thoại</label>
+                                    <p className="text-sm font-semibold text-foreground">{user?.phone || 'Chưa cập nhật'}</p>
                                 </div>
                             </div>
 
                             {/* Created At */}
-                            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 hover:border-blue-300 transition-all">
-                                <div className="flex items-start gap-3">
-                                    <div className="bg-purple-100 rounded-lg p-2.5">
-                                        <Calendar className="w-5 h-5 text-purple-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Ngày tạo</label>
-                                        <p className="text-base text-slate-900 font-medium">
-                                            {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN', {
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric'
-                                            }) : 'N/A'}
-                                        </p>
-                                    </div>
+                            <div className="p-4 rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors flex items-center gap-4">
+                                <div className="bg-emerald-100/50 dark:bg-emerald-900/30 p-2.5 rounded-full shrink-0">
+                                    <Calendar className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium block mb-0.5">Ngày tạo</label>
+                                    <p className="text-sm font-semibold text-foreground">
+                                        {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        }) : 'N/A'}
+                                    </p>
                                 </div>
                             </div>
 
                             {/* Updated At */}
-                            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 hover:border-blue-300 transition-all">
-                                <div className="flex items-start gap-3">
-                                    <div className="bg-orange-100 rounded-lg p-2.5">
-                                        <Calendar className="w-5 h-5 text-orange-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 block">Cập nhật lần cuối</label>
-                                        <p className="text-base text-slate-900 font-medium">
-                                            {user?.updatedAt ? new Date(user.updatedAt).toLocaleDateString('vi-VN', {
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric'
-                                            }) : 'N/A'}
-                                        </p>
-                                    </div>
+                            <div className="p-4 rounded-xl border border-border/60 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors flex items-center gap-4">
+                                <div className="bg-emerald-100/50 dark:bg-emerald-900/30 p-2.5 rounded-full shrink-0">
+                                    <Clock className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium block mb-0.5">Cập nhật lần cuối</label>
+                                    <p className="text-sm font-semibold text-foreground">
+                                        {user?.updatedAt ? new Date(user.updatedAt).toLocaleDateString('vi-VN', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                        }) : 'N/A'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <button
-                                onClick={handleEdit}
-                                className="flex-1 flex items-center justify-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40"
-                            >
-                                <Edit2 className="w-5 h-5 text-white" />
-                                <span className='text-white'>Chỉnh sửa thông tin</span>
-                            </button>
-                            <button
+                        <div className="flex flex-col sm:flex-row gap-3 justify-end mt-8 pt-6 border-t border-border">
+                            <Button
+                                variant="outline"
                                 onClick={handleDelete}
-                                className="flex items-center justify-center gap-2 bg-linear-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40"
+                                className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                             >
-                                <Trash2 className="w-5 h-5 text-white" />
-                                <span className='text-white'>Xóa tài khoản</span>
-                            </button>
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Xóa tài khoản
+                            </Button>
+                            <Button
+                                onClick={handleEdit}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                            >
+                                <Edit2 className="w-4 h-4 mr-2" />
+                                Chỉnh sửa thông tin
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -443,12 +434,12 @@ const Profile: React.FC = () => {
                 {/* Edit Form Modal */}
                 {showEditForm && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
-                            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                                <h2 className="text-2xl font-bold text-slate-900">Chỉnh sửa thông tin</h2>
+                        <div className="bg-card rounded-2xl shadow-2xl max-w-md w-full animate-scale-in border border-border">
+                            <div className="flex items-center justify-between p-6 border-b border-border">
+                                <h2 className="text-2xl font-bold text-foreground">Chỉnh sửa thông tin</h2>
                                 <button
                                     onClick={handleCloseForm}
-                                    className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg p-2 transition-all"
+                                    className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg p-2 transition-all"
                                 >
                                     <X className="w-6 h-6" />
                                 </button>
@@ -501,19 +492,19 @@ const Profile: React.FC = () => {
                                             <Avatar
                                                 src={formData.avatar}
                                                 size={100}
-                                                icon={!formData.avatar && <User className="w-10 h-10 text-gray-400 dark:text-gray-500 mt-6 mx-auto" />}
-                                                className="bg-gray-100 dark:bg-gray-800/80 border-4 border-white shadow-md shadow-gray-200"
+                                                icon={!formData.avatar && <User className="w-10 h-10 text-muted-foreground mt-6 mx-auto" />}
+                                                className="bg-muted border-4 border-background shadow-md"
                                             />
                                             <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <UploadIcon className="text-white w-6 h-6" />
                                             </div>
                                         </div>
                                     </Upload>
-                                    <span className="text-sm font-medium text-slate-500 mt-2">Đổi Ảnh Đại Diện</span>
+                                    <span className="text-sm font-medium text-muted-foreground mt-2">Đổi Ảnh Đại Diện</span>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    <label className="block text-sm font-semibold text-foreground mb-2">
                                         Họ và tên
                                     </label>
                                     <input
@@ -521,14 +512,14 @@ const Profile: React.FC = () => {
                                         name="name"
                                         value={formData.name}
                                         onChange={handleInputChange}
-                                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all placeholder:text-muted-foreground"
                                         placeholder="Nhập họ và tên"
                                         required
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    <label className="block text-sm font-semibold text-foreground mb-2">
                                         Email
                                     </label>
                                     <input
@@ -536,14 +527,14 @@ const Profile: React.FC = () => {
                                         name="email"
                                         value={formData.email}
                                         onChange={handleInputChange}
-                                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all placeholder:text-muted-foreground"
                                         placeholder="Nhập email"
                                         required
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                    <label className="block text-sm font-semibold text-foreground mb-2">
                                         Số điện thoại
                                     </label>
                                     <input
@@ -551,38 +542,39 @@ const Profile: React.FC = () => {
                                         name="phone"
                                         value={formData.phone}
                                         onChange={handleInputChange}
-                                        className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                        className="w-full px-4 py-3 border border-border rounded-xl bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all placeholder:text-muted-foreground"
                                         placeholder="Nhập số điện thoại"
                                     />
                                 </div>
 
                                 <div className="flex gap-3 pt-4">
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="outline"
                                         onClick={handleCloseForm}
-                                        className="flex-1 px-4 py-3 border-2 border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-semibold"
+                                        className="flex-1"
                                         disabled={updating}
                                     >
                                         Hủy
-                                    </button>
-                                    <button
+                                    </Button>
+                                    <Button
                                         type="button"
                                         onClick={handleUpdate}
-                                        className="flex-1 flex items-center justify-center gap-2 bg-linear-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 rounded-xl transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30"
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                                         disabled={updating}
                                     >
                                         {updating ? (
                                             <>
-                                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
                                                 <span>Đang lưu...</span>
                                             </>
                                         ) : (
                                             <>
-                                                <Save className="w-5 h-5" />
+                                                <Save className="w-5 h-5 mr-2" />
                                                 <span>Lưu thay đổi</span>
                                             </>
                                         )}
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </div>

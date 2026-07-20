@@ -818,7 +818,7 @@ const Checkout: React.FC = () => {
                                 <h2 className='text-base font-semibold text-foreground'>Phương thức thanh toán</h2>
 
                                 <div className='flex flex-col gap-3'>
-                                    {[
+                                    {[ 
                                         { value: 'vnpay', label: 'Thanh toán qua VNPay', desc: 'Thẻ nội địa, thẻ quốc tế, quét mã QR', iconImage: 'https://vnpay.vn/s1/statics.vnpay.vn/2023/6/0oxhzjmxbksr1686814746087.png' },
                                         { value: 'zalopay', label: 'Thanh toán qua ZaloPay', desc: 'Ví ZaloPay, thẻ ATM, thẻ quốc tế', iconImage: 'https://cdn.haitrieu.com/wp-content/uploads/2022/10/Logo-ZaloPay-Square.png' },
                                     ].map((method) => (

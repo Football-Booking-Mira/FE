@@ -1,15 +1,27 @@
 import { useState } from "react";
-import { Table, Modal, Select, Input, Form, Popconfirm, message } from "antd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
     Search, Plus, Shield, ShieldCheck, Mail, Phone, Calendar, 
     Eye, Lock, Unlock, Trash2, User as UserIcon,
-    ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users as UsersIcon, X
+    ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Users as UsersIcon, X, Loader2
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import axios from "@/lib/axios";
+import dayjs from "dayjs";
+import { toast } from "sonner";
 
-const { Option } = Select;
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 
 interface User {
     _id: string;
@@ -37,8 +49,8 @@ const deleteUser = async (userId: string) => axios.delete(`/users/${userId}`);
 const createUser = async (payload: any) => axios.post("/users", payload);
 
 const STATUS_CONFIG = {
-    active: { label: 'Hoạt động', icon: <CheckCircle2 size={14} />, color: 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' },
-    inactive: { label: 'Đã khóa', icon: <Lock size={14} />, color: 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' },
+    active: { label: 'Hoạt động', icon: <CheckCircle2 size={12} />, color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+    inactive: { label: 'Đã khóa', icon: <Lock size={12} />, color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' },
 };
 
 const Users = () => {
@@ -49,7 +61,27 @@ const Users = () => {
     const [modalCreateVisible, setModalCreateVisible] = useState(false);
     const [searchText, setSearchText] = useState("");
 
-    const [form] = Form.useForm();
+    // Reusable confirmation state
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmConfig, setConfirmConfig] = useState<{
+        title: string;
+        description: string;
+        okText: string;
+        onOk: () => void;
+        isDanger?: boolean;
+        icon?: React.ReactNode;
+    } | null>(null);
+
+    // Create user form state
+    const [createName, setCreateName] = useState("");
+    const [createEmail, setCreateEmail] = useState("");
+    const [createPhone, setCreatePhone] = useState("");
+    const [createPassword, setCreatePassword] = useState("");
+    const [createErrors, setCreateErrors] = useState<{name?: string, email?: string, phone?: string, password?: string}>({});
+
+    // Client-side pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 8;
 
     const { data: users, isLoading } = useQuery({
         queryKey: ["users"],
@@ -61,41 +93,50 @@ const Users = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["users"] });
             setModalCreateVisible(false);
-            form.resetFields();
-            message.success("Thêm người dùng thành công");
+            setCreateName("");
+            setCreateEmail("");
+            setCreatePhone("");
+            setCreatePassword("");
+            setCreateErrors({});
+            toast.success("Thêm người dùng thành công");
         },
-        onError: () => message.error("Lỗi khi thêm người dùng")
+        onError: () => toast.error("Lỗi khi thêm người dùng")
     });
 
     const mutationUpdateRole = useMutation({
         mutationFn: updateRole,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["users"] });
-            message.success("Cập nhật quyền thành công");
+            toast.success("Cập nhật quyền thành công");
         },
-        onError: () => message.error("Lỗi khi cập nhật quyền")
+        onError: () => toast.error("Lỗi khi cập nhật quyền")
     });
+
     const mutationBlock = useMutation({
         mutationFn: blockUser,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["users"] });
-            message.success("Đã khóa người dùng");
+            toast.success("Đã khóa người dùng thành công");
         },
+        onError: () => toast.error("Lỗi khi khóa tài khoản")
     });
+
     const mutationUnblock = useMutation({
         mutationFn: unblockUser,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["users"] });
-            message.success("Đã mở khóa người dùng");
+            toast.success("Đã mở khóa người dùng thành công");
         },
+        onError: () => toast.error("Lỗi khi mở khóa tài khoản")
     });
+
     const mutationDeleteUser = useMutation({
         mutationFn: deleteUser,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["users"] });
-            message.success("Xóa người dùng thành công");
+            toast.success("Xóa người dùng thành công");
         },
-        onError: () => message.error("Lỗi khi xóa người dùng")
+        onError: () => toast.error("Lỗi khi xóa người dùng")
     });
 
     const handleView = (user: User) => {
@@ -103,52 +144,69 @@ const Users = () => {
         setModalVisible(true);
     };
 
+    const triggerConfirm = (config: typeof confirmConfig) => {
+        setConfirmConfig(config);
+        setConfirmOpen(true);
+    };
+
     const showToggleStatusConfirm = (record: User) => {
         const isLocking = record.status === 'active';
-        Modal.confirm({
-            title: <div className="text-xl font-black text-slate-800 dark:text-white mb-2">{isLocking ? 'Khóa tài khoản?' : 'Mở khóa tài khoản?'}</div>,
-            content: (
-                <div className="text-slate-500 dark:text-slate-400">
-                    {isLocking 
-                        ? <>Bạn có chắc chắn muốn khóa tài khoản <strong className="text-rose-500">{record.name}</strong> không? Người dùng này sẽ không thể đăng nhập cho đến khi được mở lại.</>
-                        : <>Bạn có chắc chắn muốn mở khóa tài khoản <strong className="text-emerald-500">{record.name}</strong> không? Người dùng này sẽ có thể đăng nhập bình thường.</>
-                    }
-                </div>
-            ),
+        triggerConfirm({
+            title: isLocking ? 'Khóa tài khoản?' : 'Mở khóa tài khoản?',
+            description: isLocking 
+                ? `Bạn có chắc chắn muốn khóa tài khoản của khách hàng "${record.name}"? Người dùng này sẽ không thể đăng nhập cho đến khi được mở khóa.`
+                : `Bạn có chắc chắn muốn mở khóa tài khoản của khách hàng "${record.name}"? Người dùng này sẽ có thể đăng nhập bình thường.`,
             okText: isLocking ? 'Khóa tài khoản' : 'Mở khóa',
-            cancelText: 'Hủy bỏ',
-            centered: true,
-            icon: isLocking ? <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl mr-4"><Lock size={24} /></div> : <div className="p-3 bg-emerald-50 text-emerald-500 rounded-2xl mr-4"><Unlock size={24} /></div>,
-            okButtonProps: { 
-                danger: isLocking,
-                className: "rounded-xl font-bold px-6 py-5 shadow-sm",
-                style: !isLocking ? { backgroundColor: '#10b981' } : undefined
-            },
-            cancelButtonProps: { className: "rounded-xl font-bold px-6 py-5 border-none bg-slate-100 hover:bg-slate-200" },
+            isDanger: isLocking,
+            icon: isLocking ? <Lock size={20} className="text-rose-600" /> : <Unlock size={20} className="text-emerald-600" />,
             onOk: () => {
-                isLocking ? mutationBlock.mutate(record._id) : mutationUnblock.mutate(record._id);
+                if (isLocking) {
+                    mutationBlock.mutate(record._id);
+                } else {
+                    mutationUnblock.mutate(record._id);
+                }
             }
         });
     };
 
     const showDeleteConfirm = (record: User) => {
-        Modal.confirm({
-            title: <div className="text-xl font-black text-rose-600 mb-2">Trục xuất vĩnh viễn?</div>,
-            content: (
-                <div className="text-slate-500 dark:text-slate-400">
-                    Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản <strong className="text-rose-500">{record.name}</strong> không?
-                    <div className="mt-2 text-xs text-rose-400 bg-rose-50 p-2 rounded-lg border border-rose-100">
-                        ⚠️ Thao tác này không thể hoàn tác và sẽ xóa bỏ mọi dữ liệu liên quan.
-                    </div>
-                </div>
-            ),
+        triggerConfirm({
+            title: 'Xóa vĩnh viễn tài khoản?',
+            description: `Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản của "${record.name}" không? Thao tác này là không thể hoàn tác và sẽ xóa sạch mọi thông tin liên quan.`,
             okText: 'Xóa vĩnh viễn',
-            cancelText: 'Hủy bỏ',
-            centered: true,
-            icon: <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl mr-4"><Trash2 size={24} /></div>,
-            okButtonProps: { danger: true, className: "rounded-xl font-bold px-6 py-5 shadow-sm" },
-            cancelButtonProps: { className: "rounded-xl font-bold px-6 py-5 border-none bg-slate-100 hover:bg-slate-200" },
+            isDanger: true,
+            icon: <Trash2 size={20} className="text-rose-600" />,
             onOk: () => mutationDeleteUser.mutate(record._id)
+        });
+    };
+
+    const handleCreateSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const errors: any = {};
+        if (!createName.trim()) errors.name = "Vui lòng nhập họ tên";
+        else if (createName.trim().length < 2) errors.name = "Họ tên phải có ít nhất 2 ký tự";
+        
+        if (!createEmail.trim()) errors.email = "Vui lòng nhập email";
+        else if (!/\S+@\S+\.\S+/.test(createEmail)) errors.email = "Email không đúng định dạng";
+        
+        if (!createPhone.trim()) errors.phone = "Vui lòng nhập số điện thoại";
+        else if (!/^0[0-9]{9}$/.test(createPhone.trim())) {
+            errors.phone = "Số điện thoại phải gồm 10 số và bắt đầu bằng số 0";
+        }
+        
+        if (!createPassword.trim()) errors.password = "Vui lòng nhập mật khẩu";
+        else if (createPassword.trim().length < 6) errors.password = "Mật khẩu phải từ 6 ký tự";
+
+        if (Object.keys(errors).length > 0) {
+            setCreateErrors(errors);
+            return;
+        }
+        setCreateErrors({});
+        mutationCreate.mutate({
+            name: createName,
+            email: createEmail,
+            phone: createPhone,
+            password: createPassword,
         });
     };
 
@@ -156,382 +214,568 @@ const Users = () => {
         u.name.toLowerCase().includes(searchText.toLowerCase()) ||
         u.email.toLowerCase().includes(searchText.toLowerCase()) ||
         u.phone.includes(searchText)
-    );
+    ) || [];
 
-    const columns = [
-        { 
-            title: "Khách hàng", 
-            key: "name",
-            render: (_: any, record: User) => (
-                <div className="flex items-center gap-4">
-                    <div className="relative">
-                        <div className="w-12 h-12 rounded-2xl bg-linear-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white text-lg font-black shadow-lg shadow-emerald-500/20">
-                            {record.name.charAt(0).toUpperCase()}
-                        </div>
-                        {record.role === 'admin' && (
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center text-white" title="Quản trị viên">
-                                <ShieldCheck size={10} />
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="font-black text-slate-800 dark:text-slate-100 text-sm leading-tight transition-colors">{record.name}</span>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{record.phone || 'Chưa cập nhật'}</span>
-                            {record.isEmailVerified && (
-                                <span className="text-[10px] text-emerald-500 bg-emerald-500/10 px-1.5 rounded-full" title="Email đã xác thực">✓</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )
-        },
-        { 
-            title: "Liên hệ", 
-            key: "contact",
-            render: (_: any, record: User) => (
-                <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-sm">
-                        <Mail size={14} className="text-slate-400" />
-                        <span className="text-slate-600 dark:text-slate-300 font-medium">{record.email}</span>
-                    </div>
-                </div>
-            )
-        },
-        {
-            title: "Vai trò",
-            dataIndex: "role",
-            key: "role",
-            render: (role: string, record: User) => (
-                <Select
-                    defaultValue={role}
-                    className="premium-select-small w-32"
-                    onChange={(value) => mutationUpdateRole.mutate({ userId: record._id, role: value })}
-                    popupClassName="premium-dropdown"
-                >
-                    <Option value="user">
-                        <div className="flex items-center gap-2">
-                            <UserIcon size={14} className="text-blue-500" />
-                            <span className="font-bold">Khách</span>
-                        </div>
-                    </Option>
-                    <Option value="admin">
-                        <div className="flex items-center gap-2">
-                            <Shield size={14} className="text-amber-500" />
-                            <span className="font-bold text-amber-600 dark:text-amber-400">Admin</span>
-                        </div>
-                    </Option>
-                </Select>
-            ),
-        },
-        {
-            title: "Trạng thái",
-            dataIndex: "status",
-            key: "status",
-            render: (status: "active" | "inactive") => {
-                const config = STATUS_CONFIG[status] || STATUS_CONFIG.inactive;
-                return (
-                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase w-fit ${config.color}`}>
-                        {config.icon}
-                        {config.label}
-                    </div>
-                );
-            },
-        },
-        {
-            title: "Thao tác",
-            key: "action",
-            align: "right" as const,
-            width: 180,
-            render: (_: any, record: User) => (
-                <div className="flex items-center justify-end gap-2">
-                    <button 
-                        onClick={() => handleView(record)}
-                        className="p-2.5 bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/20 rounded-xl transition-all active:scale-90 border border-transparent dark:border-white/5"
-                        title="Xem chi tiết"
-                    >
-                        <Eye size={18} />
-                    </button>
+    // Reset pagination to page 1 on search
+    const handleSearchChange = (val: string) => {
+        setSearchText(val);
+        setCurrentPage(1);
+    };
 
-                    <button 
-                        onClick={() => showToggleStatusConfirm(record)}
-                        className={`p-2.5 rounded-xl transition-all active:scale-90 shadow-xs border ${
-                            record.status === "active" 
-                                ? "bg-amber-50 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 border-amber-100 dark:border-amber-500/20"
-                                : "bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-500 border-emerald-100 dark:border-emerald-500/20"
-                        }`}
-                        title={record.status === "active" ? "Khóa" : "Mở khóa"}
-                    >
-                        {record.status === "active" ? <Lock size={18} /> : <Unlock size={18} />}
-                    </button>
-
-                    <button 
-                        onClick={() => showDeleteConfirm(record)}
-                        className="p-2.5 bg-rose-50 dark:bg-rose-500/20 text-rose-500 dark:text-rose-400 hover:bg-rose-500 dark:hover:bg-rose-500 hover:text-white dark:hover:text-white rounded-xl transition-all active:scale-90 border border-rose-100 dark:border-rose-500/20"
-                        title="Xóa"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                </div>
-            ),
-        },
-    ];
+    const totalUsers = filteredUsers.length;
+    const totalPages = Math.ceil(totalUsers / pageSize) || 1;
+    const paginatedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     return (
-        <div className="px-4 pb-12 space-y-8 animate-in fade-in duration-700">
-            {/* 🚀 Premium Header */}
-            <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pt-6'>
-                <div className='relative'>
-                    <div className='absolute -left-4 -top-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-3xl' />
-                    <h1 className='text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-4 italic'>
-                        <div className="p-3.5 bg-linear-to-br from-indigo-500 to-violet-600 rounded-3xl shadow-2xl shadow-indigo-500/40 rotate-6 flex items-center justify-center border border-white/20">
-                            <UsersIcon size={28} className="text-white" />
-                        </div>
-                        <span className="relative">
-                            QUẢN LÝ KHÁCH HÀNG
-                            <div className="absolute -bottom-2 left-0 w-1/2 h-1.5 bg-indigo-500/30 rounded-full" />
-                        </span>
-                    </h1>
-                    <p className='text-slate-500 dark:text-slate-400 mt-6 font-semibold flex items-center gap-2 text-sm md:text-base'>
-                        <span className="flex h-2.5 w-2.5 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500"></span>
-                        </span>
-                        Theo dõi tài khoản, phân quyền và trạng thái người dùng
-                    </p>
+        <div className="px-4 pb-12 space-y-6 max-w-7xl mx-auto text-left">
+            {/* Header section */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-6">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Quản lý khách hàng</h1>
+                    <p className="text-xs text-muted-foreground mt-0.5">Theo dõi tài khoản, phân quyền và khóa/mở khóa người dùng</p>
                 </div>
                 
-                <div className='flex flex-col sm:flex-row items-center gap-4 relative z-10'>
-                    <div className="relative group w-full sm:w-auto">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                        <Input
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="relative w-full sm:w-80">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 pointer-events-none" size={14} />
+                        <input
+                            type="text"
                             placeholder="Tìm kiếm Email, SĐT, Tên..."
-                            className="premium-search-input pl-11 h-12 w-full sm:w-80"
-                            onChange={(e) => setSearchText(e.target.value)}
-                            allowClear
+                            className="w-full h-10 pl-9 pr-4 bg-card border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-indigo-400"
+                            value={searchText}
+                            onChange={(e) => handleSearchChange(e.target.value)}
                         />
                     </div>
                     
-                    <button
+                    <Button
                         onClick={() => setModalCreateVisible(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-3.5 bg-linear-to-r from-emerald-600 to-teal-700 text-white rounded-3xl font-bold text-sm shadow-xl shadow-emerald-500/30 hover:scale-[1.02] hover:shadow-emerald-500/40 active:scale-95 transition-all w-full sm:w-auto"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 px-5 rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 w-full sm:w-auto"
                     >
-                        <Plus size={20} /> THÊM KHÁCH HÀNG
-                    </button>
+                        <Plus size={14} /> Thêm khách hàng
+                    </Button>
                 </div>
             </div>
 
-            {/* Stat Cards */}
+            {/* Stat Cards Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-5 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl"><UsersIcon size={20} className="text-indigo-500" /></div>
-                    <div><div className="text-2xl font-black text-slate-800 dark:text-white">{users?.length || 0}</div><div className="text-[10px] font-bold text-slate-400 uppercase">Tổng người dùng</div></div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-5 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl"><CheckCircle2 size={20} className="text-emerald-500" /></div>
-                    <div><div className="text-2xl font-black text-emerald-500">{users?.filter(u => u.status === 'active').length || 0}</div><div className="text-[10px] font-bold text-slate-400 uppercase">Đang hoạt động</div></div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-5 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-rose-50 dark:bg-rose-500/10 rounded-2xl"><AlertCircle size={20} className="text-rose-500" /></div>
-                    <div><div className="text-2xl font-black text-rose-500">{users?.filter(u => u.status === 'inactive').length || 0}</div><div className="text-[10px] font-bold text-slate-400 uppercase">Đã khóa</div></div>
-                </div>
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-5 shadow-sm flex items-center gap-4">
-                    <div className="p-3 bg-amber-50 dark:bg-amber-500/10 rounded-2xl"><Shield size={20} className="text-amber-500" /></div>
-                    <div><div className="text-2xl font-black text-amber-500">{users?.filter(u => u.role === 'admin').length || 0}</div><div className="text-[10px] font-bold text-slate-400 uppercase">Quản trị viên</div></div>
-                </div>
+                {[
+                    { label: 'Tổng người dùng', val: users?.length || 0, icon: <UsersIcon size={18} className="text-muted-foreground/60" /> },
+                    { label: 'Đang hoạt động', val: users?.filter(u => u.status === 'active').length || 0, icon: <CheckCircle2 size={18} className="text-emerald-500" />, border: 'border-emerald-500/15' },
+                    { label: 'Đã khóa', val: users?.filter(u => u.status === 'inactive').length || 0, icon: <AlertCircle size={18} className="text-rose-500" />, border: 'border-rose-500/15' },
+                    { label: 'Quản trị viên', val: users?.filter(u => u.role === 'admin').length || 0, icon: <Shield size={18} className="text-amber-500" />, border: 'border-amber-500/15' },
+                ].map((stat) => (
+                    <Card key={stat.label} className={`border border-border/80 rounded-xl shadow-xs overflow-hidden ${stat.border || ""}`}>
+                        <CardHeader className="p-4 pb-0 flex flex-row items-center justify-between space-y-0">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{stat.label}</span>
+                            {stat.icon}
+                        </CardHeader>
+                        <CardContent className="p-4 pt-1.5">
+                            <div className="text-2xl font-bold text-foreground">{stat.val}</div>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
-            {/* Bảng dữ liệu */}
-            <div className="bg-white dark:bg-card rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden p-4 transition-colors">
-                <Table
-                    columns={columns}
-                    dataSource={filteredUsers}
-                    rowKey="_id"
-                    loading={isLoading}
-                    pagination={{ 
-                        pageSize: 10,
-                        showSizeChanger: false,
-                        showTotal: undefined,
-                        className: "px-6 py-4",
-                        itemRender: (_page, type, originalElement) => {
-                            if (type === 'prev') return <button className="p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"><ChevronLeft size={16} className="dark:text-slate-400"/></button>;
-                            if (type === 'next') return <button className="p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"><ChevronRight size={16} className="dark:text-slate-400"/></button>;
-                            return originalElement;
-                        }
-                    }}
-                    className="premium-table"
-                />
-            </div>
+            {/* LIST RENDER: MOBILE CARDS vs DESKTOP TABLE */}
+            <div>
+                {isLoading ? (
+                    <div className="py-20 text-center text-muted-foreground text-xs font-semibold flex flex-col items-center justify-center gap-2 border border-border/60 rounded-xl bg-card">
+                        <Loader2 className="animate-spin text-indigo-500" size={24} />
+                        <span>Đang tải danh sách khách hàng...</span>
+                    </div>
+                ) : filteredUsers.length === 0 ? (
+                    <div className="py-20 text-center text-muted-foreground flex flex-col items-center justify-center border border-dashed rounded-xl bg-card">
+                        <UsersIcon size={32} className="opacity-20 mb-2" />
+                        <p className="text-sm font-semibold">Không tìm thấy khách hàng nào</p>
+                        <p className="text-[11px] opacity-75 mt-0.5">Vui lòng thử đổi từ khóa tìm kiếm</p>
+                    </div>
+                ) : (
+                    <Card className="border border-border/80 shadow-xs rounded-xl overflow-hidden p-0 bg-card">
+                        
+                        {/* 1. Mobile card stacks layout (<md) */}
+                        <div className="block md:hidden divide-y divide-border/60">
+                            {paginatedUsers.map((u) => {
+                                const initial = u.name.charAt(0).toUpperCase();
+                                const config = STATUS_CONFIG[u.status] || STATUS_CONFIG.inactive;
+                                
+                                return (
+                                    <div key={u._id} className="p-4 space-y-3">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="relative shrink-0">
+                                                    <div className="w-9 h-9 rounded-xl bg-muted/60 border border-border/50 flex items-center justify-center text-sm font-bold text-foreground">
+                                                        {initial}
+                                                    </div>
+                                                    {u.role === 'admin' && (
+                                                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full border border-card flex items-center justify-center text-white" title="Quản trị viên">
+                                                            <ShieldCheck size={8} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="font-bold text-foreground text-xs leading-none truncate">{u.name}</div>
+                                                    <div className="text-[10px] text-muted-foreground mt-1 font-mono">{u.phone || 'Chưa cập SĐT'}</div>
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0 flex items-center gap-1.5">
+                                                <Select
+                                                    value={u.role}
+                                                    onValueChange={(val) => mutationUpdateRole.mutate({ userId: u._id, role: val })}
+                                                >
+                                                    <SelectTrigger className="w-[85px] h-7 rounded-lg border-border bg-card font-bold text-[10px] text-foreground focus:ring-0">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-xl border-border bg-card">
+                                                        <SelectItem value="user" className="text-[10px] font-bold">Khách</SelectItem>
+                                                        <SelectItem value="admin" className="text-[10px] font-bold text-amber-500">Admin</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
 
-            {/* MODAL CREATE USER */}
-            <Modal
-                title={
-                    <div className="flex items-center gap-3 py-2">
-                        <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                            <Plus size={20}/>
+                                        <div className="space-y-1.5 text-[11px] text-muted-foreground">
+                                            <div className="flex items-center gap-1.5">
+                                                <Mail size={12} className="shrink-0 text-muted-foreground/75" />
+                                                <span className="truncate">{u.email}</span>
+                                                {u.isEmailVerified && <span className="text-[8px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 px-1 py-0.2 rounded-md font-bold uppercase tracking-wider shrink-0">Đã xác minh</span>}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-extrabold uppercase border ${config.color}`}>
+                                                {config.icon}
+                                                {config.label}
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    onClick={() => handleView(u)}
+                                                    className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                    title="Xem chi tiết"
+                                                >
+                                                    <Eye size={14} />
+                                                </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    onClick={() => showToggleStatusConfirm(u)}
+                                                    className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                    title={u.status === "active" ? "Khóa" : "Mở khóa"}
+                                                >
+                                                    {u.status === "active" ? <Lock size={14} /> : <Unlock size={14} />}
+                                                </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    onClick={() => showDeleteConfirm(u)}
+                                                    className="h-8 w-8 text-rose-600 hover:bg-rose-500/5"
+                                                    title="Xóa"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <span className="text-xl font-black text-slate-800">Tạo tài khoản mới</span>
-                    </div>
-                }
-                open={modalCreateVisible}
-                onCancel={() => setModalCreateVisible(false)}
-                footer={null}
-                width={500}
-                centered
-                className="premium-modal"
-                closeIcon={<div className="p-2 hover:bg-slate-100 rounded-full transition-colors mt-2"><X size={18} className="text-slate-400"/></div>}
-            >
-                <Form form={form} layout="vertical" onFinish={(v) => mutationCreate.mutate(v)} className="mt-6">
-                    <Form.Item label={<span className="text-xs font-black text-slate-500 uppercase">Tên khách hàng</span>} name="name" rules={[{ required: true, message: "Vui lòng nhập tên" }]}>
-                        <Input placeholder="Nhập họ và tên..." className="premium-input-modal" prefix={<UserIcon size={16} className="text-slate-400 mr-2"/>} />
-                    </Form.Item>
 
-                    <Form.Item label={<span className="text-xs font-black text-slate-500 uppercase">Địa chỉ Email</span>} name="email" rules={[{ required: true, type: "email", message: "Email không hợp lệ" }]}>
-                        <Input placeholder="user@example.com" className="premium-input-modal" prefix={<Mail size={16} className="text-slate-400 mr-2"/>} />
-                    </Form.Item>
+                        {/* 2. Desktop table layout (>=md) */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <Table>
+                                <TableHeader className="bg-muted/30 border-b border-border/60">
+                                    <TableRow>
+                                        <TableHead className="text-[10px] font-bold uppercase tracking-wider">Khách hàng</TableHead>
+                                        <TableHead className="text-[10px] font-bold uppercase tracking-wider">Liên hệ</TableHead>
+                                        <TableHead className="text-[10px] font-bold uppercase tracking-wider">Vai trò</TableHead>
+                                        <TableHead className="text-[10px] font-bold uppercase tracking-wider">Trạng thái</TableHead>
+                                        <TableHead className="text-[10px] font-bold uppercase tracking-wider text-right pr-6">Thao tác</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {paginatedUsers.map((u) => {
+                                        const initial = u.name.charAt(0).toUpperCase();
+                                        const config = STATUS_CONFIG[u.status] || STATUS_CONFIG.inactive;
+                                        
+                                        return (
+                                            <TableRow key={u._id} className="hover:bg-muted/10">
+                                                {/* Customer avatar + phone */}
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="relative">
+                                                            <div className="w-8.5 h-8.5 rounded-xl bg-muted/65 border border-border/50 flex items-center justify-center text-xs font-bold text-foreground">
+                                                                {initial}
+                                                            </div>
+                                                            {u.role === 'admin' && (
+                                                                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full border border-card flex items-center justify-center text-white" title="Quản trị viên">
+                                                                    <ShieldCheck size={8} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-foreground text-xs leading-none">{u.name}</span>
+                                                            <div className="flex items-center gap-1.5 mt-1">
+                                                                <span className="text-[10px] text-muted-foreground font-mono">{u.phone || 'Chưa cập nhật SĐT'}</span>
+                                                                {u.isEmailVerified && (
+                                                                    <span className="text-[8px] font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.2 rounded-md uppercase tracking-wider" title="Email đã xác thực">Đã xác minh</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
 
-                    <Form.Item label={<span className="text-xs font-black text-slate-500 uppercase">Số điện thoại</span>} name="phone" rules={[{ required: true, message: "Vui lòng nhập SĐT" }]}>
-                        <Input placeholder="09xx..." className="premium-input-modal" prefix={<Phone size={16} className="text-slate-400 mr-2"/>} />
-                    </Form.Item>
+                                                {/* Contact Details */}
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                                                        <Mail size={13} className="shrink-0 text-muted-foreground/75" />
+                                                        <span>{u.email}</span>
+                                                    </div>
+                                                </TableCell>
 
-                    <Form.Item label={<span className="text-xs font-black text-slate-500 uppercase">Mật khẩu khởi tạo</span>} name="password" rules={[{ required: true, message: "Vui lòng nhập mật khẩu" }]}>
-                        <Input.Password placeholder="••••••••" className="premium-input-modal p-2.5" prefix={<Lock size={16} className="text-slate-400 mr-2"/>} />
-                    </Form.Item>
-                    
-                    <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-                        <button type="button" onClick={() => setModalCreateVisible(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-all">HỦY BỎ</button>
-                        <button type="submit" disabled={mutationCreate.isPending} className="px-8 py-2.5 bg-linear-to-r from-emerald-600 to-teal-700 text-white rounded-2xl font-black text-sm hover:shadow-xl hover:shadow-emerald-500/20 transition-all active:scale-95 disabled:opacity-50">
-                            {mutationCreate.isPending ? 'ĐANG TẠO...' : 'XÁC NHẬN TẠO'}
-                        </button>
-                    </div>
-                </Form>
-            </Modal>
+                                                {/* Role Switcher */}
+                                                <TableCell>
+                                                    <Select
+                                                        value={u.role}
+                                                        onValueChange={(val) => mutationUpdateRole.mutate({ userId: u._id, role: val })}
+                                                    >
+                                                        <SelectTrigger className="w-24 h-8 rounded-lg border-border bg-card font-semibold text-xs text-foreground focus:ring-0">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-border bg-card">
+                                                            <SelectItem value="user" className="text-xs font-semibold">Khách</SelectItem>
+                                                            <SelectItem value="admin" className="text-xs font-semibold text-amber-500">Admin</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </TableCell>
 
-            {/* Chi tiết tài khoản */}
-            <AnimatePresence>
-                {modalVisible && selectedUser && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-1000 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 30 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 30 }} className="bg-white dark:bg-card w-full max-w-xl overflow-hidden rounded-4xl shadow-2xl border border-slate-200 dark:border-white/10">
-                            
-                            {/* Header Gradient */}
-                            <div className="relative h-32 bg-linear-to-r from-indigo-500 to-violet-600">
-                                <button onClick={() => setModalVisible(false)} className="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white transition-all backdrop-blur-sm">
-                                    <X size={18} />
-                                </button>
-                                <div className="absolute -bottom-10 left-8">
+                                                {/* Status Badge */}
+                                                <TableCell>
+                                                    <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase border w-max ${config.color}`}>
+                                                        {config.icon}
+                                                        {config.label}
+                                                    </div>
+                                                </TableCell>
+
+                                                {/* Actions */}
+                                                <TableCell className="text-right pr-6">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            onClick={() => handleView(u)}
+                                                            className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                            title="Xem chi tiết"
+                                                        >
+                                                            <Eye size={14} />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            onClick={() => showToggleStatusConfirm(u)}
+                                                            className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                            title={u.status === "active" ? "Khóa" : "Mở khóa"}
+                                                        >
+                                                            {u.status === "active" ? <Lock size={14} /> : <Unlock size={14} />}
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            onClick={() => showDeleteConfirm(u)}
+                                                            className="h-8 w-8 text-rose-600 hover:bg-rose-500/5"
+                                                            title="Xóa"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        {/* Pagination footer */}
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10 text-[11px] font-semibold text-muted-foreground">
+                            <span>
+                                Hiển thị {Math.min(totalUsers, (currentPage - 1) * pageSize + 1)}-{Math.min(totalUsers, currentPage * pageSize)} trong {totalUsers} khách hàng
+                            </span>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="h-8 w-8 p-0 rounded-lg border-border"
+                                >
+                                    <ChevronLeft size={14} />
+                                </Button>
+                                {Array.from({ length: totalPages }).map((_, idx) => {
+                                    const pageNum = idx + 1;
+                                    return (
+                                        <Button
+                                            key={pageNum}
+                                            variant={currentPage === pageNum ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`h-8 w-8 p-0 rounded-lg text-[10px] font-bold ${
+                                                currentPage === pageNum
+                                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600 shadow-sm"
+                                                    : "border-border text-muted-foreground hover:text-foreground"
+                                            }`}
+                                        >
+                                            {pageNum}
+                                        </Button>
+                                    );
+                                })}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="h-8 w-8 p-0 rounded-lg border-border"
+                                >
+                                    <ChevronRight size={14} />
+                                </Button>
+                            </div>
+                        </div>
+
+                    </Card>
+                )}
+            </div>
+
+            {/* MODAL CREATE USER (Shadcn Dialog style) */}
+            <Dialog open={modalCreateVisible} onOpenChange={(v) => !v && setModalCreateVisible(false)}>
+                <DialogContent className="sm:max-w-md p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
+                    <DialogHeader className="px-5 py-4 border-b border-border bg-muted/20">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2.5 bg-indigo-500/15 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                                <Plus size={16} />
+                            </div>
+                            <div className="text-left">
+                                <DialogTitle className="text-sm font-extrabold text-foreground uppercase tracking-wider">
+                                    Tạo tài khoản mới
+                                </DialogTitle>
+                                <DialogDescription className="text-[10px] text-muted-foreground mt-0.5">
+                                    Thêm khách hàng hoặc quản trị viên mới vào hệ thống
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <form onSubmit={handleCreateSubmit} className="p-5 space-y-4 text-left">
+                        {/* Name */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5">Họ tên <span className="text-rose-500">*</span></label>
+                            <div className="relative">
+                                <UserIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                                <input
+                                    type="text"
+                                    placeholder="Nhập họ và tên..."
+                                    value={createName}
+                                    onChange={(e) => setCreateName(e.target.value)}
+                                    className={`w-full h-10 pl-9 pr-4 bg-card border ${createErrors.name ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
+                                />
+                            </div>
+                            {createErrors.name && <p className="text-[10px] text-rose-500 font-semibold pl-0.5">{createErrors.name}</p>}
+                        </div>
+
+                        {/* Email */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5">Địa chỉ Email <span className="text-rose-500">*</span></label>
+                            <div className="relative">
+                                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                                <input
+                                    type="text"
+                                    placeholder="Nhập email (ví dụ: user@example.com)"
+                                    value={createEmail}
+                                    onChange={(e) => setCreateEmail(e.target.value)}
+                                    className={`w-full h-10 pl-9 pr-4 bg-card border ${createErrors.email ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
+                                />
+                            </div>
+                            {createErrors.email && <p className="text-[10px] text-rose-500 font-semibold pl-0.5">{createErrors.email}</p>}
+                        </div>
+
+                        {/* Phone */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5">Số điện thoại <span className="text-rose-500">*</span></label>
+                            <div className="relative">
+                                <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                                <input
+                                    type="text"
+                                    placeholder="Nhập số điện thoại..."
+                                    value={createPhone}
+                                    onChange={(e) => setCreatePhone(e.target.value)}
+                                    className={`w-full h-10 pl-9 pr-4 bg-card border ${createErrors.phone ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
+                                />
+                            </div>
+                            {createErrors.phone && <p className="text-[10px] text-rose-500 font-semibold pl-0.5">{createErrors.phone}</p>}
+                        </div>
+
+                        {/* Password */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5">Mật khẩu khởi tạo <span className="text-rose-500">*</span></label>
+                            <div className="relative">
+                                <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                                <input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={createPassword}
+                                    onChange={(e) => setCreatePassword(e.target.value)}
+                                    className={`w-full h-10 pl-9 pr-4 bg-card border ${createErrors.password ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
+                                />
+                            </div>
+                            {createErrors.password && <p className="text-[10px] text-rose-500 font-semibold pl-0.5">{createErrors.password}</p>}
+                        </div>
+
+                        {/* Footer Buttons */}
+                        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/60 mt-5">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => { setModalCreateVisible(false); setCreateErrors({}); }}
+                                className="text-xs font-semibold h-10 px-4 rounded-xl text-muted-foreground hover:bg-muted"
+                            >
+                                Hủy bỏ
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={mutationCreate.isPending}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs h-10 px-5 rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/10 disabled:opacity-50"
+                            >
+                                {mutationCreate.isPending ? <Loader2 size={13} className="animate-spin text-white" /> : null}
+                                Tạo tài khoản
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* MODAL USER DETAILS (Shadcn Dialog style) */}
+            <Dialog open={modalVisible} onOpenChange={(v) => !v && setModalVisible(false)}>
+                <DialogContent className="sm:max-w-md p-0 border border-border/80 rounded-2xl shadow-xl bg-card overflow-hidden">
+                    {selectedUser && (
+                        <div className="flex flex-col">
+                            {/* Header Banner */}
+                            <div className="relative h-28 bg-gradient-to-r from-indigo-500 to-violet-600 flex items-center justify-between px-5">
+                                <div className="absolute -bottom-10 left-6">
                                     <div className="relative">
-                                        <div className="w-24 h-24 rounded-3xl bg-white dark:bg-slate-800 p-1.5 shadow-xl">
-                                            <div className="w-full h-full rounded-[20px] bg-linear-to-tr from-indigo-100 to-indigo-50 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-3xl font-black text-indigo-500 dark:text-indigo-400">
+                                        <div className="w-20 h-20 rounded-2xl bg-card p-1 shadow-lg border border-border/50">
+                                            <div className="w-full h-full rounded-xl bg-gradient-to-tr from-indigo-100 to-indigo-50 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center text-2xl font-black text-indigo-500 dark:text-indigo-400">
                                                 {selectedUser.name.charAt(0).toUpperCase()}
                                             </div>
                                         </div>
                                         {selectedUser.role === 'admin' && (
-                                            <div className="absolute -top-2 -right-2 p-1.5 bg-amber-400 border-2 border-white dark:border-slate-800 rounded-full text-white shadow-lg">
-                                                <ShieldCheck size={16} />
+                                            <div className="absolute -top-1.5 -right-1.5 p-1 bg-amber-400 border border-card rounded-full text-white shadow-md">
+                                                <ShieldCheck size={12} />
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="pt-14 px-8 pb-8">
-                                <div className="mb-8">
-                                    <h2 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">{selectedUser.name}</h2>
-                                    <div className="flex items-center gap-3 mt-2">
-                                        <span className={`px-2.5 py-1 text-[10px] font-black uppercase rounded-lg ${selectedUser.status === 'active' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'}`}>
-                                            {selectedUser.status === 'active' ? '● Hoạt động' : '● Đã khóa'}
+                            <div className="pt-12 px-6 pb-6 space-y-6">
+                                {/* Intro metadata */}
+                                <div>
+                                    <h2 className="text-lg font-black text-foreground leading-tight text-left">{selectedUser.name}</h2>
+                                    <div className="flex items-center gap-2 mt-1.5 text-[10px]">
+                                        <span className={`px-2 py-0.5 font-bold uppercase rounded-md border ${
+                                            selectedUser.status === 'active' 
+                                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
+                                                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                        }`}>
+                                            {selectedUser.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
                                         </span>
-                                        <span className="text-slate-400 text-sm font-medium">|</span>
-                                        <span className="text-sm font-bold text-slate-500 capitalize">{selectedUser.role}</span>
+                                        <span className="text-muted-foreground">|</span>
+                                        <span className="font-bold text-muted-foreground uppercase">{selectedUser.role === 'admin' ? 'Admin' : 'Khách hàng'}</span>
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0"><Mail size={20} /></div>
+                                {/* Fields breakdown list */}
+                                <div className="space-y-3.5 text-xs text-left">
+                                    <div className="flex items-center gap-3 p-3 bg-muted/10 border border-border/60 rounded-xl">
+                                        <Mail size={16} className="text-indigo-500 shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase">Email</p>
-                                            <p className="font-bold text-slate-700 dark:text-slate-200 truncate">{selectedUser.email}</p>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase block">Email</span>
+                                            <span className="font-semibold text-foreground truncate block mt-0.5">{selectedUser.email}</span>
                                         </div>
                                         {selectedUser.isEmailVerified ? (
-                                            <div className="text-xs font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">Xác thực ✓</div>
+                                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md uppercase shrink-0">Xác thực ✓</span>
                                         ) : (
-                                            <div className="text-xs font-bold text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-lg">Chưa XT</div>
+                                            <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md uppercase shrink-0">Chưa XT</span>
                                         )}
                                     </div>
 
-                                    <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
-                                        <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><Phone size={20} /></div>
+                                    <div className="flex items-center gap-3 p-3 bg-muted/10 border border-border/60 rounded-xl">
+                                        <Phone size={16} className="text-indigo-500 shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase">Điện thoại</p>
-                                            <p className="font-bold text-slate-700 dark:text-slate-200 truncate">{selectedUser.phone || 'Chưa cập nhật'}</p>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase block">Số điện thoại</span>
+                                            <span className="font-semibold text-foreground truncate block mt-0.5">{selectedUser.phone || 'Chưa cập nhật'}</span>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
-                                        <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0"><Calendar size={20} /></div>
+                                    <div className="flex items-center gap-3 p-3 bg-muted/10 border border-border/60 rounded-xl">
+                                        <Calendar size={16} className="text-indigo-500 shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase">Ngày tạo tài khoản</p>
-                                            <p className="font-bold text-slate-700 dark:text-slate-200 truncate">{new Date(selectedUser.createdAt).toLocaleDateString('vi-VN')} - {new Date(selectedUser.createdAt).toLocaleTimeString('vi-VN')}</p>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase block">Ngày đăng ký</span>
+                                            <span className="font-semibold text-foreground truncate block mt-0.5 font-mono">
+                                                {dayjs(selectedUser.createdAt).format('DD/MM/YYYY HH:mm')}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
 
-            <style>{`
-                .premium-table .ant-table { background: transparent !important; }
-                .premium-table .ant-table-thead > tr > th {
-                    background: #f8fafc !important; color: #64748b !important;
-                    font-size: 11px !important; font-weight: 800 !important;
-                    text-transform: uppercase !important; letter-spacing: 0.05em !important;
-                    border-bottom: 2px solid #f1f5f9 !important; padding: 16px 24px !important;
-                }
-                .dark .premium-table .ant-table-thead > tr > th {
-                    background: rgba(255,255,255,0.03) !important; color: #94a3b8 !important;
-                    border-bottom: 1px solid rgba(255,255,255,0.05) !important;
-                }
-                .premium-table .ant-table-tbody > tr > td {
-                    padding: 16px 24px !important; border-bottom: 1px solid #f1f5f9 !important;
-                    transition: all 0.2s; color: inherit;
-                }
-                .dark .premium-table .ant-table-tbody > tr > td { border-bottom: 1px solid rgba(255,255,255,0.05) !important; }
-                .premium-table .ant-table-tbody > tr:hover > td { background: #fdfdfd !important; }
-                .dark .premium-table .ant-table-tbody > tr:hover > td { background: rgba(255,255,255,0.02) !important; }
+            {/* REUSABLE CONFIRMATION DIALOG (Shadcn style, replaces Modal.confirm) */}
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DialogContent className="sm:max-w-md p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
+                    {confirmConfig && (
+                        <>
+                            <DialogHeader className="px-6 py-5 border-b border-border bg-muted/20">
+                                <div className="flex items-center gap-2.5">
+                                    <div className={`p-2 rounded-xl flex items-center justify-center shrink-0 ${confirmConfig.isDanger ? 'bg-rose-500/10' : 'bg-emerald-500/10'}`}>
+                                        {confirmConfig.icon || <AlertCircle size={18} />}
+                                    </div>
+                                    <div className="text-left">
+                                        <DialogTitle className="text-sm font-extrabold text-foreground uppercase tracking-wider">
+                                            {confirmConfig.title}
+                                        </DialogTitle>
+                                    </div>
+                                </div>
+                            </DialogHeader>
+                            <div className="p-5 space-y-4 text-xs text-left">
+                                <div className="text-muted-foreground leading-relaxed font-semibold">
+                                    {confirmConfig.description}
+                                </div>
+                                <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/50">
+                                    <Button variant="ghost" className="text-xs font-semibold h-10 px-4 rounded-xl" onClick={() => setConfirmOpen(false)}>
+                                        Hủy bỏ
+                                    </Button>
+                                    <Button
+                                        className={`text-xs font-bold h-10 px-5 rounded-xl ${
+                                            confirmConfig.isDanger
+                                                ? "bg-rose-600 hover:bg-rose-700 text-white"
+                                                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        }`}
+                                        onClick={() => {
+                                            confirmConfig.onOk();
+                                            setConfirmOpen(false);
+                                        }}
+                                    >
+                                        {confirmConfig.okText}
+                                    </Button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
 
-                .premium-search-input.ant-input {
-                    border-radius: 9999px !important; background: #fff !important;
-                    border: 1px solid #e2e8f0 !important; font-weight: 600; color: #1e293b;
-                }
-                .premium-search-input.ant-input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important; }
-                .dark .premium-search-input.ant-input {
-                    background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.1) !important; color: #fff;
-                }
-                .dark .premium-search-input.ant-input::placeholder { color: #64748b; }
-
-                .premium-select-small .ant-select-selector {
-                    border-radius: 12px !important; border: 1px solid #f1f5f9 !important;
-                    padding: 0 12px !important; background: #f8fafc !important;
-                    height: 38px !important; align-items: center !important;
-                }
-                .dark .premium-select-small .ant-select-selector {
-                    background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.1) !important; color: #f8fafc !important;
-                }
-                .premium-dropdown { border-radius: 16px !important; padding: 4px !important; }
-                
-                .premium-modal .ant-modal-content { border-radius: 32px !important; padding: 32px !important; }
-                .premium-input-modal.ant-input, .premium-input-modal.ant-input-password {
-                    border-radius: 12px !important; border: 1px solid #f1f5f9 !important;
-                    padding: 10px 14px !important; background: #f8fafc !important;
-                    font-weight: 600 !important; transition: all 0.2s !important;
-                }
-                .premium-input-modal.ant-input:focus, .premium-input-modal.ant-input-password:focus-within {
-                    border-color: #10b981 !important; background: #fff !important; box-shadow: 0 0 0 3px rgba(16,185,129,0.1) !important;
-                }
-            `}</style>
         </div>
     );
 };

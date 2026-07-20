@@ -1,21 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Form,
-    Input,
-    Select,
-    InputNumber,
     Upload,
     message,
     Image,
-    Skeleton,
+    Spin,
 } from 'antd';
 import {
     ArrowLeft,
     Shield,
     MapPin,
     Zap,
-    DollarSign,
     Upload as UploadIcon,
     Save,
     RotateCcw,
@@ -24,7 +19,6 @@ import {
     Car,
     ShowerHead,
     Crown,
-    ImageIcon,
     FileText,
     Layers,
     Tag,
@@ -33,20 +27,44 @@ import imageCompression from 'browser-image-compression';
 import { motion } from 'framer-motion';
 import api from '../../../common/utils/api.ts';
 
-const { Option } = Select;
-
-
+// shadcn/ui components
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 const CourtUpdate: React.FC = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [form] = Form.useForm();
     const [fileList, setFileList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [courtName, setCourtName] = useState('');
+
+    // Controlled inputs state
+    const [code, setCode] = useState('');
+    const [name, setName] = useState('');
+    const [type, setType] = useState<'indoor' | 'outdoor' | 'vip'>('indoor');
+    const [status, setStatus] = useState<'active' | 'maintenance' | 'locked'>('active');
+    const [formats, setFormats] = useState<string[]>([]);
+    const [basePrice, setBasePrice] = useState<number | ''>('');
+    const [peakPrice, setPeakPrice] = useState<number | ''>('');
+    const [location, setLocation] = useState('');
+    const [description, setDescription] = useState('');
+    const [amenities, setAmenities] = useState('');
+
+    // Formatted price displays
     const [displayBasePrice, setDisplayBasePrice] = useState('');
     const [displayPeakPrice, setDisplayPeakPrice] = useState('');
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
     const formatPrice = (n: number) => n.toLocaleString('vi-VN');
 
@@ -55,13 +73,26 @@ const CourtUpdate: React.FC = () => {
             try {
                 const res = await api.get(`/courts/${id}`);
                 const court = res.data.data;
-                form.setFieldsValue({
-                    ...court,
-                    amenities: court.amenities?.join(', '),
-                });
+                
                 setCourtName(court.name || '');
+                setCode(court.code || '');
+                setName(court.name || '');
+                setType(court.type || 'indoor');
+                setStatus(court.status || 'active');
+                const rawFormats = court.formats;
+                const parsedFormats = Array.isArray(rawFormats)
+                    ? rawFormats
+                    : (typeof rawFormats === 'string' ? rawFormats.split(',').map((f: string) => f.trim()).filter(Boolean) : []);
+                setFormats(parsedFormats);
+                setBasePrice(court.basePrice || '');
+                setPeakPrice(court.peakPrice || '');
+                setLocation(court.location || '');
+                setDescription(court.description || '');
+                setAmenities(court.amenities?.join(', ') || '');
+                
                 if (court.basePrice) setDisplayBasePrice(formatPrice(court.basePrice));
                 if (court.peakPrice) setDisplayPeakPrice(formatPrice(court.peakPrice));
+                
                 setFileList(
                     court.images?.map((url: string, i: number) => ({
                         uid: String(i),
@@ -78,23 +109,45 @@ const CourtUpdate: React.FC = () => {
         })();
     }, [id]);
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Validations
+        const errors: Record<string, string> = {};
+        if (!code.trim()) errors.code = 'Mã sân là bắt buộc!';
+        if (!name.trim()) errors.name = 'Tên sân là bắt buộc!';
+        if (!location.trim()) errors.location = 'Vị trí là bắt buộc!';
+        if (basePrice === '' || Number(basePrice) <= 0) errors.basePrice = 'Giá thường không hợp lệ!';
+        if (peakPrice === '' || Number(peakPrice) <= 0) errors.peakPrice = 'Giá cao điểm không hợp lệ!';
+        if (formats.length === 0) errors.formats = 'Chọn ít nhất 1 định dạng!';
+
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            message.error('Vui lòng kiểm tra lại các thông tin bắt buộc!');
+            return;
+        }
+
         try {
             setSaving(true);
-            const values = await form.validateFields();
             const formData = new FormData();
 
-            if (values.amenities) {
-                values.amenities
+            if (amenities.trim()) {
+                amenities
                     .split(',')
                     .map((a: string) => a.trim())
                     .filter(Boolean)
                     .forEach((a: string) => formData.append('amenities', a));
             }
 
-            Object.entries(values).forEach(([k, v]) => {
-                if (k !== 'amenities') formData.append(k, String(v));
-            });
+            formData.append('code', code);
+            formData.append('name', name);
+            formData.append('type', type);
+            formData.append('status', status);
+            formats.forEach(f => formData.append('formats', f));
+            formData.append('basePrice', String(basePrice));
+            formData.append('peakPrice', String(peakPrice));
+            formData.append('location', location);
+            formData.append('description', description);
 
             const keptImages = fileList.filter((f) => !f.originFileObj && f.url).map((f) => f.url);
             keptImages.forEach((url) => formData.append('keepImages', url));
@@ -116,404 +169,415 @@ const CourtUpdate: React.FC = () => {
             message.success('Cập nhật sân thành công!');
             navigate('/admin/courts');
         } catch (err: any) {
-            message.error(err.response?.data?.message || 'Lỗi khi cập nhật!');
+            message.error(err.response?.data?.message || err.message || 'Lỗi khi cập nhật!');
         } finally {
             setSaving(false);
         }
     };
 
+    const resetForm = () => {
+        // Reset to original values from fetched court Name
+        message.info('Form đã được làm mới');
+        navigate(0); // Quick refresh state reload
+    };
+
     if (loading)
         return (
-            <div className="max-w-5xl mx-auto p-6">
-                <div className="bg-white dark:bg-slate-900 rounded-4xl p-12 border border-slate-100 dark:border-white/5">
-                    <Skeleton active paragraph={{ rows: 12 }} />
-                </div>
+            <div className="max-w-5xl mx-auto p-8 flex justify-center items-center h-[50vh]">
+                <Spin tip="Đang tải dữ liệu sân bóng..." size="large" />
             </div>
         );
 
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-5xl mx-auto px-4 pb-16 pt-4"
+            transition={{ duration: 0.4 }}
+            className="max-w-5xl mx-auto px-6 pb-16 pt-4 space-y-6"
         >
-            {/* Premium Header */}
-            <div className="mb-8">
+            {/* Header */}
+            <div>
                 <button
                     onClick={() => navigate('/admin/courts')}
-                    className="flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors mb-6 group"
+                    className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors mb-4 group uppercase tracking-wider"
                 >
-                    <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+                    <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
                     Quay lại danh sách sân
                 </button>
                 
-                <div className="flex items-center gap-5">
-                    <div className="p-4 bg-linear-to-br from-indigo-500 to-violet-600 rounded-[20px] shadow-2xl shadow-indigo-500/30 border border-white/20">
-                        <Shield size={28} className="text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight leading-none">
-                            Chỉnh sửa sân bóng
-                        </h1>
-                        <p className="text-slate-400 dark:text-slate-500 font-semibold mt-1 text-sm flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shrink-0"></span>
-                            {courtName || 'Đang tải...'}
-                        </p>
-                    </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight">
+                        Chỉnh sửa cấu hình sân bóng
+                    </h1>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                        {courtName || 'Đang tải cấu hình...'}
+                    </p>
                 </div>
             </div>
 
-            <Form
-                form={form}
-                layout='vertical'
-                initialValues={{ type: 'indoor', status: 'active' }}
-                onFinish={handleSubmit}
-                requiredMark={false}
-                validateMessages={{ required: '' }}
-            >
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column: Main Info */}
-                    <div className="lg:col-span-2 space-y-8">
+                    <div className="lg:col-span-2 space-y-6">
+                        
                         {/* Thông tin cơ bản */}
-                        <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-8 shadow-sm transition-colors">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3 mb-8">
-                                <div className="w-1.5 h-7 bg-indigo-500 rounded-full"></div>
-                                Thông tin cơ bản
-                            </h3>
+                        <Card className="rounded-xl border-border/80 shadow-xs">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-sm font-bold text-foreground uppercase flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-emerald-600 rounded-full"></div>
+                                    Thông tin cơ bản
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="code" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                            <Tag size={12} />Mã sân <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Input
+                                            id="code"
+                                            placeholder="VD: S001"
+                                            value={code}
+                                            onChange={(e) => setCode(e.target.value)}
+                                            className={formErrors.code ? 'border-destructive' : ''}
+                                        />
+                                        {formErrors.code && <p className="text-[10px] font-medium text-destructive">{formErrors.code}</p>}
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                            <Shield size={12} />Tên sân <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Input
+                                            id="name"
+                                            placeholder="VD: Sân Mira A1"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                            className={formErrors.name ? 'border-destructive' : ''}
+                                        />
+                                        {formErrors.name && <p className="text-[10px] font-medium text-destructive">{formErrors.name}</p>}
+                                    </div>
+                                </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <Form.Item name='code' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Tag size={12} />Mã sân</span>} rules={[{ required: true }]}>
-                                    <Input placeholder='VD: S001' className="court-input" />
-                                </Form.Item>
-                                <Form.Item name='name' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Shield size={12} />Tên sân</span>} rules={[{ required: true }]}>
-                                    <Input placeholder='VD: Sân Mira A1' className="court-input" />
-                                </Form.Item>
-                            </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Loại sân</Label>
+                                        <Select value={type} onValueChange={(val: any) => setType(val)}>
+                                            <SelectTrigger className="w-full h-10">
+                                                <SelectValue placeholder="Chọn loại" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="indoor">Trong nhà</SelectItem>
+                                                <SelectItem value="outdoor">Ngoài trời</SelectItem>
+                                                <SelectItem value="vip">VIP</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Trạng thái</Label>
+                                        <Select value={status} onValueChange={(val: any) => setStatus(val)}>
+                                            <SelectTrigger className="w-full h-10">
+                                                <SelectValue placeholder="Trạng thái" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="active">Khai thác</SelectItem>
+                                                <SelectItem value="maintenance">Bảo trì</SelectItem>
+                                                <SelectItem value="locked">Tạm ngưng</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5 col-span-2">
+                                        <Label htmlFor="location" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <MapPin size={11} />Vị trí <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Input
+                                            id="location"
+                                            placeholder="VD: Quận 7, TP.HCM"
+                                            value={location}
+                                            onChange={(e) => setLocation(e.target.value)}
+                                            className={`h-10 ${formErrors.location ? 'border-destructive' : ''}`}
+                                        />
+                                        {formErrors.location && <p className="text-[10px] font-medium text-destructive">{formErrors.location}</p>}
+                                    </div>
+                                </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
-                                <Form.Item name='type' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Loại sân</span>} rules={[{ required: true }]}>
-                                    <Select className="court-select" popupClassName="court-dropdown">
-                                        <Option value='indoor'>🏠 Trong nhà</Option>
-                                        <Option value='outdoor'>🌤️ Ngoài trời</Option>
-                                        <Option value='vip'>✨ VIP</Option>
-                                    </Select>
-                                </Form.Item>
-                                <Form.Item name='status' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider">Trạng thái</span>}>
-                                    <Select className="court-select" popupClassName="court-dropdown">
-                                        <Option value='active'>Hoạt động</Option>
-                                        <Option value='maintenance'>🛠️ Bảo trì</Option>
-                                        <Option value='locked'>🔒 Tạm ngưng</Option>
-                                    </Select>
-                                </Form.Item>
-                                <Form.Item name='location' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1"><MapPin size={11} />Vị trí</span>} rules={[{ required: true, message: 'Nhập vị trí' }]} className="col-span-2">
-                                    <Input placeholder='VD: Quận 7, TP.HCM' className="court-input" />
-                                </Form.Item>
-                            </div>
-
-                            <Form.Item name='formats' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Layers size={12} />Định dạng sân</span>} rules={[{ required: true, message: 'Chọn định dạng' }]} className="mt-2">
-                                <Select mode='multiple' placeholder='Chọn 5v5, 7v7, 9v9...' allowClear className="court-select" popupClassName="court-dropdown">
-                                    <Option value='5v5'>⚽ 5v5</Option>
-                                    <Option value='7v7'>⚽ 7v7</Option>
-                                    <Option value='9v9'>⚽ 9v9</Option>
-                                    <Option value='11v11'>⚽ 11v11</Option>
-                                </Select>
-                            </Form.Item>
-                        </div>
+                                <div className="space-y-1.5 pt-1">
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <Layers size={12} />Định dạng sân <span className="text-destructive">*</span>
+                                    </Label>
+                                    <div className="flex gap-2">
+                                        {['5v5', '7v7', '9v9', '11v11'].map((fmt) => {
+                                            const isSelected = formats.includes(fmt);
+                                            return (
+                                                <button
+                                                    key={fmt}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (isSelected) {
+                                                            setFormats(formats.filter((f) => f !== fmt));
+                                                        } else {
+                                                            setFormats([...formats, fmt]);
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                                        isSelected
+                                                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                                                            : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                                                    }`}
+                                                >
+                                                    {fmt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {formErrors.formats && <p className="text-[10px] font-medium text-destructive mt-1">{formErrors.formats}</p>}
+                                </div>
+                            </CardContent>
+                        </Card>
 
                         {/* Mô tả & Tiện ích */}
-                        <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-8 shadow-sm transition-colors">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3 mb-8">
-                                <div className="w-1.5 h-7 bg-emerald-500 rounded-full"></div>
-                                Mô tả & Tiện ích
-                            </h3>
+                        <Card className="rounded-xl border-border/80 shadow-xs">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-sm font-bold text-foreground uppercase flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-emerald-600 rounded-full"></div>
+                                    Mô tả & Tiện ích
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="description" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        <FileText size={12} />Mô tả chi tiết
+                                    </Label>
+                                    <textarea
+                                        id="description"
+                                        rows={4}
+                                        placeholder="Viết mô tả hấp dẫn giới thiệu chất lượng sân của bạn..."
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        className="flex min-h-[90px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+                                    />
+                                </div>
 
-                            <Form.Item name='description' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><FileText size={12} />Mô tả chi tiết</span>}>
-                                <Input.TextArea rows={4} placeholder='Viết mô tả hấp dẫn về sân bóng của bạn...' className="court-textarea" />
-                            </Form.Item>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="amenities" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                        Wifi, Nước uống, Đỗ xe... (phân cách bằng dấu phẩy)
+                                    </Label>
+                                    <Input
+                                        id="amenities"
+                                        placeholder="VD: Wifi, Đỗ xe, Nhà tắm, Nước uống"
+                                        value={amenities}
+                                        onChange={(e) => setAmenities(e.target.value)}
+                                    />
+                                </div>
 
-                            <Form.Item name='amenities' label={<span className="text-[11px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Wifi size={12} />Tiện ích (phân cách bằng dấu phẩy)</span>}>
-                                <Input placeholder='VD: Wifi, Đỗ xe, Nhà tắm, Nước uống' className="court-input" />
-                            </Form.Item>
-
-                            <div className="grid grid-cols-4 gap-3 mt-4">
-                                {[
-                                    { icon: <Wifi size={16} />, label: 'Wifi' },
-                                    { icon: <Car size={16} />, label: 'Đỗ xe' },
-                                    { icon: <ShowerHead size={16} />, label: 'Phòng tắm' },
-                                    { icon: <Crown size={16} />, label: 'VIP Lounge' },
-                                ].map((item, i) => (
-                                    <div key={i} className="flex flex-col items-center gap-2 p-3 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 cursor-default hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:border-indigo-200 dark:hover:border-indigo-500/20 transition-all text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400">
-                                        {item.icon}
-                                        <span className="text-[9px] font-black uppercase tracking-wider">{item.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                                <div className="grid grid-cols-4 gap-2 pt-2">
+                                    {[
+                                        { icon: <Wifi size={15} />, label: 'Wifi' },
+                                        { icon: <Car size={15} />, label: 'Đỗ xe' },
+                                        { icon: <ShowerHead size={15} />, label: 'Phòng tắm' },
+                                        { icon: <Crown size={15} />, label: 'VIP Lounge' },
+                                    ].map((item, idx) => (
+                                        <div key={idx} className="flex flex-col items-center gap-1 p-2 bg-muted/40 rounded-lg border border-border cursor-default hover:bg-emerald-50 dark:hover:bg-emerald-500/5 hover:border-emerald-200 transition-colors text-muted-foreground hover:text-emerald-600">
+                                            {item.icon}
+                                            <span className="text-[9px] font-bold uppercase tracking-wider">{item.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
 
                         {/* Hình ảnh */}
-                        <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-8 shadow-sm transition-colors">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3 mb-8">
-                                <div className="w-1.5 h-7 bg-violet-500 rounded-full"></div>
-                                Thư viện ảnh
-                                <span className="text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-white/5 px-2 py-0.5 rounded-full ml-auto">{fileList.length}/10 ảnh</span>
-                            </h3>
+                        <Card className="rounded-xl border-border/80 shadow-xs">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-sm font-bold text-foreground uppercase flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-emerald-600 rounded-full"></div>
+                                    Thư viện ảnh
+                                    <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-md ml-auto">{fileList.length}/10 ảnh</span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="p-4 border border-dashed border-border rounded-xl bg-muted/20">
+                                    <Upload
+                                        listType="picture-card"
+                                        fileList={fileList}
+                                        beforeUpload={() => false}
+                                        onChange={({ fileList }) => setFileList(fileList)}
+                                        onRemove={(file) =>
+                                            setFileList((prev) => prev.filter((f) => f.uid !== file.uid))
+                                        }
+                                        accept="image/*"
+                                        multiple
+                                        className="court-upload"
+                                    >
+                                        {fileList.length < 10 && (
+                                            <div className="flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
+                                                <UploadIcon size={18} />
+                                                <span className="text-[9px] font-bold uppercase tracking-wider">Tải ảnh</span>
+                                            </div>
+                                        )}
+                                    </Upload>
+                                </div>
 
-                            <Upload
-                                listType='picture-card'
-                                fileList={fileList}
-                                beforeUpload={() => false}
-                                onChange={({ fileList }) => setFileList(fileList)}
-                                onRemove={(file) =>
-                                    setFileList((prev) => prev.filter((f) => f.uid !== file.uid))
-                                }
-                                accept='image/*'
-                                multiple
-                                className="court-upload"
-                            >
-                                {fileList.length < 10 && (
-                                    <div className="flex flex-col items-center justify-center gap-2 text-slate-400 group-hover:text-indigo-500 transition-colors">
-                                        <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl group-hover:bg-indigo-50 dark:group-hover:bg-indigo-500/20 transition-colors">
-                                            <UploadIcon size={24} />
-                                        </div>
-                                        <span className="text-[10px] font-black uppercase tracking-wider">Tải ảnh lên</span>
+                                {fileList.length > 0 && (
+                                    <div className="pt-3">
+                                        <Image.PreviewGroup>
+                                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                                                {fileList.map((f, i) => (
+                                                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-border shadow-xs hover:shadow-md transition-shadow bg-muted">
+                                                        <Image
+                                                            src={f.url || (f.originFileObj ? URL.createObjectURL(f.originFileObj) : '')}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </Image.PreviewGroup>
                                     </div>
                                 )}
-                            </Upload>
-
-                            {fileList.length > 0 && (
-                                <div className="mt-6">
-                                    <Image.PreviewGroup>
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                                            {fileList.map((f, i) => (
-                                                <div key={i} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-white/5 shadow-sm hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all">
-                                                    <Image
-                                                        src={f.url || (f.originFileObj ? URL.createObjectURL(f.originFileObj) : '')}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </Image.PreviewGroup>
-                                </div>
-                            )}
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    {/* Right Column: Pricing & Preview */}
-                    <div className="space-y-8">
+                    {/* Right Column: Pricing & Actions */}
+                    <div className="space-y-6">
+                        
                         {/* Bảng giá */}
-                        <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 p-8 shadow-sm transition-colors">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-3 mb-8">
-                                <div className="w-1.5 h-7 bg-amber-500 rounded-full"></div>
-                                Bảng giá
-                            </h3>
-
-                            <div className="space-y-6">
+                        <Card className="rounded-xl border-border/80 shadow-xs">
+                            <CardHeader className="pb-4">
+                                <CardTitle className="text-sm font-bold text-foreground uppercase flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-emerald-600 rounded-full"></div>
+                                    Khung giá
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
                                 {/* Giờ thường */}
-                                <div className="bg-linear-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                                        <DollarSign size={80} />
+                                <div className="p-4 bg-muted/40 rounded-xl border border-border space-y-2">
+                                    <Label htmlFor="basePriceInput" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Giờ thường</Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="basePriceInput"
+                                            type="text"
+                                            value={displayBasePrice}
+                                            onChange={(e) => {
+                                                const raw = e.target.value.replace(/[^\d]/g, '');
+                                                const num = raw ? Number(raw) : '';
+                                                setBasePrice(num);
+                                                setDisplayBasePrice(num !== '' ? formatPrice(num) : '');
+                                            }}
+                                            placeholder="500,000"
+                                            className="pl-8 text-base font-bold text-foreground h-11"
+                                        />
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">₫</span>
                                     </div>
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="px-2.5 py-1 bg-white/20 rounded-lg text-[9px] font-black uppercase backdrop-blur-sm">Giờ thường</div>
-                                        </div>
-                                        <Form.Item name='basePrice' rules={[{ required: true }]} className="mb-0" hidden>
-                                            <InputNumber />
-                                        </Form.Item>
-                                        <div className="flex items-baseline gap-2">
-                                            <input
-                                                type="text"
-                                                value={displayBasePrice}
-                                                onChange={(e) => {
-                                                    const raw = e.target.value.replace(/[^\d]/g, '');
-                                                    const num = raw ? Number(raw) : undefined;
-                                                    form.setFieldsValue({ basePrice: num });
-                                                    setDisplayBasePrice(num ? formatPrice(num) : '');
-                                                }}
-                                                placeholder="500,000"
-                                                className="bg-transparent border-none outline-none text-white font-black text-3xl w-full placeholder:text-white/30"
-                                                style={{ background: 'transparent' }}
-                                            />
-                                            <span className="text-white/40 font-bold text-sm shrink-0">VNĐ</span>
-                                        </div>
-                                        <div className="h-0.5 bg-white/20 mt-2 rounded-full"></div>
-                                    </div>
+                                    {formErrors.basePrice && <p className="text-[10px] font-medium text-destructive">{formErrors.basePrice}</p>}
                                 </div>
 
                                 {/* Giờ cao điểm */}
-                                <div className="bg-linear-to-br from-amber-500 to-orange-600 rounded-3xl p-6 text-white relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                                        <Zap size={80} />
+                                <div className="p-4 bg-muted/40 rounded-xl border border-border space-y-2">
+                                    <Label htmlFor="peakPriceInput" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Giờ cao điểm</Label>
+                                    <div className="relative">
+                                        <Input
+                                            id="peakPriceInput"
+                                            type="text"
+                                            value={displayPeakPrice}
+                                            onChange={(e) => {
+                                                const raw = e.target.value.replace(/[^\d]/g, '');
+                                                const num = raw ? Number(raw) : '';
+                                                setPeakPrice(num);
+                                                setDisplayPeakPrice(num !== '' ? formatPrice(num) : '');
+                                            }}
+                                            placeholder="800,000"
+                                            className="pl-8 text-base font-bold text-foreground h-11"
+                                        />
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">₫</span>
                                     </div>
-                                    <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <div className="px-2.5 py-1 bg-white/20 rounded-lg text-[9px] font-black uppercase backdrop-blur-sm">Giờ cao điểm</div>
-                                        </div>
-                                        <Form.Item name='peakPrice' rules={[{ required: true }]} className="mb-0" hidden>
-                                            <InputNumber />
-                                        </Form.Item>
-                                        <div className="flex items-baseline gap-2">
-                                            <input
-                                                type="text"
-                                                value={displayPeakPrice}
-                                                onChange={(e) => {
-                                                    const raw = e.target.value.replace(/[^\d]/g, '');
-                                                    const num = raw ? Number(raw) : undefined;
-                                                    form.setFieldsValue({ peakPrice: num });
-                                                    setDisplayPeakPrice(num ? formatPrice(num) : '');
-                                                }}
-                                                placeholder="800,000"
-                                                className="bg-transparent border-none outline-none text-white font-black text-3xl w-full placeholder:text-white/30"
-                                                style={{ background: 'transparent' }}
-                                            />
-                                            <span className="text-white/40 font-bold text-sm shrink-0">VNĐ</span>
-                                        </div>
-                                        <div className="h-0.5 bg-white/20 mt-2 rounded-full"></div>
-                                    </div>
+                                    {formErrors.peakPrice && <p className="text-[10px] font-medium text-destructive">{formErrors.peakPrice}</p>}
                                 </div>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
 
                         {/* Action Buttons */}
-                        <div className="bg-white dark:bg-slate-900 rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm transition-colors overflow-hidden">
-                            <div className="p-6">
-                                <button
+                        <Card className="rounded-xl border-border/80 shadow-xs overflow-hidden bg-card">
+                            <div className="p-4">
+                                <Button
                                     type="submit"
                                     disabled={saving}
-                                    className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-linear-to-r from-indigo-500 to-violet-600 text-white rounded-2xl font-black text-sm hover:shadow-xl hover:shadow-indigo-500/30 active:scale-[0.98] transition-all disabled:opacity-50 border border-white/20"
+                                    className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 shadow-xs"
                                 >
-                                    <Save size={20} />
-                                    {saving ? 'ĐANG LƯU...' : 'LƯU CẬP NHẬT'}
-                                </button>
+                                    <Save size={16} />
+                                    {saving ? 'Đang lưu cập nhật...' : 'Lưu cập nhật'}
+                                </Button>
                             </div>
-                            <div className="border-t border-slate-100 dark:border-white/5 p-4 flex gap-3 bg-slate-50/50 dark:bg-white/2">
-                                <button
+                            <div className="border-t border-border p-3 flex gap-2 bg-muted/20">
+                                <Button
                                     type="button"
-                                    onClick={() => {
-                                        form.resetFields();
-                                        message.info('Form đã được làm mới');
-                                    }}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-slate-500 dark:text-slate-400 rounded-xl font-bold text-xs uppercase hover:bg-white dark:hover:bg-white/5 transition-all active:scale-95"
+                                    variant="ghost"
+                                    onClick={resetForm}
+                                    className="flex-1 h-9 text-xs font-medium text-muted-foreground hover:bg-background hover:text-foreground"
                                 >
-                                    <RotateCcw size={14} />
+                                    <RotateCcw size={13} className="mr-1.5" />
                                     Làm mới
-                                </button>
-                                <div className="w-px bg-slate-200 dark:bg-white/10"></div>
-                                <button
+                                </Button>
+                                <div className="w-px bg-border my-1"></div>
+                                <Button
                                     type="button"
+                                    variant="ghost"
                                     onClick={() => navigate('/admin/courts')}
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-slate-500 dark:text-slate-400 rounded-xl font-bold text-xs uppercase hover:text-rose-500 hover:bg-white dark:hover:bg-white/5 dark:hover:text-rose-400 transition-all active:scale-95"
+                                    className="flex-1 h-9 text-xs font-medium text-muted-foreground hover:text-rose-600 hover:bg-background"
                                 >
-                                    <X size={14} />
+                                    <X size={13} className="mr-1.5" />
                                     Hủy bỏ
-                                </button>
+                                </Button>
                             </div>
-                        </div>
+                        </Card>
 
-                        {/* Tips */}
-                        <div className="bg-indigo-50/50 dark:bg-indigo-500/5 rounded-4xl border border-indigo-100 dark:border-indigo-500/10 p-6">
-                            <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <ImageIcon size={12} />
-                                Mẹo tối ưu
+                        {/* Tips card */}
+                        <div className="bg-muted/30 rounded-xl border border-border p-5">
+                            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                                Mẹo tối ưu cấu hình
                             </h4>
-                            <ul className="space-y-3 text-xs font-medium text-indigo-400 dark:text-indigo-300/70">
+                            <ul className="space-y-2.5 text-xs text-muted-foreground">
                                 <li className="flex items-start gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-indigo-400 mt-1.5 shrink-0"></span>
-                                    Tải ảnh chất lượng cao (min 1280px) để hiển thị đẹp
+                                    <span className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0"></span>
+                                    Tải ảnh chất lượng cao (tối thiểu 1280px) để hiển thị chi tiết
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-indigo-400 mt-1.5 shrink-0"></span>
-                                    Mô tả chi tiết giúp khách hàng dễ quyết định hơn
+                                    <span className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0"></span>
+                                    Mô tả chi tiết và chính xác giúp gia tăng tỷ lệ đặt sân
                                 </li>
                                 <li className="flex items-start gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-indigo-400 mt-1.5 shrink-0"></span>
-                                    Liệt kê đầy đủ tiện ích để tăng giá trị sân
+                                    <span className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0"></span>
+                                    Cập nhật đầy đủ các tiện ích để tối ưu chất lượng dịch vụ
                                 </li>
                             </ul>
                         </div>
                     </div>
                 </div>
-            </Form>
+            </form>
 
+            {/* Antd Upload overrides */}
             <style>{`
-                .court-input.ant-input, .court-textarea.ant-input {
-                    border-radius: 14px !important; border: 2px solid #f1f5f9 !important;
-                    padding: 12px 16px !important; background: #f8fafc !important;
-                    font-weight: 600 !important; font-size: 14px !important; transition: all 0.2s !important;
-                }
-                .court-input.ant-input:focus, .court-textarea.ant-input:focus {
-                    border-color: #6366f1 !important; background: #fff !important;
-                    box-shadow: 0 0 0 4px rgba(99,102,241,0.08) !important;
-                }
-                .dark .court-input.ant-input, .dark .court-textarea.ant-input {
-                    background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.08) !important;
-                    color: #f1f5f9 !important;
-                }
-                .dark .court-input.ant-input:focus, .dark .court-textarea.ant-input:focus {
-                    border-color: #818cf8 !important; background: rgba(255,255,255,0.08) !important;
-                    box-shadow: 0 0 0 4px rgba(129,140,248,0.1) !important;
-                }
-
-                .court-select .ant-select-selector {
-                    border-radius: 14px !important; border: 2px solid #f1f5f9 !important;
-                    padding: 4px 12px !important; background: #f8fafc !important;
-                    font-weight: 600 !important; height: 44px !important;
-                    align-items: center !important; transition: all 0.2s !important;
-                }
-                .court-select.ant-select-focused .ant-select-selector {
-                    border-color: #6366f1 !important;
-                    box-shadow: 0 0 0 4px rgba(99,102,241,0.08) !important;
-                }
-                .dark .court-select .ant-select-selector {
-                    background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.08) !important;
-                    color: #f1f5f9 !important;
-                }
-                .court-dropdown { border-radius: 16px !important; padding: 4px !important; }
-
-                .court-price-input.ant-input-number {
-                    width: 100% !important; background: transparent !important;
-                    border: none !important; border-bottom: 2px solid rgba(255,255,255,0.3) !important;
-                    border-radius: 0 !important; padding: 0 !important;
-                    box-shadow: none !important;
-                }
-                .court-price-input .ant-input-number-input-wrap,
-                .court-price-input .ant-input-number-input-wrap input {
-                    background: transparent !important;
-                }
-                .court-price-input .ant-input-number-input {
-                    color: #fff !important; font-weight: 900 !important; font-size: 32px !important;
-                    padding: 8px 0 !important; height: auto !important;
-                    text-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                    background: transparent !important;
-                }
-                .court-price-input .ant-input-number-input::placeholder {
-                    color: rgba(255,255,255,0.4) !important; font-size: 28px !important;
-                }
-                .court-price-input.ant-input-number:hover,
-                .court-price-input.ant-input-number-focused {
-                    border-bottom-color: rgba(255,255,255,0.6) !important;
-                    box-shadow: none !important;
-                }
-                .court-price-input .ant-input-number-handler-wrap { display: none !important; }
-                .court-price-input .ant-input-number-suffix { color: rgba(255,255,255,0.5) !important; font-size: 14px !important; }
-                /* Kill ALL dark backgrounds inside price input */
-                .court-price-input, .court-price-input * {
-                    background-color: transparent !important;
-                }
-
                 .court-upload .ant-upload-list-item-container,
                 .court-upload .ant-upload-select {
-                    width: 110px !important; height: 110px !important;
-                    border-radius: 20px !important; border: 2px dashed #e2e8f0 !important;
-                    transition: all 0.2s !important;
+                    width: 85px !important;
+                    height: 85px !important;
+                    border-radius: 10px !important;
+                    border: 2px dashed var(--border, #e2e8f0) !important;
+                    background: transparent !important;
+                    transition: border-color 0.15s !important;
                 }
-                .court-upload .ant-upload-select:hover { border-color: #6366f1 !important; }
-                .dark .court-upload .ant-upload-select { border-color: rgba(255,255,255,0.1) !important; }
-                .dark .court-upload .ant-upload-select:hover { border-color: #818cf8 !important; }
-
-                .ant-form-item-label > label { margin-bottom: 6px !important; }
+                .court-upload .ant-upload-select:hover {
+                    border-color: #10b981 !important;
+                }
+                .dark .court-upload .ant-upload-select {
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                }
+                .dark .court-upload .ant-upload-select:hover {
+                    border-color: #34d399 !important;
+                }
+                .court-upload .ant-upload-list-item {
+                    border-radius: 10px !important;
+                    border: 1px solid var(--border, #e2e8f0) !important;
+                }
             `}</style>
         </motion.div>
     );

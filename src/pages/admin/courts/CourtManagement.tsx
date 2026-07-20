@@ -2,21 +2,11 @@ import React, { useEffect, useState } from 'react';
 import imageCompression from 'browser-image-compression';
 import { useNavigate } from 'react-router-dom';
 import {
-    Table,
-    Modal,
-    Form,
-    Input,
-    Select,
-    InputNumber,
-    message,
     Upload,
     Image,
-    Skeleton,
+    message,
+    Spin,
 } from 'antd';
-import {
-    InfoOutlined,
-    CloseOutlined,
-} from '@ant-design/icons';
 import {
     Plus,
     Edit3,
@@ -27,17 +17,63 @@ import {
     Waves,
     Zap,
     Crown,
-    CheckCircle2,
-    AlertCircle,
-    Lock,
     ChevronLeft,
     ChevronRight,
     Upload as UploadIcon,
     DollarSign,
+    X,
+    RefreshCw,
+    Info,
+    Wifi,
+    Car,
+    ShowerHead,
+    Search,
+    SlidersHorizontal,
+    Tag,
+    Layers,
+    FileText,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { UploadFile } from 'antd/es/upload/interface';
 import api from '../../../common/utils/api.ts';
+
+// shadcn/ui components
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 
 interface Court {
     _id?: string;
@@ -54,17 +90,16 @@ interface Court {
     location?: string;
 }
 
-const { Option } = Select;
 const TYPE_CONFIG = {
-    indoor: { label: 'Trong nhà', icon: <Shield size={10} />, color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400' },
-    outdoor: { label: 'Ngoài trời', icon: <Waves size={10} />, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-400' },
-    vip: { label: 'VIP', icon: <Crown size={10} />, color: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-400' },
+    indoor: { label: 'Trong nhà', icon: <Shield size={12} className="mr-1" />, color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' },
+    outdoor: { label: 'Ngoài trời', icon: <Waves size={12} className="mr-1" />, color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20' },
+    vip: { label: 'VIP', icon: <Crown size={12} className="mr-1" />, color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' },
 };
 
 const STATUS_CONFIG = {
-    active: { label: 'Khai thác', color: 'bg-emerald-500 text-white shadow-emerald-500/30' },
-    maintenance: { label: 'Bảo trì', color: 'bg-amber-500 text-white shadow-amber-500/30' },
-    locked: { label: 'Tạm ngưng', color: 'bg-rose-500 text-white shadow-rose-500/30' },
+    active: { label: 'Khai thác', color: 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' },
+    maintenance: { label: 'Bảo trì', color: 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' },
+    locked: { label: 'Tạm ngưng', color: 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' },
 };
 
 const fmtVND = (n?: number) => (typeof n === 'number' ? `${n.toLocaleString('vi-VN')} ₫` : '—');
@@ -72,14 +107,44 @@ const fmtVND = (n?: number) => (typeof n === 'number' ? `${n.toLocaleString('vi-
 const CourtManagement: React.FC = () => {
     const [courts, setCourts] = useState<Court[]>([]);
     const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false); 
+    const [saving, setSaving] = useState(false);
+    
+    // Modal states
     const [modalOpen, setModalOpen] = useState(false);
     const [detailModal, setDetailModal] = useState(false);
     const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [editingCourt, setEditingCourt] = useState<Court | null>(null);
-    const [form] = Form.useForm();
-    const [fileList, setFileList] = useState<UploadFile[]>([]);
+
+    // Delete confirm alert-dialog state
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [courtToDeleteId, setCourtToDeleteId] = useState<string | null>(null);
+
+    // Form inputs state
+    const [code, setCode] = useState('');
+    const [name, setName] = useState('');
+    const [type, setType] = useState<'indoor' | 'outdoor' | 'vip'>('indoor');
+    const [status, setStatus] = useState<'active' | 'maintenance' | 'locked'>('active');
+    const [formats, setFormats] = useState<string[]>([]);
+    const [basePrice, setBasePrice] = useState<number | ''>('');
+    const [peakPrice, setPeakPrice] = useState<number | ''>('');
+    const [displayBasePrice, setDisplayBasePrice] = useState('');
+    const [displayPeakPrice, setDisplayPeakPrice] = useState('');
+    const [location, setLocation] = useState('');
+    const [description, setDescription] = useState('');
+    const [amenities, setAmenities] = useState('');
+    const [fileList, setFileList] = useState<any[]>([]);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    // Search and filter state
+    const [searchText, setSearchText] = useState('');
+    const [typeFilter, setTypeFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 6;
+
     const navigate = useNavigate();
 
     const fetchCourts = async () => {
@@ -93,6 +158,7 @@ const CourtManagement: React.FC = () => {
             setLoading(false);
         }
     };
+
     useEffect(() => {
         fetchCourts();
     }, []);
@@ -100,10 +166,22 @@ const CourtManagement: React.FC = () => {
     const openModal = (court?: Court) => {
         if (court) {
             setEditingCourt(court);
-            form.setFieldsValue({
-                ...court,
-                amenities: court.amenities?.join(', '),
-            });
+            setCode(court.code || '');
+            setName(court.name || '');
+            setType(court.type || 'indoor');
+            setStatus(court.status || 'active');
+            const rawFormats = court.formats;
+            const parsedFormats = Array.isArray(rawFormats)
+                ? rawFormats
+                : (typeof rawFormats === 'string' ? rawFormats.split(',').map((f: string) => f.trim()).filter(Boolean) : []);
+            setFormats(parsedFormats);
+            setBasePrice(court.basePrice || '');
+            setPeakPrice(court.peakPrice || '');
+            setDisplayBasePrice(court.basePrice ? court.basePrice.toLocaleString('vi-VN') : '');
+            setDisplayPeakPrice(court.peakPrice ? court.peakPrice.toLocaleString('vi-VN') : '');
+            setLocation(court.location || '');
+            setDescription(court.description || '');
+            setAmenities(court.amenities?.join(', ') || '');
             setFileList(
                 court.images?.map((url, i) => ({
                     uid: `${i}`,
@@ -114,9 +192,21 @@ const CourtManagement: React.FC = () => {
             );
         } else {
             setEditingCourt(null);
-            form.resetFields();
+            setCode('');
+            setName('');
+            setType('indoor');
+            setStatus('active');
+            setFormats([]);
+            setBasePrice('');
+            setPeakPrice('');
+            setDisplayBasePrice('');
+            setDisplayPeakPrice('');
+            setLocation('');
+            setDescription('');
+            setAmenities('');
             setFileList([]);
         }
+        setFormErrors({});
         setModalOpen(true);
     };
 
@@ -133,24 +223,49 @@ const CourtManagement: React.FC = () => {
         }
     };
 
-    const handleSubmit = async (values: any) => {
+    const handleFormSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        // Basic Validations
+        const errors: Record<string, string> = {};
+        if (!code.trim()) errors.code = 'Mã sân là bắt buộc!';
+        if (!name.trim()) errors.name = 'Tên sân là bắt buộc!';
+        if (!location.trim()) errors.location = 'Vị trí là bắt buộc!';
+        if (basePrice === '' || Number(basePrice) <= 0) errors.basePrice = 'Giá thường không hợp lệ!';
+        if (peakPrice === '' || Number(peakPrice) <= 0) errors.peakPrice = 'Giá cao điểm không hợp lệ!';
+        if (formats.length === 0) errors.formats = 'Chọn ít nhất 1 định dạng!';
+
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            message.error('Vui lòng kiểm tra lại các trường thông tin bắt buộc!');
+            return;
+        }
+
         try {
             setSaving(true);
             const formData = new FormData();
-            if (values.amenities && typeof values.amenities === 'string') {
-                values.amenities
+            
+            if (amenities.trim()) {
+                amenities
                     .split(',')
                     .map((a: string) => a.trim())
                     .filter(Boolean)
                     .forEach((a: string) => formData.append('amenities', a));
             }
-            Object.entries(values).forEach(([k, v]) => {
-                if (k !== 'amenities' && v !== undefined && v !== null) {
-                    formData.append(k, String(v));
-                }
-            });
+            
+            formData.append('code', code);
+            formData.append('name', name);
+            formData.append('type', type);
+            formData.append('status', status);
+            formats.forEach(f => formData.append('formats', f));
+            formData.append('basePrice', String(basePrice));
+            formData.append('peakPrice', String(peakPrice));
+            formData.append('location', location);
+            formData.append('description', description);
+            
             const keptImages = fileList.filter((f) => !f.originFileObj && f.url).map((f) => f.url!);
             keptImages.forEach((url) => formData.append('keepImages', url));
+            
             const newFiles = fileList.filter((f) => f.originFileObj);
             for (const file of newFiles) {
                 const compressed = await imageCompression(file.originFileObj!, {
@@ -160,6 +275,7 @@ const CourtManagement: React.FC = () => {
                 });
                 formData.append('images', compressed);
             }
+            
             let res: { data: { data: Court } };
             if (editingCourt?._id) {
                 res = await api.patch(`/courts/${editingCourt._id}`, formData, {
@@ -178,447 +294,802 @@ const CourtManagement: React.FC = () => {
                 setCourts((prev) => [res.data.data, ...prev]);
             }
             setModalOpen(false);
-            form.resetFields();
-            setFileList([]);
-            setEditingCourt(null);
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Lỗi khi lưu dữ liệu!');
+            message.error(err?.response?.data?.message || err?.message || 'Lỗi khi lưu dữ liệu!');
         } finally {
             setSaving(false);
         }
     };
 
-    const handleDelete = async (id: string) => {
-        Modal.confirm({
-            centered: true,
-            title: 'Khóa sân bóng?',
-            content: 'Bạn có chắc chắn muốn khóa sân này? Sân sẽ không hiển thị với người dùng nữa.',
-            okText: 'Khóa sân',
-            cancelText: 'Hủy',
-            okButtonProps: { danger: true },
-            async onOk() {
-                try {
-                    await api.delete(`/courts/${id}`);
-                    message.success('Thao tác thành công!');
-                    fetchCourts();
-                } catch {
-                    message.error('Khóa sân thất bại!');
-                }
-            },
-        });
+    const handleDeleteClick = (id: string) => {
+        setCourtToDeleteId(id);
+        setDeleteConfirmOpen(true);
     };
 
-    const columns = [
-        { 
-            title: 'Sân bóng', 
-            key: 'court_info',
-            render: (_: any, record: Court) => (
-                <div className="flex items-center gap-5 pl-2">
-                    <div className="relative group shrink-0">
-                        {record.images?.length ? (
-                            <div className="w-16 h-16 rounded-[1.25rem] overflow-hidden shadow-lg shadow-black/5 dark:shadow-black/20 transition-all duration-300 group-hover:scale-105 group-hover:shadow-indigo-500/20">
-                                <Image src={record.images[0]} className="w-full h-full object-cover" preview={{ mask: <div className="text-[10px] font-black uppercase text-white tracking-widest bg-black/60 w-full h-full flex items-center justify-center">XEM</div> }} />
-                            </div>
-                        ) : (
-                            <div className="w-16 h-16 rounded-[1.25rem] bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center border border-slate-200 dark:border-white/5 shadow-inner">
-                                <Eye size={20} className="text-slate-300 dark:text-slate-600" />
-                            </div>
-                        )}
-                        {/* Status label floating */}
-                        <div className={`absolute -bottom-2 lg:-bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md text-[8px] font-black uppercase shadow-sm tracking-wider whitespace-nowrap border-2 border-white dark:border-card ${STATUS_CONFIG[record.status as keyof typeof STATUS_CONFIG].color}`}>
-                            {STATUS_CONFIG[record.status as keyof typeof STATUS_CONFIG].label}
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5 pt-1">
-                        <span className="font-black text-slate-800 dark:text-slate-100 text-[15px] leading-none transition-colors group-hover:text-indigo-500 dark:group-hover:text-indigo-400">{record.name}</span>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-slate-400 uppercase tracking-widest">{record.code}</span>
-                            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1"><MapPin size={10} className="text-rose-400 shrink-0" /><span className="truncate max-w-[120px] lg:max-w-[200px]">{record.location || 'Chưa cập nhật'}</span></span>
-                        </div>
-                    </div>
-                </div>
-            )
-        },
-        {
-            title: 'Khung giá',
-            key: 'prices',
-            width: 200,
-            render: (_: any, record: Court) => (
-                <div className="flex flex-col gap-2 relative z-10">
-                    <div className="flex items-center justify-between group/price transition-colors hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg -mx-2 px-2 py-1">
-                        <div className="flex items-center gap-1.5">
-                            <div className="p-1 rounded-md bg-slate-100 dark:bg-white/10 text-emerald-500"><DollarSign size={12} strokeWidth={3} /></div>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Thường</span>
-                        </div>
-                        <span className="text-sm font-black text-slate-700 dark:text-slate-200">{fmtVND(record.basePrice)}</span>
-                    </div>
-                    <div className="flex items-center justify-between group/price transition-colors hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg -mx-2 px-2 py-1">
-                        <div className="flex items-center gap-1.5">
-                            <div className="p-1 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-500"><Zap size={12} strokeWidth={3} /></div>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Cao điểm</span>
-                        </div>
-                        <span className="text-sm font-black text-amber-600 dark:text-amber-400">{fmtVND(record.peakPrice)}</span>
-                    </div>
-                </div>
-            )
-        },
-        {
-            title: 'Đặc điểm',
-            key: 'features',
-            render: (_: any, record: Court) => {
-                const formats = Array.isArray(record.formats) ? record.formats : (typeof record.formats === 'string' ? (record.formats as any).split(',') : []);
-                const amenities = Array.isArray(record.amenities) ? record.amenities : (typeof record.amenities === 'string' ? (record.amenities as any).split(',') : []);
-                const typeConfig = TYPE_CONFIG[record.type as keyof typeof TYPE_CONFIG];
+    const handleConfirmDelete = async () => {
+        if (!courtToDeleteId) return;
+        try {
+            await api.delete(`/courts/${courtToDeleteId}`);
+            message.success('Xóa sân bóng thành công!');
+            fetchCourts();
+        } catch {
+            message.error('Xóa sân bóng thất bại!');
+        } finally {
+            setDeleteConfirmOpen(false);
+            setCourtToDeleteId(null);
+        }
+    };
 
-                return (
-                    <div className="flex flex-col gap-2 min-w-[180px]">
-                         <div className="flex flex-wrap items-center gap-2">
-                             <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-black uppercase w-fit ${typeConfig.color}`}>
-                                {typeConfig.icon}
-                                {typeConfig.label}
-                            </div>
-                            {formats.map((f: string, i: number) => (
-                                <span key={i} className="px-1.5 py-0.5 bg-slate-800 dark:bg-slate-700 text-white text-[9px] font-black rounded-md uppercase shadow-xs">Sân {f}</span>
-                            ))}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                            {amenities.slice(0, 3).map((a: string, i: number) => (
-                                <span key={i} className="flex items-center gap-1 text-[9px] font-bold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 px-1.5 py-0.5 rounded-md"><div className="w-1 h-1 rounded-full bg-emerald-400 shrink-0"></div><span className="truncate max-w-[80px]">{a}</span></span>
-                            ))}
-                            {amenities.length > 3 && <span className="text-[9px] font-black text-slate-400">+{amenities.length - 3}</span>}
-                        </div>
-                    </div>
-                );
-            }
-        },
-        {
-            title: 'Thao tác',
-            key: 'actions',
-            width: 140,
-            align: 'right' as const,
-            render: (_: any, record: Court) => (
-                <div className="flex items-center justify-end gap-2 shrink-0">
-                    <button 
-                        onClick={() => handleView(record._id!)}
-                        className="p-2.5 bg-slate-50 dark:bg-white/5 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/20 dark:text-slate-300 dark:hover:text-indigo-400 rounded-[14px] transition-all active:scale-90 border border-transparent hover:border-indigo-100 dark:border-white/5 dark:hover:border-indigo-500/30 group/btn shadow-sm"
-                        title="Xem chi tiết"
-                    >
-                        <Eye size={18} className="transition-transform group-hover/btn:scale-110" />
-                    </button>
-                    <button 
-                        onClick={() => navigate(`/admin/courts/update/${record._id}`)}
-                        className="p-2.5 bg-slate-50 dark:bg-white/5 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/20 dark:text-slate-300 dark:hover:text-emerald-400 rounded-[14px] transition-all active:scale-90 border border-transparent hover:border-emerald-100 dark:border-white/5 dark:hover:border-emerald-500/30 group/btn shadow-sm"
-                        title="Chỉnh sửa"
-                    >
-                        <Edit3 size={18} className="transition-transform group-hover/btn:scale-110" />
-                    </button>
-                    <button 
-                        onClick={() => handleDelete(record._id!)}
-                        className="p-2.5 bg-slate-50 dark:bg-white/5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/20 dark:text-slate-300 dark:hover:text-rose-400 rounded-[14px] transition-all active:scale-90 border border-transparent hover:border-rose-100 dark:border-white/5 dark:hover:border-rose-500/30 group/btn shadow-sm"
-                        title="Xóa"
-                    >
-                        <Trash2 size={18} className="transition-transform group-hover/btn:scale-110" />
-                    </button>
-                </div>
-            ),
-        },
-    ];
+    // Filter courts locally
+    const filteredCourts = courts.filter((court) => {
+        const matchesSearch = 
+            court.name.toLowerCase().includes(searchText.toLowerCase()) ||
+            court.code.toLowerCase().includes(searchText.toLowerCase()) ||
+            (court.location || '').toLowerCase().includes(searchText.toLowerCase());
+        
+        const matchesType = typeFilter === 'all' || court.type === typeFilter;
+        const matchesStatus = statusFilter === 'all' || court.status === statusFilter;
+
+        return matchesSearch && matchesType && matchesStatus;
+    });
+
+    // Pagination slice
+    const totalPages = Math.ceil(filteredCourts.length / pageSize);
+    const paginatedCourts = filteredCourts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    // Reset pagination when filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchText, typeFilter, statusFilter]);
 
     return (
-        <div className="px-4 pb-12 space-y-8 animate-in fade-in duration-700">
-            <div className='flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pt-6'>
-                <div className='relative'>
-                    <div className='absolute -left-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-3xl' />
-                    <h1 className='text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-4 italic'>
-                        <div className="p-3.5 bg-linear-to-br from-blue-600 to-indigo-700 rounded-[20px] shadow-2xl shadow-blue-500/40 rotate-6 flex items-center justify-center border border-white/20">
-                            <Zap size={28} className="text-white" />
-                        </div>
-                        <span className="relative">
-                            QUẢN LÝ SÂN BÓNG
-                            <div className="absolute -bottom-2 left-0 w-1/2 h-1.5 bg-blue-500/30 rounded-full" />
-                        </span>
+        <div className="px-6 pb-12 space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto pt-6">
+            
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                        Quản lý sân bóng
                     </h1>
-                    <p className='text-slate-500 dark:text-slate-400 mt-6 font-semibold flex items-center gap-2 text-sm md:text-base'>
-                        <span className="flex h-2.5 w-2.5 relative shrink-0">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
-                        </span>
+                    <p className="text-muted-foreground mt-1 text-sm">
                         Quản lý cơ sở vật chất và cấu hình vận hành sân bóng
                     </p>
                 </div>
                 
-                <div className='flex items-center gap-3 relative z-10 bg-white/50 dark:bg-white/5 p-2 rounded-4xl border border-white dark:border-white/10 shadow-xl dark:shadow-none backdrop-blur-md'>
-                    <button
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="outline"
+                        size="icon"
                         onClick={fetchCourts}
-                        className='p-3.5 text-slate-500 dark:text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:border-blue-200 dark:hover:border-blue-500/30 rounded-[18px] border border-transparent transition-all active:scale-95 bg-white dark:bg-transparent shadow-sm dark:shadow-none'
+                        className="h-10 w-10 text-muted-foreground hover:text-foreground border-border hover:bg-muted"
                         title="Làm mới"
                     >
-                        <ChevronLeft className={loading ? 'animate-spin' : ''} size={20} />
-                    </button>
-                    <button
+                        <RefreshCw className={loading ? 'animate-spin' : ''} size={16} />
+                    </Button>
+                    <Button
                         onClick={() => openModal()}
-                        className="flex items-center gap-2 px-6 py-3.5 bg-linear-to-r from-blue-600 to-indigo-700 text-white rounded-[18px] font-bold text-sm shadow-xl shadow-blue-500/30 dark:shadow-blue-500/20 border border-blue-500/50 hover:scale-[1.02] active:scale-95 transition-all"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
                     >
-                        <Plus size={20} /> THÊM SÂN MỚI
-                    </button>
+                        <Plus size={16} className="mr-1.5" /> Thêm sân mới
+                    </Button>
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-card rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden p-6 transition-colors">
-                <Table
-                    rowKey='_id'
-                    columns={columns as any}
-                    dataSource={courts}
-                    loading={loading}
-                    pagination={{ 
-                        pageSize: 6,
-                        className: "px-6 py-4",
-                        itemRender: (_page, type, originalElement) => {
-                            if (type === 'prev') return <button className="p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors text-slate-400"><ChevronLeft size={16} /></button>;
-                            if (type === 'next') return <button className="p-2 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors text-slate-400"><ChevronRight size={16} /></button>;
-                            return originalElement;
-                        }
-                    }}
-                    className="premium-table"
-                />
+            {/* Filters Row */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center bg-card p-4 rounded-xl border border-border/80 shadow-xs">
+                <div className="relative w-full sm:flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                    <Input
+                        placeholder="Tìm theo tên sân, mã sân, vị trí..."
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        className="pl-9 h-10 w-full"
+                    />
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="w-[140px]">
+                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                            <SelectTrigger className="h-10 bg-background text-sm">
+                                <SelectValue placeholder="Loại sân" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tất cả loại</SelectItem>
+                                <SelectItem value="indoor">Trong nhà</SelectItem>
+                                <SelectItem value="outdoor">Ngoài trời</SelectItem>
+                                <SelectItem value="vip">VIP</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="w-[140px]">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="h-10 bg-background text-sm">
+                                <SelectValue placeholder="Trạng thái" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                                <SelectItem value="active">Khai thác</SelectItem>
+                                <SelectItem value="maintenance">Bảo trì</SelectItem>
+                                <SelectItem value="locked">Tạm ngưng</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
             </div>
 
-            <style>{`
-                .premium-table .ant-table { background: transparent !important; }
-                .premium-table .ant-table-thead > tr > th {
-                    background: transparent !important; color: #64748b !important;
-                    font-size: 11px !important; font-weight: 800 !important;
-                    text-transform: uppercase !important; letter-spacing: 0.05em !important;
-                    border-bottom: 2px solid #f1f5f9 !important; padding: 12px 24px 20px 24px !important;
-                }
-                .dark .premium-table .ant-table-thead > tr > th {
-                    color: #64748b !important; border-bottom: 1px dashed rgba(255,255,255,0.1) !important;
-                }
-                .premium-table .ant-table-tbody > tr > td {
-                    padding: 20px 24px !important; border-bottom: 1px dotted #e2e8f0 !important;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); color: inherit; background: transparent !important;
-                }
-                .dark .premium-table .ant-table-tbody > tr > td { border-bottom: 1px dashed rgba(255,255,255,0.05) !important; }
-                
-                /* Hover effect for row */
-                .premium-table .ant-table-tbody > tr { transition: all 0.3s !important; position: relative; }
-                .premium-table .ant-table-tbody > tr:hover > td { background: #f8fafc !important; }
-                .dark .premium-table .ant-table-tbody > tr:hover > td { background: rgba(255,255,255,0.015) !important; }
-                
-                /* First cell left radius and line */
-                .premium-table .ant-table-tbody > tr:hover > td:first-child { 
-                    border-top-left-radius: 20px !important;
-                    border-bottom-left-radius: 20px !important;
-                    box-shadow: inset 3px 0 0 0 #6366f1 !important;
-                }
-                .dark .premium-table .ant-table-tbody > tr:hover > td:first-child { 
-                    box-shadow: inset 3px 0 0 0 #818cf8 !important;
-                }
-                /* Last cell right radius */
-                .premium-table .ant-table-tbody > tr:hover > td:last-child {
-                    border-top-right-radius: 20px !important;
-                    border-bottom-right-radius: 20px !important;
-                }
-                
-                .ant-table-placeholder { background: transparent !important; border-color: transparent !important; }
-            `}</style>
-
-            <Modal
-                title={
-                    <div className="flex items-center gap-3 py-2">
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                            {editingCourt ? <Edit3 size={20}/> : <Plus size={20}/>}
-                        </div>
-                        <span className="text-xl font-black text-slate-800">
-                            {editingCourt ? 'Cập nhật thông tin Sân' : 'Thêm Sân bóng mới'}
-                        </span>
+            {/* Custom shadcn Table */}
+            <div className="bg-card rounded-xl border border-border shadow-xs overflow-hidden">
+                {loading ? (
+                    <div className="py-20 flex justify-center items-center">
+                        <Spin tip="Đang tải danh sách sân..." />
                     </div>
-                }
-                open={modalOpen}
-                onCancel={() => setModalOpen(false)}
-                footer={null}
-                width={800}
-                centered
-                className="premium-modal"
-                closeIcon={<div className="p-2 hover:bg-slate-100 rounded-full transition-colors mt-2"><Trash2 size={18} className="text-slate-400"/></div>}
-            >
-                <Form
-                    form={form}
-                    layout='vertical'
-                    initialValues={{ type: 'indoor', status: 'active', amenities: '' }}
-                    onFinish={handleSubmit}
-                    className="mt-4"
-                >
-                    <div className="flex flex-col md:flex-row gap-6 mb-6">
-                        <Form.Item name='code' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Mã sân</span>} rules={[{ required: true, message: 'Vui lòng nhập mã sân!' }]} className="flex-1">
-                            <Input placeholder='Ví dụ: S001' className="premium-input" prefix={<Shield size={16} className="text-slate-300 mr-1"/>} />
-                        </Form.Item>
-                        <Form.Item name='name' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Tên sân bóng</span>} rules={[{ required: true, message: 'Vui lòng nhập tên sân!' }]} className="flex-2">
-                            <Input placeholder='Nhập tên sân (Ví dụ: Sân Mira A1)' className="premium-input" />
-                        </Form.Item>
-                    </div>
+                ) : paginatedCourts.length > 0 ? (
+                    <div className="w-full overflow-x-auto">
+                        <Table className="min-w-[800px]">
+                            <TableHeader>
+                                <TableRow className="bg-muted/10">
+                                    <TableHead className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider pl-6 py-4">SÂN BÓNG</TableHead>
+                                    <TableHead className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider py-4 w-[200px]">KHUNG GIÁ</TableHead>
+                                    <TableHead className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider py-4 min-w-[200px]">ĐẶC ĐIỂM</TableHead>
+                                    <TableHead className="font-bold text-muted-foreground uppercase text-[10px] tracking-wider py-4 text-right pr-6">THAO TÁC</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedCourts.map((court) => {
+                                    const courtType = TYPE_CONFIG[court.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.indoor;
+                                    const courtStatus = STATUS_CONFIG[court.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.active;
+                                    const courtFormats = Array.isArray(court.formats) ? court.formats : [];
+                                    const courtAmenities = Array.isArray(court.amenities) ? court.amenities : [];
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <Form.Item name='type' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Loại sân</span>} rules={[{ required: true, message: 'Chọn loại sân' }]}>
-                            <Select className="premium-select" placeholder="Chọn loại">
-                                <Option value='indoor'>Trong nhà</Option>
-                                <Option value='outdoor'>Ngoài trời</Option>
-                                <Option value='vip'>VIP ✨</Option>
-                            </Select>
-                        </Form.Item>
-                        <Form.Item name='status' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Trạng thái</span>}>
-                            <Select className="premium-select">
-                                <Option value='active'>Hoạt động</Option>
-                                <Option value='maintenance'>Bảo trì 🛠️</Option>
-                                <Option value='locked'>Khóa 🔒</Option>
-                            </Select>
-                        </Form.Item>
-                        <Form.Item name='formats' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Định dạng</span>} rules={[{ required: true, message: 'Chọn định dạng' }]}>
-                            <Select mode='multiple' className="premium-select" placeholder="Chọn 5v5, 7v7...">
-                                <Option value='5v5'>5v5</Option>
-                                <Option value='7v7'>7v7</Option>
-                                <Option value='9v9'>9v9</Option>
-                                <Option value='11v11'>11v11</Option>
-                            </Select>
-                        </Form.Item>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <Form.Item name='basePrice' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Giá khung giờ Thường (VNĐ)</span>} rules={[{ required: true, message: 'Nhập giá' }]}>
-                            <InputNumber className="premium-input-number w-full" formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={v => v!.replace(/\$\s?|(,*)/g, '')} prefix={<DollarSign size={16} className="text-emerald-500 mr-1"/>} />
-                        </Form.Item>
-                        <Form.Item name='peakPrice' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Giá khung giờ Cao điểm (VNĐ)</span>} rules={[{ required: true, message: 'Nhập giá' }]}>
-                            <InputNumber className="premium-input-number w-full" formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={v => v!.replace(/\$\s?|(,*)/g, '')} prefix={<Zap size={16} className="text-amber-500 mr-1"/>} />
-                        </Form.Item>
-                    </div>
-
-                    <Form.Item name='location' label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Vị trí sân bóng</span>} rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]} className="mb-6">
-                        <Input prefix={<MapPin size={16} className="text-rose-500 mr-1"/>} className="premium-input" placeholder="Ví dụ: Quận 7, TP.HCM" />
-                    </Form.Item>
-
-                    <Form.Item label={<span className="text-xs font-black text-slate-500 uppercase tracking-wider">Hình ảnh (Tối đa 10 ảnh)</span>} className="mb-8">
-                        <div className="p-4 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-3xl bg-slate-50/50 dark:bg-white/5">
-                            <Upload listType='picture-card' fileList={fileList} beforeUpload={() => false} onChange={({ fileList }) => setFileList(fileList)} className="premium-upload" accept='image/*' multiple>
-                                {fileList.length < 10 && (
-                                    <div className="flex flex-col items-center justify-center text-slate-400 gap-1">
-                                        <UploadIcon size={24} />
-                                        <span className="text-[10px] font-bold uppercase">Tải ảnh</span>
-                                    </div>
-                                )}
-                            </Upload>
-                        </div>
-                    </Form.Item>
-
-                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100 dark:border-white/5">
-                        <button type="button" onClick={() => setModalOpen(false)} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 rounded-[14px] transition-all">HỦY BỎ</button>
-                        <button type="submit" disabled={saving} className="px-8 py-2.5 bg-linear-to-r from-blue-600 to-indigo-700 text-white rounded-[16px] font-black text-sm hover:shadow-xl hover:shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50">
-                            {saving ? 'ĐANG LƯU...' : (editingCourt ? 'CẬP NHẬT' : 'TẠO MỚI')}
-                        </button>
-                    </div>
-                </Form>
-
-                <style>{`
-                    .premium-modal .ant-modal-content { border-radius: 32px !important; padding: 32px !important; }
-                    .premium-input, .premium-select .ant-select-selector, .premium-input-number {
-                        border-radius: 12px !important; border: 1px solid #f1f5f9 !important;
-                        padding: 8px 12px !important; background: #f8fafc !important;
-                        font-weight: 600 !important; transition: all 0.2s !important; width: 100%;
-                    }
-                    .dark .premium-input, .dark .premium-select .ant-select-selector, .dark .premium-input-number {
-                        background: rgba(255,255,255,0.05) !important; border-color: rgba(255,255,255,0.1) !important; color: #f8fafc !important;
-                    }
-                `}</style>
-            </Modal>
-
-            <AnimatePresence>
-                {detailModal && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-                        <motion.div initial={{ opacity: 0, scale: 0.95, y: 40 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 30 }} className="bg-white dark:bg-card w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-4xl shadow-2xl border border-slate-200 dark:border-white/10">
-                            <div className="sticky top-0 z-10 bg-white/80 dark:bg-card/80 backdrop-blur-xl px-8 py-6 flex items-center justify-between border-b border-slate-100 dark:border-white/5">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                                        <InfoOutlined style={{ fontSize: 24 }} />
-                                    </div>
-                                    <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white leading-tight">{selectedCourt?.name || 'Chi tiết sân'}</h2>
-                                </div>
-                                <button onClick={() => setDetailModal(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-2xl transition-all text-slate-400 hover:text-rose-500"><CloseOutlined style={{ fontSize: 20 }} /></button>
-                            </div>
-
-                            <div className="p-8">
-                                <AnimatePresence mode='wait'>
-                                    {detailLoading ? (
-                                        <motion.div key='loading' initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Skeleton active paragraph={{ rows: 12 }} /></motion.div>
-                                    ) : selectedCourt ? (
-                                        <motion.div key='detail' initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-5 gap-10">
-                                            <div className="lg:col-span-3 space-y-10">
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 bg-slate-50 dark:bg-white/5 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-inner">
-                                                    <div><label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Mã định danh</label><p className="font-black text-slate-800 dark:text-slate-100 text-lg">{selectedCourt.code}</p></div>
-                                                    <div><label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Vị trí</label><p className="font-black text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2"><MapPin size={16} className="text-rose-500" />{selectedCourt.location || 'N/A'}</p></div>
-                                                    <div className="pt-2">
-                                                        <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Loại hình</label>
-                                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-black uppercase w-fit ${TYPE_CONFIG[selectedCourt.type as keyof typeof TYPE_CONFIG].color}`}>
-                                                            {TYPE_CONFIG[selectedCourt.type as keyof typeof TYPE_CONFIG].icon}{TYPE_CONFIG[selectedCourt.type as keyof typeof TYPE_CONFIG].label}
-                                                        </div>
-                                                    </div>
-                                                    <div className="pt-2">
-                                                        <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Trạng thái</label>
-                                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase w-fit text-white ${STATUS_CONFIG[selectedCourt.status as keyof typeof STATUS_CONFIG].color}`}>
-                                                            {STATUS_CONFIG[selectedCourt.status as keyof typeof STATUS_CONFIG].label}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-6">
-                                                    <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-2"><div className="w-1.5 h-6 bg-emerald-500 rounded-full" />Tiện ích</h4>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                                        {selectedCourt.amenities?.map((a, i) => (
-                                                            <div key={i} className="px-4 py-3 bg-white dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl text-xs font-black text-slate-700 dark:text-slate-300 shadow-sm flex items-center gap-2">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />{a}
+                                    return (
+                                        <TableRow key={court._id} className="hover:bg-muted/30 transition-colors">
+                                            <TableCell className="pl-6 py-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="relative shrink-0">
+                                                        {court.images && court.images.length > 0 ? (
+                                                            <div className="w-14 h-14 rounded-xl overflow-hidden shadow-xs border border-border">
+                                                                <Image
+                                                                    src={court.images[0]}
+                                                                    className="w-full h-full object-cover"
+                                                                    preview={{
+                                                                        mask: (
+                                                                            <div className="text-[10px] font-bold text-white bg-black/60 w-full h-full flex items-center justify-center">
+                                                                                XEMẢNH
+                                                                            </div>
+                                                                        )
+                                                                    }}
+                                                                />
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className="p-6 bg-slate-900 dark:bg-slate-950 rounded-3xl border border-slate-800 relative overflow-hidden">
-                                                    <div className="absolute top-0 right-0 p-8 opacity-10"><Shield size={120} className="text-white" /></div>
-                                                    <div className="relative z-10"><h4 className="text-xs font-black text-slate-500 uppercase mb-4">Mô tả</h4><p className="text-base text-slate-200 italic font-medium">"{selectedCourt.description || 'Mira Football Court - Chuyên nghiệp & Đẳng cấp.'}"</p></div>
-                                                </div>
-                                            </div>
-
-                                            <div className="lg:col-span-2 space-y-8">
-                                                <div className="space-y-4">
-                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase">Bảng giá</h4>
-                                                    <div className="space-y-3">
-                                                        <div className="p-6 bg-linear-to-br from-emerald-500 to-emerald-700 rounded-4xl text-white shadow-xl shadow-emerald-500/30">
-                                                            <div className="flex justify-between items-start mb-6"><span className="px-3 py-1 bg-white/20 rounded-lg text-[10px] font-bold uppercase">Giờ thường</span><DollarSign size={24} className="opacity-40" /></div>
-                                                            <div className="text-3xl font-black">{fmtVND(selectedCourt.basePrice)}</div>
+                                                        ) : (
+                                                            <div className="w-14 h-14 rounded-xl bg-muted flex items-center justify-center border border-border">
+                                                                <Eye size={18} className="text-muted-foreground" />
+                                                            </div>
+                                                        )}
+                                                        <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-semibold border border-background shadow-xs whitespace-nowrap ${courtStatus.color}`}>
+                                                            {courtStatus.label}
                                                         </div>
-                                                        <div className="p-6 bg-linear-to-br from-amber-500 to-orange-600 rounded-4xl text-white shadow-xl shadow-amber-500/30">
-                                                            <div className="flex justify-between items-start mb-6"><span className="px-3 py-1 bg-white/20 rounded-lg text-[10px] font-bold uppercase">Giờ vàng</span><Zap size={24} className="opacity-40" /></div>
-                                                            <div className="text-3xl font-black">{fmtVND(selectedCourt.peakPrice)}</div>
+                                                    </div>
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="font-semibold text-foreground text-sm leading-none">{court.name}</span>
+                                                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                                            <Badge variant="outline" className="text-[10px] font-bold px-1.5 py-0 rounded-sm bg-muted text-muted-foreground border-none">
+                                                                {court.code}
+                                                            </Badge>
+                                                            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                                                <MapPin size={11} className="text-muted-foreground shrink-0" />
+                                                                <span className="truncate max-w-[150px]">{court.location || 'Chưa cập nhật'}</span>
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                <div className="space-y-4">
-                                                    <h4 className="text-[10px] font-black text-slate-400 uppercase">Hình ảnh</h4>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        {selectedCourt.images?.map((img, i) => (
-                                                            <div key={i} className="aspect-square rounded-2xl overflow-hidden border-2 border-slate-100 dark:border-white/5 shadow-sm"><Image src={img} className="w-full h-full object-cover" /></div>
-                                                        ))}
+                                            </TableCell>
+                                            <TableCell className="py-4">
+                                                <div className="flex flex-col gap-1 text-xs">
+                                                    <div className="flex items-center justify-between pr-4">
+                                                        <span className="text-muted-foreground">Thường:</span>
+                                                        <span className="font-medium text-foreground">{fmtVND(court.basePrice)}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between pr-4">
+                                                        <span className="text-muted-foreground">Cao điểm:</span>
+                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{fmtVND(court.peakPrice)}</span>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </motion.div>
-                                    ) : (
-                                        <div className="py-20 text-center"><p className="text-slate-400 italic">Không có dữ liệu.</p></div>
-                                    )}
-                                </AnimatePresence>
+                                            </TableCell>
+                                            <TableCell className="py-4">
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        <div className={`flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase w-fit ${courtType.color}`}>
+                                                            {courtType.icon}
+                                                            {courtType.label}
+                                                        </div>
+                                                        {courtFormats.map((f, idx) => (
+                                                            <span key={idx} className="px-1.5 py-0.5 bg-slate-800 dark:bg-slate-700 text-white text-[9px] font-bold rounded-md uppercase">
+                                                                Sân {f}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        {courtAmenities.slice(0, 3).map((a, idx) => (
+                                                            <span key={idx} className="flex items-center gap-1 text-[9px] font-medium text-muted-foreground bg-muted border border-border px-1.5 py-0.5 rounded-md">
+                                                                <div className="w-1 h-1 rounded-full bg-emerald-500 shrink-0"></div>
+                                                                <span className="truncate max-w-[80px]">{a}</span>
+                                                            </span>
+                                                        ))}
+                                                        {courtAmenities.length > 3 && (
+                                                            <span className="text-[9px] font-bold text-muted-foreground">
+                                                                +{courtAmenities.length - 3}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="pr-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleView(court._id!)}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                        title="Xem chi tiết"
+                                                    >
+                                                        <Eye size={15} />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => navigate(`/admin/courts/update/${court._id}`)}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <Edit3 size={15} />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => handleDeleteClick(court._id!)}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                                                        title="Khóa sân"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+
+                        {/* Pagination Row */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/5">
+                                <p className="text-xs text-muted-foreground font-medium">
+                                    Hiển thị <span className="font-semibold text-foreground">{Math.min((currentPage - 1) * pageSize + 1, filteredCourts.length)}</span> đến{" "}
+                                    <span className="font-semibold text-foreground">{Math.min(currentPage * pageSize, filteredCourts.length)}</span> trong tổng số{" "}
+                                    <span className="font-semibold text-foreground">{filteredCourts.length}</span> sân bóng
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="h-8 w-8 rounded-lg"
+                                    >
+                                        <ChevronLeft size={14} />
+                                    </Button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                                        <Button
+                                            key={p}
+                                            variant={currentPage === p ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p)}
+                                            className={`h-8 w-8 rounded-lg text-xs font-semibold ${currentPage === p ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white border-emerald-600' : ''}`}
+                                        >
+                                            {p}
+                                        </Button>
+                                    ))}
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                        disabled={currentPage === totalPages}
+                                        className="h-8 w-8 rounded-lg"
+                                    >
+                                        <ChevronRight size={14} />
+                                    </Button>
+                                </div>
                             </div>
-                        </motion.div>
-                    </motion.div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="py-24 text-center">
+                        <SlidersHorizontal size={40} className="mx-auto text-muted-foreground/30 mb-3" />
+                        <h3 className="font-bold text-foreground text-sm">Không tìm thấy sân bóng</h3>
+                        <p className="text-xs text-muted-foreground mt-1">Vui lòng thử lại với từ khóa hoặc bộ lọc khác.</p>
+                    </div>
                 )}
-            </AnimatePresence>
+            </div>
+
+            {/* Add/Edit Modal (shadcn/ui Dialog) */}
+            {/* Add/Edit Modal (shadcn/ui Dialog) */}
+            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border border-border/80 rounded-xl shadow-xl bg-card">
+                    <DialogHeader className="px-6 pt-6 pb-4 border-b border-border bg-muted/5 flex flex-row items-center justify-between">
+                        <div>
+                            <DialogTitle className="text-lg font-bold text-foreground">
+                                {editingCourt ? 'Cập nhật cấu hình sân bóng' : 'Thêm sân bóng mới'}
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                Thiết lập các thông số vận hành và thông tin chi tiết của sân bóng.
+                            </DialogDescription>
+                        </div>
+                    </DialogHeader>
+
+                    <form onSubmit={handleFormSubmit} className="space-y-0">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 p-6">
+                            {/* Left Panel - 3/5 width */}
+                            <div className="md:col-span-3 space-y-5">
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                                        <div className="w-1 h-3.5 bg-emerald-600 rounded-full"></div>
+                                        Thông tin bắt buộc
+                                    </h3>
+                                    
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="code" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                                <Tag size={11} /> Mã định danh <span className="text-destructive">*</span>
+                                            </Label>
+                                            <Input
+                                                id="code"
+                                                placeholder="Ví dụ: S001"
+                                                value={code}
+                                                onChange={(e) => setCode(e.target.value)}
+                                                className={formErrors.code ? 'border-destructive' : ''}
+                                            />
+                                            {formErrors.code && <p className="text-[10px] font-medium text-destructive">{formErrors.code}</p>}
+                                        </div>
+                                        
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="name" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                                <Shield size={11} /> Tên sân <span className="text-destructive">*</span>
+                                            </Label>
+                                            <Input
+                                                id="name"
+                                                placeholder="VD: Sân Mira A1"
+                                                value={name}
+                                                onChange={(e) => setName(e.target.value)}
+                                                className={formErrors.name ? 'border-destructive' : ''}
+                                            />
+                                            {formErrors.name && <p className="text-[10px] font-medium text-destructive">{formErrors.name}</p>}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="location" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <MapPin size={11} /> Địa chỉ / Vị trí <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Input
+                                            id="location"
+                                            placeholder="Ví dụ: Quận 7, TP.HCM"
+                                            value={location}
+                                            onChange={(e) => setLocation(e.target.value)}
+                                            className={formErrors.location ? 'border-destructive' : ''}
+                                        />
+                                        {formErrors.location && <p className="text-[10px] font-medium text-destructive">{formErrors.location}</p>}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 pt-1">
+                                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                                        <div className="w-1 h-3.5 bg-emerald-600 rounded-full"></div>
+                                        Thông tin bổ sung
+                                    </h3>
+                                    
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <Layers size={11} /> Định dạng sân <span className="text-destructive">*</span>
+                                        </Label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {['5v5', '7v7', '9v9', '11v11'].map((fmt) => {
+                                                const isSelected = formats.includes(fmt);
+                                                return (
+                                                    <button
+                                                        key={fmt}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (isSelected) {
+                                                                setFormats(formats.filter((f) => f !== fmt));
+                                                            } else {
+                                                                setFormats([...formats, fmt]);
+                                                            }
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                                            isSelected
+                                                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                                                                : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                                                        }`}
+                                                    >
+                                                        {fmt}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {formErrors.formats && <p className="text-[10px] font-medium text-destructive mt-1">{formErrors.formats}</p>}
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="amenities" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <Wifi size={11} /> Tiện ích (Phân cách bằng dấu phẩy)
+                                        </Label>
+                                        <Input
+                                            id="amenities"
+                                            placeholder="Ví dụ: Wifi, Phòng tắm, Đỗ xe, Nước uống"
+                                            value={amenities}
+                                            onChange={(e) => setAmenities(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="description" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                            <FileText size={11} /> Mô tả giới thiệu
+                                        </Label>
+                                        <textarea
+                                            id="description"
+                                            rows={3}
+                                            placeholder="Nhập mô tả giới thiệu về chất lượng cỏ, hệ thống chiếu sáng..."
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
+                                            className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Panel - 2/5 width */}
+                            <div className="md:col-span-2 space-y-5 border-t md:border-t-0 md:border-l border-border/80 pt-5 md:pt-0 md:pl-6">
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                                        <div className="w-1 h-3.5 bg-emerald-600 rounded-full"></div>
+                                        Thiết lập vận hành
+                                    </h3>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Loại sân</Label>
+                                            <Select value={type} onValueChange={(val: any) => setType(val)}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Chọn loại" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="indoor">Trong nhà</SelectItem>
+                                                    <SelectItem value="outdoor">Ngoài trời</SelectItem>
+                                                    <SelectItem value="vip">VIP</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Trạng thái</Label>
+                                            <Select value={status} onValueChange={(val: any) => setStatus(val)}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Trạng thái" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="active">Khai thác</SelectItem>
+                                                    <SelectItem value="maintenance">Bảo trì</SelectItem>
+                                                    <SelectItem value="locked">Tạm ngưng</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 pt-2">
+                                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                                            <div className="w-1 h-3.5 bg-emerald-600 rounded-full"></div>
+                                            Đơn giá thuê sân
+                                        </h3>
+                                        
+                                        <div className="space-y-3 p-4 bg-muted/40 rounded-xl border border-border">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="basePrice" className="text-xs font-bold text-muted-foreground uppercase">Giờ thường <span className="text-destructive">*</span></Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="basePrice"
+                                                        type="text"
+                                                        placeholder="Ví dụ: 300,000"
+                                                        value={displayBasePrice}
+                                                        onChange={(e) => {
+                                                            const raw = e.target.value.replace(/[^\d]/g, '');
+                                                            const num = raw ? Number(raw) : '';
+                                                            setBasePrice(num);
+                                                            setDisplayBasePrice(num !== '' ? num.toLocaleString('vi-VN') : '');
+                                                        }}
+                                                        className={`pl-8 ${formErrors.basePrice ? 'border-destructive' : ''}`}
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">₫</span>
+                                                </div>
+                                                {formErrors.basePrice && <p className="text-[10px] font-medium text-destructive">{formErrors.basePrice}</p>}
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="peakPrice" className="text-xs font-bold text-muted-foreground uppercase">Giờ cao điểm <span className="text-destructive">*</span></Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        id="peakPrice"
+                                                        type="text"
+                                                        placeholder="Ví dụ: 500,000"
+                                                        value={displayPeakPrice}
+                                                        onChange={(e) => {
+                                                            const raw = e.target.value.replace(/[^\d]/g, '');
+                                                            const num = raw ? Number(raw) : '';
+                                                            setPeakPrice(num);
+                                                            setDisplayPeakPrice(num !== '' ? num.toLocaleString('vi-VN') : '');
+                                                        }}
+                                                        className={`pl-8 ${formErrors.peakPrice ? 'border-destructive' : ''}`}
+                                                    />
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">₫</span>
+                                                </div>
+                                                {formErrors.peakPrice && <p className="text-[10px] font-medium text-destructive">{formErrors.peakPrice}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2 pt-1">
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Thư viện ảnh (Tối đa 10 ảnh)</Label>
+                                        <div className="p-3 border border-dashed border-border rounded-xl bg-muted/10">
+                                            <Upload
+                                                listType="picture-card"
+                                                fileList={fileList}
+                                                beforeUpload={() => false}
+                                                onChange={({ fileList }) => setFileList(fileList)}
+                                                accept="image/*"
+                                                multiple
+                                                className="admin-upload-small"
+                                            >
+                                                {fileList.length < 10 && (
+                                                    <div className="flex flex-col items-center justify-center text-muted-foreground gap-0.5">
+                                                        <UploadIcon size={16} />
+                                                        <span className="text-[8px] font-bold uppercase tracking-wider">Tải ảnh</span>
+                                                    </div>
+                                                )}
+                                            </Upload>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-border bg-muted/5 flex flex-row items-center justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setModalOpen(false)}
+                                className="h-10 px-5 text-sm font-medium border-border"
+                            >
+                                Hủy bỏ
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={saving}
+                                className="h-10 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+                            >
+                                {saving ? 'Đang lưu...' : editingCourt ? 'Cập nhật' : 'Tạo mới'}
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Detail Modal (shadcn/ui Dialog) */}
+            <Dialog open={detailModal} onOpenChange={setDetailModal}>
+                <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto p-0 border border-border/80 rounded-xl shadow-xl bg-card">
+                    <DialogHeader className="px-6 py-5 border-b border-border bg-muted/5 flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                                <Info size={20} />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-lg font-bold text-foreground">
+                                    {selectedCourt?.name || 'Chi tiết sân'}
+                                </DialogTitle>
+                                <DialogDescription className="text-xs text-muted-foreground">
+                                    Tổng quan thông tin cấu hình và vận hành hiện tại.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <div className="p-6">
+                        <AnimatePresence mode="wait">
+                            {detailLoading ? (
+                                <div className="space-y-6 py-4 animate-pulse">
+                                    <div className="h-24 bg-muted rounded-xl w-full" />
+                                    <div className="h-20 bg-muted rounded-xl w-full" />
+                                    <div className="h-40 bg-muted rounded-xl w-full" />
+                                </div>
+                            ) : selectedCourt ? (
+                                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                                    {/* Left Details Grid */}
+                                    <div className="lg:col-span-3 space-y-6">
+                                        <div className="grid grid-cols-2 gap-4 bg-muted/30 p-5 rounded-xl border border-border">
+                                            <div>
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Mã định danh</span>
+                                                <span className="font-bold text-foreground text-sm">{selectedCourt.code}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Vị trí</span>
+                                                <span className="font-bold text-foreground text-sm flex items-center gap-1">
+                                                    <MapPin size={14} className="text-muted-foreground" />
+                                                    {selectedCourt.location || 'N/A'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">Loại hình</span>
+                                                <Badge className={`px-2 py-0.5 border text-[9px] font-bold uppercase w-fit ${TYPE_CONFIG[selectedCourt.type as keyof typeof TYPE_CONFIG].color}`}>
+                                                    {TYPE_CONFIG[selectedCourt.type as keyof typeof TYPE_CONFIG].label}
+                                                </Badge>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1.5">Trạng thái vận hành</span>
+                                                <Badge className={`px-2 py-0.5 border text-[9px] font-bold uppercase w-fit ${STATUS_CONFIG[selectedCourt.status as keyof typeof STATUS_CONFIG].color}`}>
+                                                    {STATUS_CONFIG[selectedCourt.status as keyof typeof STATUS_CONFIG].label}
+                                                </Badge>
+                                            </div>
+                                        </div>
+
+                                        {/* Amenities list */}
+                                        <div className="space-y-2.5">
+                                            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                                <div className="w-1 h-4 bg-emerald-600 rounded-full" />
+                                                Tiện ích hỗ trợ
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                {selectedCourt.amenities && selectedCourt.amenities.length > 0 ? (
+                                                    selectedCourt.amenities.map((a, idx) => (
+                                                        <div key={idx} className="px-3 py-2 bg-muted border border-border rounded-lg text-xs font-semibold text-foreground flex items-center gap-2">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                            {a}
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground italic col-span-full">Không có tiện ích nào được liệt kê</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Description */}
+                                        <div className="p-4 bg-muted/40 rounded-xl border border-border">
+                                            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Mô tả chi tiết</h4>
+                                            <p className="text-xs text-foreground leading-relaxed">
+                                                {selectedCourt.description || 'Mira Football Court - Sân bóng chuyên nghiệp, chất lượng cỏ đạt tiêu chuẩn cao.'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Pricing / Image Grid */}
+                                    <div className="lg:col-span-2 space-y-6">
+                                        <div className="p-4 bg-card border border-border rounded-xl space-y-3 shadow-xs">
+                                            <div className="flex justify-between items-center pb-2 border-b border-border/60">
+                                                <span className="text-[11px] font-bold text-muted-foreground uppercase">Giờ thường</span>
+                                                <span className="text-sm font-semibold text-foreground whitespace-nowrap">{fmtVND(selectedCourt.basePrice)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center pt-1">
+                                                <span className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                                                    Giờ cao điểm <Zap size={11} className="text-amber-500 fill-amber-500" />
+                                                </span>
+                                                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{fmtVND(selectedCourt.peakPrice)}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Images Preview Grid */}
+                                        <div className="space-y-2.5">
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Thư viện ảnh ({selectedCourt.images?.length || 0})</h4>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {selectedCourt.images && selectedCourt.images.length > 0 ? (
+                                                    selectedCourt.images.map((img, idx) => (
+                                                        <div key={idx} className="aspect-square rounded-lg overflow-hidden border border-border bg-muted">
+                                                            <Image
+                                                                src={img}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="col-span-2 aspect-video rounded-lg bg-muted flex items-center justify-center border text-xs text-muted-foreground italic">
+                                                        Chưa cập nhật hình ảnh
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="py-16 text-center text-muted-foreground text-xs italic">
+                                    Không thể hiển thị chi tiết dữ liệu.
+                                </div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete/Lock Confirmation (shadcn/ui AlertDialog) */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <AlertDialogContent className="border border-border/80 rounded-xl overflow-hidden shadow-xl max-w-md bg-card">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-lg font-bold text-foreground">
+                            Xóa sân bóng vĩnh viễn?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm text-muted-foreground mt-2">
+                            Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xóa vĩnh viễn sân bóng này cùng toàn bộ thông tin cấu hình liên quan khỏi hệ thống?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-4 flex gap-2">
+                        <AlertDialogCancel asChild>
+                            <Button variant="outline" className="border-border">Hủy bỏ</Button>
+                        </AlertDialogCancel>
+                        <AlertDialogAction asChild>
+                            <Button onClick={handleConfirmDelete} className="bg-rose-600 hover:bg-rose-700 text-white font-semibold">Xóa vĩnh viễn</Button>
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            {/* Custom File Upload Styles */}
+            <style>{`
+                .admin-upload .ant-upload-list-item-container,
+                .admin-upload .ant-upload-select {
+                    width: 90px !important;
+                    height: 90px !important;
+                    border-radius: 12px !important;
+                    border: 2px dashed var(--border, #e2e8f0) !important;
+                    transition: border-color 0.15s !important;
+                    background: transparent !important;
+                }
+                .admin-upload .ant-upload-select:hover {
+                    border-color: #10b981 !important;
+                }
+                .dark .admin-upload .ant-upload-select {
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                }
+                .dark .admin-upload .ant-upload-select:hover {
+                    border-color: #34d399 !important;
+                }
+                .admin-upload .ant-upload-list-item {
+                    border-radius: 12px !important;
+                    border: 1px solid var(--border, #e2e8f0) !important;
+                }
+                .dark .admin-upload .ant-upload-list-item {
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                }
+
+                /* Small upload box overrides for modal form */
+                .admin-upload-small .ant-upload-list-item-container,
+                .admin-upload-small .ant-upload-select {
+                    width: 75px !important;
+                    height: 75px !important;
+                    border-radius: 10px !important;
+                    border: 2px dashed var(--border, #e2e8f0) !important;
+                    transition: border-color 0.15s !important;
+                    background: transparent !important;
+                }
+                .admin-upload-small .ant-upload-select:hover {
+                    border-color: #10b981 !important;
+                }
+                .dark .admin-upload-small .ant-upload-select {
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                }
+                .dark .admin-upload-small .ant-upload-select:hover {
+                    border-color: #34d399 !important;
+                }
+                .admin-upload-small .ant-upload-list-item {
+                    border-radius: 10px !important;
+                    border: 1px solid var(--border, #e2e8f0) !important;
+                }
+                .dark .admin-upload-small .ant-upload-list-item {
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                }
+            `}</style>
         </div>
     );
 };

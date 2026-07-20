@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Rate, Spin } from 'antd';
+import { Spin } from 'antd';
 import axios from 'axios';
 import {
     Star,
@@ -9,11 +9,32 @@ import {
     Search,
     User,
     Calendar,
-    BarChart3,
     Filter,
+    Phone,
+    Clock,
+    RefreshCw,
+    SlidersHorizontal,
+    FileText,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import ReviewAdminDetailModal from './components/ReviewAdminDetailModal';
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const ReviewsAdmin = () => {
     const [loading, setLoading] = useState(false);
@@ -26,6 +47,11 @@ const ReviewsAdmin = () => {
     const token = localStorage.getItem('token');
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+
+    // Display Status confirmation state
+    const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+    const [selectedReviewIdForStatus, setSelectedReviewIdForStatus] = useState<string | null>(null);
+    const [targetStatus, setTargetStatus] = useState<'active' | 'hidden' | null>(null);
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -50,12 +76,16 @@ const ReviewsAdmin = () => {
     useEffect(() => { fetchReviews(1); }, []);
 
     const updateStatus = async (id: string, status: 'active' | 'hidden') => {
-        await axios.patch(
-            `${API_URL}/review/${id}/status`,
-            { status },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-        fetchReviews(pagination.page);
+        try {
+            await axios.patch(
+                `${API_URL}/review/${id}/status`,
+                { status },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            fetchReviews(pagination.page);
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const filtered = reviews.filter((r) => {
@@ -77,224 +107,382 @@ const ReviewsAdmin = () => {
         pct: reviews.length ? Math.round((reviews.filter(r => r.rating === star).length / reviews.length) * 100) : 0,
     }));
 
-    const STAR_COLORS: Record<number, string> = {
-        5: 'from-emerald-400 to-emerald-600',
-        4: 'from-teal-400 to-teal-600',
-        3: 'from-amber-400 to-amber-600',
-        2: 'from-orange-400 to-orange-600',
-        1: 'from-rose-400 to-rose-600',
-    };
-
     return (
-        <div className="px-4 pb-12 space-y-8 pt-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="relative">
-                    <div className="absolute -left-4 -top-4 w-24 h-24 bg-amber-500/10 rounded-full blur-3xl" />
-                    <h1 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-4 italic">
-                        <div className="p-3.5 bg-linear-to-br from-amber-500 to-orange-600 rounded-[20px] shadow-2xl shadow-amber-500/40 -rotate-3 flex items-center justify-center border border-white/20">
-                            <Star size={28} className="text-white" />
-                        </div>
-                        <span className="relative">
-                            BÌNH LUẬN & ĐÁNH GIÁ
-                            <div className="absolute -bottom-2 left-0 w-1/2 h-1.5 bg-amber-500/30 rounded-full" />
-                        </span>
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-6 font-semibold flex items-center gap-2 text-sm">
-                        <span className="flex h-2.5 w-2.5 relative shrink-0">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-                        </span>
-                        Quản lý phản hồi và đánh giá từ khách hàng
-                    </p>
+        <TooltipProvider>
+            <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-background min-h-screen">
+                {/* 1. Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
+                    <div className="space-y-1">
+                        <h2 className="text-xl md:text-2xl font-bold tracking-tight text-foreground uppercase">BÌNH LUẬN & ĐÁNH GIÁ</h2>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                            Theo dõi phản hồi, ý kiến đánh giá từ khách hàng đặt sân bóng.
+                        </p>
+                    </div>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => fetchReviews(pagination.page)} 
+                        className="w-fit h-9 px-3 gap-1.5 text-xs border-border"
+                    >
+                        <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+                        Làm mới
+                    </Button>
                 </div>
-            </div>
 
-            {/* Stats + Distribution */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* KPI Cards */}
-                <div className="lg:col-span-1 grid grid-cols-1 gap-4">
-                    <div className="bg-linear-to-br from-amber-500 to-orange-600 rounded-3xl p-6 text-white shadow-xl shadow-amber-500/20 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 opacity-10 p-4"><Star size={80} /></div>
-                        <div className="text-[10px] font-black uppercase opacity-60 mb-1">Đánh giá trung bình</div>
-                        <div className="text-5xl font-black">{avgRating}</div>
-                        <div className="flex mt-2">
-                            {[1,2,3,4,5].map(s => (
-                                <Star key={s} size={16} className={`${parseFloat(avgRating as string) >= s ? 'fill-white' : 'opacity-30'}`} />
+                {/* 2. Summary Dashboard */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Average Rating Card */}
+                    <Card className="shadow-xs border-border/80 rounded-xl bg-card">
+                        <CardHeader className="p-4 pb-1">
+                            <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Đánh giá chung</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-1">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-black text-foreground">{avgRating}</span>
+                                <span className="text-xs text-muted-foreground">/ 5.0</span>
+                            </div>
+                            <div className="flex items-center gap-0.5 mt-1.5">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                    <Star 
+                                        key={s} 
+                                        size={14} 
+                                        className={parseFloat(avgRating as string) >= s ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted-foreground/20'} 
+                                    />
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Stats Cards */}
+                    <Card className="shadow-xs border-border/80 rounded-xl bg-card">
+                        <CardHeader className="p-4 pb-1 flex flex-row items-center justify-between space-y-0">
+                            <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tổng phản hồi</CardTitle>
+                            <MessageSquare size={14} className="text-muted-foreground opacity-60" />
+                        </CardHeader>
+                        <CardContent className="p-4 pt-1">
+                            <div className="text-3xl font-black text-foreground">{pagination.total}</div>
+                            <p className="text-[10px] text-muted-foreground mt-1">Từ lịch sử đặt sân</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="shadow-xs border-border/80 rounded-xl bg-card">
+                        <CardHeader className="p-4 pb-1 flex flex-row items-center justify-between space-y-0">
+                            <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Đang hiển thị</CardTitle>
+                            <Eye size={14} className="text-muted-foreground opacity-60" />
+                        </CardHeader>
+                        <CardContent className="p-4 pt-1">
+                            <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{activeCount}</div>
+                            <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 mt-1 font-semibold">Công khai trên App</p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Distribution Card */}
+                    <Card className="shadow-xs border-border/80 rounded-xl bg-card col-span-2 lg:col-span-1">
+                        <CardHeader className="p-4 pb-1">
+                            <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Phân bổ điểm sao</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-1 space-y-1.5">
+                            {ratingDistribution.map(({ star, pct }) => (
+                                <div key={star} className="flex items-center gap-2 text-xs">
+                                    <div className="flex items-center gap-0.5 w-6 text-muted-foreground font-semibold">
+                                        {star} <Star size={10} className="fill-amber-400 text-amber-400" />
+                                    </div>
+                                    <Progress value={pct} className="h-1.5 flex-1 bg-muted [&>div]:bg-emerald-600" />
+                                    <span className="text-[10px] text-muted-foreground font-semibold w-6 text-right">{pct}%</span>
+                                </div>
                             ))}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-5 shadow-sm">
-                            <div className="p-2.5 bg-blue-50 dark:bg-blue-500/10 rounded-2xl w-fit mb-3"><MessageSquare size={18} className="text-blue-500" /></div>
-                            <div className="text-2xl font-black text-slate-800 dark:text-white">{pagination.total}</div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">Tổng đánh giá</div>
-                        </div>
-                        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-5 shadow-sm">
-                            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl w-fit mb-3"><Eye size={18} className="text-emerald-500" /></div>
-                            <div className="text-2xl font-black text-emerald-500">{activeCount}</div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">Đang hiện</div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* Rating Distribution */}
-                <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-6 shadow-sm">
-                    <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase flex items-center gap-2 mb-6">
-                        <BarChart3 size={16} className="text-amber-500" /> Phân phối sao
-                    </h3>
-                    <div className="space-y-3">
-                        {ratingDistribution.map(({ star, count, pct }) => (
-                            <div key={star} className="flex items-center gap-3">
-                                <div className="flex items-center gap-1 w-12 shrink-0">
-                                    <span className="text-sm font-black text-slate-600 dark:text-slate-300">{star}</span>
-                                    <Star size={12} className="fill-amber-400 text-amber-400" />
-                                </div>
-                                <div className="flex-1 h-2.5 bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
-                                    <div className={`h-full bg-linear-to-r ${STAR_COLORS[star]} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }}></div>
-                                </div>
-                                <span className="text-xs font-bold text-slate-400 w-12 text-right">{count} ({pct}%)</span>
+                {/* Filters */}
+                <div className="flex flex-col gap-4">
+                    {/* Search and general controls */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="relative w-full md:w-80">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text" 
+                                placeholder="Tìm kiếm tên, mã đơn, nội dung..."
+                                value={search} 
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full pl-9 pr-4 h-10 border border-border rounded-lg text-sm bg-background placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-ring transition-all"
+                            />
+                        </div>
+
+                        {/* Swipeable Scrollbar filter container for mobile responsiveness */}
+                        <div className="flex items-center gap-3 overflow-x-auto pb-1.5 md:pb-0 scrollbar-none whitespace-nowrap">
+                            <div className="flex items-center gap-1 border border-border rounded-lg p-1 bg-muted/20 shrink-0">
+                                <Filter size={13} className="text-muted-foreground ml-2 mr-1" />
+                                {(['all', 5, 4, 3, 2, 1] as const).map((r) => (
+                                    <button 
+                                        key={r} 
+                                        onClick={() => setRatingFilter(r)}
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${ratingFilter === r ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        {r === 'all' ? 'Tất cả' : <>{r} <Star size={10} className={ratingFilter === r ? 'fill-amber-400 text-amber-400' : 'fill-muted-foreground text-amber-400/30'} /></>}
+                                    </button>
+                                ))}
                             </div>
-                        ))}
+
+                            <div className="flex items-center border border-border rounded-lg p-1 bg-muted/20 shrink-0">
+                                <SlidersHorizontal size={13} className="text-muted-foreground ml-2 mr-1" />
+                                {(['all', 'active', 'hidden'] as const).map((s) => (
+                                    <button 
+                                        key={s} 
+                                        onClick={() => setStatusFilter(s)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${statusFilter === s ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                    >
+                                        {s === 'all' ? 'Tất cả' : s === 'active' ? 'Hiển thị' : 'Đã ẩn'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3 p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm">
-                <div className="flex-1 min-w-48 relative">
-                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-                    <input
-                        type="text" placeholder="Tìm kiếm tên, mã đơn, nội dung..."
-                        value={search} onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 rounded-2xl font-semibold text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-300 focus:border-amber-400 focus:ring-4 focus:ring-amber-500/10 outline-none transition-all"
-                    />
-                </div>
+                {/* 3. Reviews List (Mobile-First Layout) */}
+                {loading ? (
+                    <div className="flex justify-center py-20"><Spin tip="Đang tải danh sách bình luận..." /></div>
+                ) : (
+                    <div className="space-y-4">
+                        {filtered.map((record) => {
+                            const u = record.userId;
+                            const b = record.bookingId;
+                            const isActive = record.status === 'active';
+                            const initial = u ? (u.name || 'A').charAt(0).toUpperCase() : '?';
 
-                {/* Rating filter pills */}
-                <div className="flex items-center gap-2">
-                    <Filter size={14} className="text-slate-400 shrink-0" />
-                    {(['all', 5, 4, 3, 2, 1] as const).map((r) => (
-                        <button key={r} onClick={() => setRatingFilter(r)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${ratingFilter === r ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:bg-amber-50 dark:hover:bg-amber-500/10'}`}
-                        >
-                            {r === 'all' ? 'Tất cả' : <>{r} <Star size={10} className={ratingFilter === r ? 'fill-white' : 'fill-amber-400 text-amber-400'} /></>}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Status filter */}
-                <div className="flex items-center bg-slate-100 dark:bg-white/5 rounded-2xl p-1 gap-1">
-                    {(['all', 'active', 'hidden'] as const).map((s) => (
-                        <button key={s} onClick={() => setStatusFilter(s)}
-                            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${statusFilter === s ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            {s === 'all' ? 'Tất cả' : s === 'active' ? 'Hiển thị' : 'Đã ẩn'}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Review Cards */}
-            {loading ? (
-                <div className="flex justify-center py-20"><Spin size="large" /></div>
-            ) : (
-                <div className="space-y-4">
-                    {filtered.map((record) => {
-                        const u = record.userId;
-                        const b = record.bookingId;
-                        const isActive = record.status === 'active';
-
-                        return (
-                            <div key={record._id} className={`bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-white/5 p-6 shadow-sm hover:shadow-md transition-all ${!isActive ? 'opacity-60' : ''}`}>
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex items-start gap-4 flex-1">
-                                        {/* Avatar */}
-                                        <div className={`w-12 h-12 ${u ? 'bg-linear-to-br from-blue-500 to-indigo-600' : 'bg-linear-to-br from-slate-400 to-slate-500'} rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-lg ${u ? 'shadow-blue-500/20' : 'shadow-slate-400/20'} shrink-0`}>
-                                            {u ? (u.name || 'A').charAt(0).toUpperCase() : '?'}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center flex-wrap gap-3 mb-2">
-                                                {u ? (
-                                                    <span className="font-black text-slate-800 dark:text-white">{u.name || 'Ẩn danh'}</span>
-                                                ) : (
-                                                    <span className="font-semibold text-rose-500 dark:text-rose-400 italic text-sm">Người dùng không tồn tại</span>
-                                                )}
-                                                <Rate disabled value={record.rating} className="text-sm" />
-                                                <span className={`px-2.5 py-0.5 text-[9px] font-black rounded-lg uppercase ${isActive ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
-                                                    {isActive ? 'Hiển thị' : 'Đã ẩn'}
-                                                </span>
+                            return (
+                                <Card 
+                                    key={record._id} 
+                                    className={`shadow-xs border-border/70 rounded-xl overflow-hidden hover:shadow-xs transition-all hover:border-border ${
+                                        !isActive ? 'bg-muted/10 opacity-75' : 'bg-card'
+                                    }`}
+                                >
+                                    {/* Card Container */}
+                                    <div className="p-4 md:p-6 space-y-4">
+                                        {/* Row 1: Profile and Stars */}
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="w-10 h-10 border border-border/80 rounded-full bg-linear-to-br from-emerald-500 to-teal-600 text-white font-bold shadow-xs">
+                                                    <AvatarFallback className="bg-transparent text-white text-sm font-bold">
+                                                        {initial}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <h3 className="font-bold text-foreground text-sm leading-tight">
+                                                        {u ? (u.name || 'Ẩn danh') : <span className="italic text-destructive text-xs">Người dùng không tồn tại</span>}
+                                                    </h3>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <div className="flex items-center gap-0.5">
+                                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                                <Star 
+                                                                    key={star} 
+                                                                    size={12} 
+                                                                    className={`${record.rating >= star ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted-foreground/20'}`} 
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                        <span className="text-[10px] text-muted-foreground">•</span>
+                                                        <span className="text-[10px] text-muted-foreground font-semibold">
+                                                            {record.createdAt ? dayjs(record.createdAt).format('DD/MM/YYYY') : '—'}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
 
-                                            <p className="text-sm text-slate-600 dark:text-slate-300 font-medium line-clamp-2 mb-3">
-                                                {record.comment || <span className="italic text-slate-300">Không có nội dung</span>}
+                                            {/* Status Badge */}
+                                            <Badge 
+                                                variant="secondary" 
+                                                className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border-none shadow-none ${
+                                                    isActive 
+                                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+                                                        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                                }`}
+                                            >
+                                                {isActive ? 'Công khai' : 'Đã ẩn'}
+                                            </Badge>
+                                        </div>
+
+                                        {/* Row 2: Comment Content */}
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium text-foreground leading-relaxed break-words pl-1.5 border-l-2 border-emerald-500/20">
+                                                {record.comment || <span className="italic text-muted-foreground">Không có nội dung nhận xét</span>}
                                             </p>
+                                        </div>
 
-                                            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-400">
-                                                {u?.phone && <span className="flex items-center gap-1"><User size={11} /> {u.phone}</span>}
-                                                {!u && <span className="flex items-center gap-1 text-rose-400"><User size={11} /> Đã xóa tài khoản</span>}
-                                                {b?.code && <span className="flex items-center gap-1 text-blue-500">#{b.code}</span>}
-                                                {b?.startTime && <span className="flex items-center gap-1"><Calendar size={11} />{b.startTime}–{b.endTime}</span>}
-                                                {record.createdAt && <span>{dayjs(record.createdAt).format('DD/MM/YYYY HH:mm')}</span>}
-                                            </div>
+                                        {/* Row 3: Metadata with Minimalist Icons */}
+                                        <div className="flex flex-wrap items-center gap-y-2 gap-x-4 pt-1 text-xs text-muted-foreground border-t border-border/40">
+                                            {u?.phone && (
+                                                <span className="flex items-center gap-1">
+                                                    <Phone size={11} className="text-muted-foreground opacity-70" />
+                                                    <span className="font-semibold text-foreground/80">{u.phone}</span>
+                                                </span>
+                                            )}
+                                            {b?.code && (
+                                                <span className="flex items-center gap-1">
+                                                    <FileText size={11} className="text-muted-foreground opacity-70" />
+                                                    <span 
+                                                        onClick={() => { setSelectedReviewId(record._id); setDetailOpen(true); }}
+                                                        className="font-mono font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                                    >
+                                                        #{b.code}
+                                                    </span>
+                                                </span>
+                                            )}
+                                            {b?.startTime && (
+                                                <span className="flex items-center gap-1">
+                                                    <Clock size={11} className="text-muted-foreground opacity-70" />
+                                                    <span>{b.startTime} – {b.endTime}</span>
+                                                </span>
+                                            )}
+                                            {b?.date && (
+                                                <span className="flex items-center gap-1">
+                                                    <Calendar size={11} className="text-muted-foreground opacity-70" />
+                                                    <span>{dayjs(b.date).format('DD/MM/YYYY')}</span>
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Row 4: Action Buttons (Bottom Bar Layout) */}
+                                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => { setSelectedReviewId(record._id); setDetailOpen(true); }}
+                                                className="text-xs h-8 px-3 text-muted-foreground hover:text-foreground hover:bg-muted font-medium"
+                                            >
+                                                <Eye size={13} className="mr-1" />
+                                                Chi tiết
+                                            </Button>
+
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => {
+                                                    setSelectedReviewIdForStatus(record._id);
+                                                    setTargetStatus(isActive ? 'hidden' : 'active');
+                                                    setStatusConfirmOpen(true);
+                                                }}
+                                                className={`text-xs h-8 px-3 font-semibold ${
+                                                    isActive 
+                                                        ? "text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10" 
+                                                        : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                                                }`}
+                                            >
+                                                {isActive ? (
+                                                    <>
+                                                        <EyeOff size={13} className="mr-1" />
+                                                        Ẩn bình luận
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Eye size={13} className="mr-1" />
+                                                        Hiện bình luận
+                                                    </>
+                                                )}
+                                            </Button>
                                         </div>
                                     </div>
+                                </Card>
+                            );
+                        })}
 
-                                    {/* Actions */}
-                                    <div className="flex flex-col gap-2 shrink-0">
-                                        <button
-                                            onClick={() => { setSelectedReviewId(record._id); setDetailOpen(true); }}
-                                            className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10 dark:hover:text-blue-400 transition-all border border-slate-100 dark:border-white/5"
-                                        >
-                                            <Eye size={14} /> Chi tiết
-                                        </button>
-                                        <button
-                                            onClick={() => updateStatus(record._id, isActive ? 'hidden' : 'active')}
-                                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all border ${
-                                                isActive
-                                                    ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 border-rose-100 dark:border-rose-500/20'
-                                                    : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 border-emerald-100 dark:border-emerald-500/20'
-                                            }`}
-                                        >
-                                            {isActive ? <><EyeOff size={14} /> Ẩn</> : <><Eye size={14} /> Hiện</>}
-                                        </button>
-                                    </div>
-                                </div>
+                        {filtered.length === 0 && !loading && (
+                            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-card border border-dashed rounded-xl">
+                                <MessageSquare size={40} className="mb-3 opacity-20" />
+                                <p className="font-semibold text-sm">Không tìm thấy đánh giá nào trùng khớp</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Vui lòng thử đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                             </div>
-                        );
-                    })}
+                        )}
+                    </div>
+                )}
 
-                    {filtered.length === 0 && !loading && (
-                        <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-600">
-                            <Star size={48} className="mb-4 opacity-30" />
-                            <p className="font-bold">Không có đánh giá nào</p>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Pagination */}
-            {pagination.total > pagination.limit && (
-                <div className="flex items-center justify-center gap-2">
-                    {Array.from({ length: Math.ceil(pagination.total / pagination.limit) }, (_, i) => i + 1).map((p) => (
-                        <button
-                            key={p}
-                            onClick={() => fetchReviews(p)}
-                            className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${pagination.page === p ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-100 dark:border-white/10 hover:border-amber-300'}`}
+                {/* Pagination */}
+                {pagination.total > pagination.limit && (
+                    <div className="flex items-center justify-center gap-1.5 pt-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.page <= 1}
+                            onClick={() => fetchReviews(pagination.page - 1)}
+                            className="h-9 text-xs gap-1 border-border"
                         >
-                            {p}
-                        </button>
-                    ))}
-                </div>
-            )}
+                            Trước
+                        </Button>
+                        
+                        {Array.from({ length: Math.ceil(pagination.total / pagination.limit) }, (_, i) => i + 1).map((p) => (
+                            <Button
+                                key={p}
+                                variant={pagination.page === p ? "default" : "outline"}
+                                size="icon"
+                                onClick={() => fetchReviews(p)}
+                                className={`w-9 h-9 text-xs font-bold ${
+                                    pagination.page === p 
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:text-white border-emerald-600' 
+                                        : 'border-border text-muted-foreground hover:text-foreground'
+                                }`}
+                            >
+                                {p}
+                            </Button>
+                        ))}
 
-            <ReviewAdminDetailModal
-                open={detailOpen}
-                reviewId={selectedReviewId}
-                onClose={() => setDetailOpen(false)}
-            />
-        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit)}
+                            onClick={() => fetchReviews(pagination.page + 1)}
+                            className="h-9 text-xs gap-1 border-border"
+                        >
+                            Sau
+                        </Button>
+                    </div>
+                )}
+
+                <ReviewAdminDetailModal
+                    open={detailOpen}
+                    reviewId={selectedReviewId}
+                    onClose={() => setDetailOpen(false)}
+                />
+
+                <AlertDialog open={statusConfirmOpen} onOpenChange={setStatusConfirmOpen}>
+                    <AlertDialogContent className="border border-border/80 rounded-2xl overflow-hidden shadow-xl sm:max-w-md bg-card p-6">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="text-base font-bold text-foreground">
+                                {targetStatus === 'hidden' ? 'Ẩn bình luận này?' : 'Hiển thị bình luận này?'}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                                {targetStatus === 'hidden' 
+                                    ? 'Bình luận này sẽ bị gỡ bỏ khỏi giao diện hiển thị của khách hàng. Bạn vẫn có thể khôi phục lại hiển thị sau.' 
+                                    : 'Bình luận sẽ được công khai trở lại trên trang chi tiết sân để tất cả khách hàng cùng theo dõi.'}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="mt-5 flex flex-row items-center justify-end gap-2">
+                            <AlertDialogCancel asChild>
+                                <Button variant="outline" className="h-9 px-4 text-xs font-semibold border-border">Hủy bỏ</Button>
+                            </AlertDialogCancel>
+                            <AlertDialogAction asChild>
+                                <Button 
+                                    onClick={async () => {
+                                        if (selectedReviewIdForStatus && targetStatus) {
+                                            await updateStatus(selectedReviewIdForStatus, targetStatus);
+                                        }
+                                        setStatusConfirmOpen(false);
+                                    }} 
+                                    className={`h-9 px-4 text-xs font-semibold text-white border-none shadow-xs transition-colors ${
+                                        targetStatus === 'hidden' 
+                                            ? 'bg-rose-600 hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-800' 
+                                            : 'bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-800'
+                                    }`}
+                                >
+                                    Xác nhận
+                                </Button>
+                            </AlertDialogAction>
+                        </div>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        </TooltipProvider>
     );
 };
 

@@ -464,7 +464,7 @@ const BookingTimeSelector: React.FC<Props> = ({
                                 Tổng tiền dự kiến
                             </p>
                             <Badge variant="outline" className='text-[9px] bg-emerald-100 dark:bg-green-800 text-emerald-700 dark:text-green-200 border-emerald-200 dark:border-green-700 px-2 py-0 font-bold rounded-md'>
-                                VNĐ
+                                đ
                             </Badge>
                         </div>
                         <div className='flex items-end justify-between mt-1'>

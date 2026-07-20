@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Modal, Row, Col, Select, DatePicker } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import { toast } from 'sonner';
 import api from '@/common/utils/api';
@@ -16,6 +15,9 @@ import {
     History
 } from 'lucide-react';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TIME_SLOTS, timeToMin } from './timeSlotUtils';
 
 const formatVND = (v: number = 0) =>
@@ -257,238 +259,207 @@ export const BookingEditModal: React.FC<EditModalProps> = ({
         calculateEditPrice(initial);
     }, [open, booking]);
 
-    const isDarkMode = document.documentElement.classList.contains('dark');
-
     return (
-        <Modal
-            open={open}
-            onCancel={onClose}
-            footer={null}
-            width={1000}
-            centered
-            className="premium-modal-v2"
-            closeIcon={<div className="p-2 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full transition-all mt-1 mr-1"><X size={18} className="text-slate-400" /></div>}
-            title={
-                <div className="flex items-center gap-4 py-4 px-2">
-                    <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 rotate-3">
-                        <History size={24} />
+        <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+            <DialogContent className="max-w-[95vw] sm:max-w-2xl lg:max-w-4xl p-0 border border-border/80 rounded-2xl md:rounded-3xl shadow-2xl bg-card max-h-[92vh] overflow-y-auto no-scrollbar flex flex-col">
+                
+                {/* Modal Header */}
+                <DialogHeader className="px-5 py-4 md:px-6 md:py-5 border-b border-border bg-muted/20">
+                    <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 rotate-3 shrink-0">
+                            <History size={18} className="md:size-5" />
+                        </div>
+                        <div className="flex flex-col text-left">
+                            <DialogTitle className="text-base md:text-lg font-black text-foreground tracking-tight leading-none uppercase italic">
+                                Chỉnh sửa giờ & sân
+                            </DialogTitle>
+                            <DialogDescription className="text-[10px] md:text-xs font-semibold text-indigo-500 dark:text-indigo-400 mt-1 font-mono tracking-wider">
+                                MÃ ĐƠN: #{booking?.code}
+                            </DialogDescription>
+                        </div>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-xl font-black text-slate-800 dark:text-white tracking-tight leading-none uppercase italic">Chỉnh sửa giờ & sân</span>
-                        <span className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 tracking-widest uppercase mt-1">Mã đơn: #{booking?.code}</span>
-                    </div>
-                </div>
-            }
-        >
-            {booking && (
-                <div className="p-2 space-y-8 max-h-[85vh] overflow-y-auto no-scrollbar">
-                    {/* Selectors */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 dark:bg-white/5 p-6 rounded-4xl border border-slate-100 dark:border-white/5 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                </DialogHeader>
+
+                {booking && (
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
                         
-                        <div className="space-y-2 relative z-10">
-                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1 flex items-center gap-2">
-                                <LayoutIcon size={12} /> Chọn sân thi đấu
-                            </label>
-                            <Select
-                                value={editValues.courtId}
-                                options={courts.map((c) => ({ value: c._id, label: c.name }))}
-                                onChange={(value) => setEditValues((prev) => ({ ...prev, courtId: value, slots: [], priceInfo: undefined }))}
-                                className="premium-select-v2 w-full"
-                                placeholder="Chọn sân..."
-                            />
-                        </div>
-
-                        <div className="space-y-2 relative z-10">
-                            <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1 flex items-center gap-2">
-                                <Calendar size={12} /> Ngày đặt sân
-                            </label>
-                            <DatePicker
-                                value={editValues.date}
-                                format="DD/MM/YYYY"
-                                onChange={(value) => setEditValues((prev) => ({ ...prev, date: value, slots: [], priceInfo: undefined }))}
-                                className="premium-input-v2 w-full"
-                                allowClear={false}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Slot Picker Section */}
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-500"><Clock size={16} /></div>
-                                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider">Khung giờ hoạt động</h3>
-                            </div>
-                            <div className="px-4 py-1.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full text-[11px] font-bold flex items-center gap-2 border border-indigo-500/20 shadow-sm animate-in fade-in slide-in-from-right-2 duration-500">
-                                <Info size={12} /> Đã chọn {selectedSlotsCount} ca • Nghỉ {selectedBreakMinutes} phút
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                            {TIME_SLOTS.map((slot, idx) => {
-                                const past = isSlotPast(slot.start);
-                                const booked = isSlotBooked(slot.start, slot.end);
-                                const selected = isSlotSelected(slot.start, slot.end);
-
-                                return (
-                                    <button
-                                        key={idx}
-                                        type="button"
-                                        disabled={past || booked}
-                                        onClick={() => handleSlotClick(slot.start, slot.end)}
-                                        className={`group relative flex flex-col items-center justify-center py-4 rounded-2xl transition-all duration-300 border-2 overflow-hidden ${
-                                            selected
-                                                ? "bg-linear-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-xl shadow-emerald-500/30 scale-[1.05] z-10"
-                                                : booked
-                                                ? "bg-rose-50 dark:bg-rose-500/5 border-rose-100 dark:border-rose-500/20 text-rose-300 dark:text-rose-500/40 cursor-not-allowed"
-                                                : past
-                                                ? "bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                                                : "bg-white dark:bg-slate-900 border-slate-100 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:scale-[1.03] cursor-pointer shadow-sm"
-                                        }`}
-                                    >
-                                        <span className="text-[13px] font-black tracking-tight">{slot.start} - {slot.end}</span>
-                                        {booked && <span className="text-[9px] font-black uppercase mt-1 px-2 py-0.5 bg-rose-500 text-white rounded-lg scale-90">Đã đặt</span>}
-                                        {past && !booked && <span className="text-[9px] font-black uppercase mt-1 opacity-50">Hết hạn</span>}
-                                        {selected && <div className="absolute top-1 right-1"><CheckCircle2 size={12} className="text-white/70" /></div>}
-                                        {!past && !booked && !selected && <span className="text-[9px] font-bold uppercase mt-1 text-slate-300 group-hover:text-indigo-400 transition-colors">Trống</span>}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Footer Summary Container */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4">
-                        <div className="lg:col-span-8 flex flex-col justify-end">
-                            <div className="p-5 bg-amber-50 dark:bg-amber-500/5 rounded-3xl border border-amber-200 dark:border-amber-500/20 flex gap-4 items-start">
-                                <div className="p-2.5 bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl shrink-0 mt-1"><AlertCircle size={20} /></div>
-                                <div>
-                                    <h4 className="font-black text-amber-800 dark:text-amber-400 text-xs uppercase tracking-widest mb-1">Lưu ý quan trọng</h4>
-                                    <p className="text-[12px] text-amber-700/80 dark:text-amber-400/60 leading-relaxed font-semibold">
-                                        Việc thay đổi giờ đá có thể làm thay đổi tổng tiền đơn hàng nếu có sự chênh lệch giữa các khung giờ cao điểm / bình thường. Ưu đãi voucher (nếu có) sẽ được tính lại dựa trên giá trị mới.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="lg:col-span-4">
-                            {editValues.priceInfo && (
-                                <div className="bg-slate-900 dark:bg-indigo-950/40 rounded-[32px] p-6 text-white shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                                    <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/10">
-                                        <div className="p-2.5 bg-indigo-500 rounded-2xl"><CreditCard size={18} /></div>
-                                        <span className="font-black text-sm uppercase tracking-widest italic opacity-90">Tóm tắt chi phí</span>
-                                    </div>
+                        {/* Main Grid: Responsive column scaling */}
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            
+                            {/* Left panel (8 cols on large screens): Selectors and Hour Slot Picker */}
+                            <div className="lg:col-span-8 space-y-6">
+                                
+                                {/* Selectors Area */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/10 p-4 rounded-xl md:rounded-2xl border border-border/60 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                                     
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center group">
-                                            <span className="text-xs font-black text-slate-400 uppercase group-hover:text-indigo-400 transition-colors">Tiền sân</span>
-                                            <span className="text-sm font-bold font-mono">{formatVND(editValues.priceInfo.fieldAmount)}</span>
+                                    {/* Court Select */}
+                                    <div className="space-y-1.5 text-left">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5 flex items-center gap-1.5">
+                                            <LayoutIcon size={12} className="text-indigo-500 shrink-0" /> Chọn sân thi đấu
+                                        </label>
+                                        <Select
+                                            value={editValues.courtId}
+                                            onValueChange={(value) => setEditValues((prev) => ({ ...prev, courtId: value, slots: [], priceInfo: undefined }))}
+                                        >
+                                            <SelectTrigger className="w-full h-11 rounded-xl border-border bg-card font-semibold text-xs transition-all hover:border-indigo-400 focus:ring-1 focus:ring-indigo-500">
+                                                <SelectValue placeholder="Chọn sân..." />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-xl border-border bg-card">
+                                                {courts.map((c) => (
+                                                    <SelectItem key={c._id} value={c._id} className="text-xs font-semibold">
+                                                        {c.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Date Input */}
+                                    <div className="space-y-1.5 text-left">
+                                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider pl-0.5 flex items-center gap-1.5">
+                                            <Calendar size={12} className="text-indigo-500 shrink-0" /> Ngày đặt sân
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={editValues.date ? editValues.date.format('YYYY-MM-DD') : ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditValues((prev) => ({ ...prev, date: val ? dayjs(val) : null, slots: [], priceInfo: undefined }));
+                                            }}
+                                            className="w-full h-11 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-all hover:border-indigo-400"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Hour Slot Picker Selection Section */}
+                                <div className="space-y-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={15} className="text-indigo-500 shrink-0" />
+                                            <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider">Khung giờ hoạt động</h3>
                                         </div>
-                                        <div className="flex justify-between items-center group">
-                                            <span className="text-xs font-black text-slate-400 uppercase group-hover:text-indigo-400 transition-colors">Thiết bị</span>
-                                            <span className="text-sm font-bold font-mono text-emerald-400">{formatVND(editValues.priceInfo.equipmentTotal)}</span>
+                                        <div className="px-3.5 py-1 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-bold w-max flex items-center gap-1.5 border border-indigo-500/20">
+                                            <Info size={11} className="shrink-0" />
+                                            <span>Đã chọn {selectedSlotsCount} ca {selectedBreakMinutes > 0 && `• Nghỉ ${selectedBreakMinutes} phút`}</span>
                                         </div>
-                                        <div className="flex justify-between items-center group">
-                                            <span className="text-xs font-black text-slate-400 uppercase group-hover:text-rose-400 transition-colors">Giảm giá</span>
-                                            <span className="text-sm font-bold font-mono text-rose-400">-{formatVND(editValues.priceInfo.discountTotal)}</span>
+                                    </div>
+
+                                    {/* Responsive time slot grid: 2 cols on mobile, 3 on tablet, 4 on laptop */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+                                        {TIME_SLOTS.map((slot, idx) => {
+                                            const past = isSlotPast(slot.start);
+                                            const booked = isSlotBooked(slot.start, slot.end);
+                                            const selected = isSlotSelected(slot.start, slot.end);
+
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    disabled={past || booked}
+                                                    onClick={() => handleSlotClick(slot.start, slot.end)}
+                                                    className={`group relative flex flex-col items-center justify-center py-3.5 rounded-xl transition-all duration-200 border-2 ${
+                                                        selected
+                                                            ? "bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-md shadow-emerald-500/20 scale-[1.02] z-10 font-bold"
+                                                            : booked
+                                                            ? "bg-rose-500/5 border-rose-500/10 text-rose-300 dark:text-rose-500/40 cursor-not-allowed opacity-60"
+                                                            : past
+                                                            ? "bg-muted/30 border-muted/10 text-muted-foreground/45 cursor-not-allowed opacity-50"
+                                                            : "bg-card border-border/80 text-foreground/80 hover:border-indigo-400 hover:text-indigo-600 hover:scale-[1.01] cursor-pointer shadow-xs"
+                                                    }`}
+                                                >
+                                                    <span className="text-[12px] font-bold tracking-tight">{slot.start} - {slot.end}</span>
+                                                    {booked && <span className="text-[8px] font-extrabold uppercase mt-1 px-1.5 py-0.2 bg-rose-600 text-white rounded-md">Đã đặt</span>}
+                                                    {past && !booked && <span className="text-[8px] font-extrabold uppercase mt-1 text-muted-foreground/60">Hết hạn</span>}
+                                                    {selected && <div className="absolute top-1 right-1"><CheckCircle2 size={10} className="text-white/80" /></div>}
+                                                    {!past && !booked && !selected && <span className="text-[8px] font-bold uppercase mt-1 text-muted-foreground group-hover:text-indigo-500">Trống</span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {/* Right panel (4 cols on large screens): Sticky Bill & Warnings */}
+                            <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-0">
+                                
+                                {/* Cost Summary Card (only shows when priceInfo is resolved) */}
+                                {editValues.priceInfo && (
+                                    <div className="bg-slate-950 dark:bg-indigo-950/20 rounded-2xl p-5 text-white shadow-xl relative overflow-hidden border border-white/5 animate-in zoom-in-95 duration-200">
+                                        <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none"></div>
+                                        <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-white/10 text-left">
+                                            <div className="p-2 bg-indigo-500 rounded-xl text-white shrink-0"><CreditCard size={14} /></div>
+                                            <span className="font-extrabold text-xs uppercase tracking-wider opacity-90">Tóm tắt chi phí</span>
                                         </div>
                                         
-                                        <div className="pt-5 mt-5 border-t border-white/20">
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest text-right">Tổng thanh toán dự kiến</span>
-                                                <div className="flex justify-between items-end">
-                                                    <ChevronRight size={24} className="text-indigo-500 animate-pulse mb-1" />
-                                                    <span className="text-3xl font-black text-white font-mono tracking-tighter drop-shadow-lg">{formatVND(editValues.priceInfo.total)}</span>
+                                        <div className="space-y-3.5 text-xs text-left">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase text-[10px]">Tiền sân</span>
+                                                <span className="font-mono font-semibold">{formatVND(editValues.priceInfo.fieldAmount)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase text-[10px]">Thiết bị</span>
+                                                <span className="font-mono font-semibold text-emerald-400">{formatVND(editValues.priceInfo.equipmentTotal)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-400 font-bold uppercase text-[10px]">Giảm giá</span>
+                                                <span className="font-mono font-semibold text-rose-400">-{formatVND(editValues.priceInfo.discountTotal)}</span>
+                                            </div>
+                                            
+                                            <div className="pt-4 mt-4 border-t border-white/10">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-right">Tổng thanh toán dự kiến</span>
+                                                    <div className="flex justify-between items-end">
+                                                        <ChevronRight size={18} className="text-indigo-500 animate-pulse shrink-0" />
+                                                        <span className="text-2xl font-black text-white font-mono tracking-tight">{formatVND(editValues.priceInfo.total)}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+                                )}
+
+                                {/* Important Warning Box */}
+                                <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/20 flex gap-3 items-start text-left">
+                                    <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl shrink-0 mt-0.5">
+                                        <AlertCircle size={16} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h4 className="font-black text-amber-800 dark:text-amber-400 text-[10px] uppercase tracking-wider">Lưu ý quan trọng</h4>
+                                        <p className="text-[11px] text-amber-700/80 dark:text-amber-400/60 leading-relaxed font-semibold">
+                                            Việc thay đổi giờ đá có thể làm thay đổi tổng tiền đơn hàng nếu có sự chênh lệch giữa các khung giờ cao điểm / bình thường. Ưu đãi voucher (nếu có) sẽ được tính lại dựa trên giá trị mới.
+                                        </p>
+                                    </div>
                                 </div>
-                            )}
+
+                            </div>
+
                         </div>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100 dark:border-white/5">
-                        <button
-                            onClick={onClose}
-                            className="px-8 py-3.5 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-rose-500 dark:hover:text-rose-400 transition-all active:scale-95"
-                        >
-                            Hủy bỏ các thay đổi
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={loading || !editValues.slots.length}
-                            className="flex items-center gap-3 px-10 py-3.5 bg-linear-to-r from-indigo-600 to-violet-700 text-white rounded-[20px] font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                            {loading ? "Đang xử lý..." : (<>Lưu các thay đổi <ChevronRight size={16} /></>)}
-                        </button>
                     </div>
+                )}
+
+                {/* Modal Footer Actions Bar */}
+                <div className="flex items-center justify-end gap-3 p-4 md:p-6 border-t border-border bg-muted/10">
+                    <Button
+                        variant="ghost"
+                        onClick={onClose}
+                        className="text-xs font-semibold h-11 px-5 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/5 rounded-xl transition-all"
+                    >
+                        Hủy bỏ các thay đổi
+                    </Button>
+                    <Button
+                        disabled={loading || !editValues.slots.length}
+                        onClick={handleSave}
+                        className="bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white font-extrabold text-xs h-11 px-7 rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 transition-all flex items-center gap-1.5"
+                    >
+                        {loading ? "Đang xử lý..." : (<>Lưu các thay đổi <ChevronRight size={14} /></>)}
+                    </Button>
                 </div>
-            )}
 
-            <style>{`
-                .premium-modal-v2 .ant-modal-content {
-                    border-radius: 48px !important;
-                    padding: 24px !important;
-                    box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25) !important;
-                    border: 1px solid rgba(255,255,255,0.1) !important;
-                }
-                .dark .premium-modal-v2 .ant-modal-content {
-                    background: #0f172a !important;
-                }
-                .premium-select-v2 .ant-select-selector {
-                    border-radius: 20px !important;
-                    height: 54px !important;
-                    padding: 0 20px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    font-weight: 700 !important;
-                    border: 2px solid #f1f5f9 !important;
-                    background: #fff !important;
-                    transition: all 0.3s !important;
-                }
-                .dark .premium-select-v2 .ant-select-selector {
-                    background: rgba(255,255,255,0.03) !important;
-                    border-color: rgba(255,255,255,0.05) !important;
-                    color: white !important;
-                }
-                .premium-select-v2:hover .ant-select-selector {
-                    border-color: #6366f1 !important;
-                }
-                .premium-input-v2 {
-                    border-radius: 20px !important;
-                    height: 54px !important;
-                    padding: 0 20px !important;
-                    font-weight: 700 !important;
-                    border: 2px solid #f1f5f9 !important;
-                    background: #fff !important;
-                    transition: all 0.3s !important;
-                }
-                .dark .premium-input-v2 {
-                    background: rgba(255,255,255,0.03) !important;
-                    border-color: rgba(255,255,255,0.05) !important;
-                    color: white !important;
-                }
-                .premium-input-v2:hover {
-                    border-color: #6366f1 !important;
-                }
-                .premium-modal-v2 .ant-modal-header {
-                    background: transparent !important;
-                    border-bottom: none !important;
-                    margin-bottom: 0 !important;
-                }
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
-                .no-scrollbar {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
-            `}</style>
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 };
 
