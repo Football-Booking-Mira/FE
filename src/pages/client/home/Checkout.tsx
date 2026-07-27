@@ -58,7 +58,7 @@ const formatDate = (value: string) => {
     return d.toLocaleDateString('vi-VN');
 };
 
-const formatCurrency = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)} VNĐ`;
+const formatCurrency = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`;
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -227,9 +227,6 @@ const Checkout: React.FC = () => {
                     // fallback về baseTotal hiện tại
                     setTotalAmount(baseTotal);
                 });
-        } else {
-            // flow đặt sân mới -> mặc định là baseTotal (trước voucher)
-            setTotalAmount(baseTotal);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [bookingData]);
@@ -738,7 +735,7 @@ const Checkout: React.FC = () => {
                                                                                         <span>
                                                                                             Đơn tối thiểu:{' '}
                                                                                             <span className={`font-semibold ${isMinOrderNotMet ? 'text-destructive' : ''}`}>
-                                                                                                {new Intl.NumberFormat('vi-VN').format(v.minOrderValue)} VNĐ
+                                                                                                {new Intl.NumberFormat('vi-VN').format(v.minOrderValue)}đ
                                                                                             </span>
                                                                                             {isMinOrderNotMet && <span className='ml-1 text-destructive'>(Không đủ)</span>}
                                                                                         </span>

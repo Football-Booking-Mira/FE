@@ -7,6 +7,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import LoadingScreen from '@/components/LoadingScreen';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ShieldCheck, Zap, Clock, MapPin, CheckCircle2, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import EquipmentPickerModal, { type EquipmentPickItem } from '@/components/EquipmentPickerModal';
 
@@ -45,7 +47,7 @@ interface Review {
     };
 }
 
-//  ENV URL
+// ENV URL
 const RAW_API = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
 const API_BASE = RAW_API.endsWith('/api') ? RAW_API : `${RAW_API}/api`;
 const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -63,7 +65,7 @@ const toMinutes = (t: string) => {
     return h * 60 + m;
 };
 
-// key nội bộ: gắn cả date để phân biệt nhiều ngày
+// Internal key for slot
 const slotKeyOf = (s: SelectedSlot) => `${s.date}|${s.startTime}-${s.endTime}`;
 
 const PitchDetail: React.FC = () => {
@@ -75,7 +77,7 @@ const PitchDetail: React.FC = () => {
     const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
     const [currentImage, setCurrentImage] = useState(0);
     const [reviews, setReviews] = useState<Review[]>([]);
-    const [open, setOpen] = useState(true);
+    const [reviewsOpen, setReviewsOpen] = useState(true);
     const [equipmentBySlot, setEquipmentBySlot] = useState<Record<string, EquipmentPickItem[]>>({});
 
     const [equipModalOpen, setEquipModalOpen] = useState(false);
@@ -84,7 +86,7 @@ const PitchDetail: React.FC = () => {
 
     const socketRef = useRef<Socket | null>(null);
 
-    //  FETCH COURT (with auto-retry when server is not ready)
+    // FETCH COURT
     const retryRef = useRef(0);
     const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -98,7 +100,7 @@ const PitchDetail: React.FC = () => {
             if (data?.success && data.data) {
                 setCourt(data.data);
                 setCurrentImage(0);
-                retryRef.current = 0; // Reset retry counter on success
+                retryRef.current = 0;
             } else {
                 toast.error(data?.message || 'Không tìm thấy sân!');
                 setCourt(null);
@@ -106,10 +108,8 @@ const PitchDetail: React.FC = () => {
             setLoading(false);
         } catch (err) {
             console.error('Lỗi tải sân:', err);
-            // Auto retry khi server chưa sẵn sàng (network error)
             if (retryRef.current < 20) {
                 retryRef.current += 1;
-                console.log(`[PitchDetail] Đang thử kết nối lại... (lần ${retryRef.current})`);
                 retryTimerRef.current = setTimeout(() => {
                     fetchCourt();
                 }, 3000);
@@ -128,7 +128,7 @@ const PitchDetail: React.FC = () => {
         };
     }, [fetchCourt]);
 
-    //  SOCKET
+    // SOCKET
     useEffect(() => {
         if (!id) return;
 
@@ -154,7 +154,7 @@ const PitchDetail: React.FC = () => {
         };
     }, [id]);
 
-    // dọn thiết bị của slot bị bỏ chọn
+    // Clean equipment for unselected slots
     useEffect(() => {
         const keys = new Set(selectedSlots.map(slotKeyOf));
         setEquipmentBySlot((prev) => {
@@ -166,15 +166,13 @@ const PitchDetail: React.FC = () => {
         });
     }, [selectedSlots]);
 
-    // Đánh giá (Review)
+    // Reviews
     useEffect(() => {
         if (!id) return;
 
         const fetchReviews = async () => {
             try {
-                setLoading(true);
                 const token = localStorage.getItem("token");
-
                 const res = await fetch(
                     `${API_BASE}/review/court-pulic/${id}`,
                     {
@@ -186,18 +184,16 @@ const PitchDetail: React.FC = () => {
 
                 const json = await res.json();
                 if (json.success) {
-                    setReviews(json.data.reviews);
+                    setReviews(json.data.reviews || []);
                 }
             } catch (error) {
                 console.error("Lỗi lấy review:", error);
-            } finally {
-                setLoading(false);
             }
         };
 
         fetchReviews();
     }, [id]);
-    // đếm thiết bị theo slot để hiện "Thiết bị (n)" trong ô ca
+
     const equipmentCountBySlot = useMemo(() => {
         const m: Record<string, number> = {};
         for (const [k, arr] of Object.entries(equipmentBySlot)) m[k] = (arr || []).length;
@@ -218,13 +214,12 @@ const PitchDetail: React.FC = () => {
         return { overallStart, overallEnd };
     }, [selectedSlots]);
 
-    //  TIỀN SÂN
+    // Financial totals
     const courtTotal = useMemo(
         () => selectedSlots.reduce((sum, s) => sum + (Number(s.price) || 0), 0),
         [selectedSlots]
     );
 
-    // TIỀN THIẾT BỊ (qty * unitPrice)
     const equipmentTotal = useMemo(() => {
         let sum = 0;
         for (const arr of Object.values(equipmentBySlot)) {
@@ -235,7 +230,6 @@ const PitchDetail: React.FC = () => {
         return sum;
     }, [equipmentBySlot]);
 
-    // TỔNG THANH TOÁN
     const grandTotal = courtTotal + equipmentTotal;
 
     const totalDuration = selectedSlots.reduce((sum, s) => sum + s.duration, 0);
@@ -281,7 +275,6 @@ const PitchDetail: React.FC = () => {
             return;
         }
 
-        // Admin không được đặt sân ở trang khách hàng
         if (user?.role === 'admin') {
             toast.error('Tài khoản quản trị không thể đặt sân ở đây. Vui lòng sử dụng trang quản trị để tạo đơn đặt sân!');
             return;
@@ -292,16 +285,12 @@ const PitchDetail: React.FC = () => {
             courtName: court.name,
             date: selectedSlots[0].date,
             slots: selectedSlots,
-
-            //  tách rõ
             courtTotal,
             equipmentTotal,
             grandTotal,
-
             totalDuration,
             overallStart: overallTime.overallStart,
             overallEnd: overallTime.overallEnd,
-
             equipmentBySlot,
         };
 
@@ -312,28 +301,24 @@ const PitchDetail: React.FC = () => {
     if (loading) {
         return <LoadingScreen fullScreen text="Đang tải thông tin sân..." />;
     }
-    if (!court) return <p className='text-center mt-10 text-gray-600 dark:text-gray-300'>Không tìm thấy sân.</p>;
+    if (!court) return <p className='text-center mt-10 text-muted-foreground font-semibold'>Không tìm thấy sân.</p>;
 
     return (
-        <div className='min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 md:px-6 lg:px-8 font-sans'>
+        <div className='min-h-screen bg-slate-50 dark:bg-slate-950 py-6 sm:py-8 px-3 sm:px-6 lg:px-8 font-sans pb-28 lg:pb-8'>
             <ToastContainer newestOnTop style={{ zIndex: 10001 }} />
 
-            {/* === 12-COLUMN GRID: Left (8) + Right Sidebar (4) === */}
-            <div className='max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start'>
+            {/* Main Container */}
+            <div className='max-w-[1550px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start relative'>
 
-                {/* ============================================= */}
-                {/* CỘT TRÁI — col-span-8                        */}
-                {/* Court Info + Images + Time Selector + Reviews */}
-                {/* ============================================= */}
+                {/* LEFT COLUMN (col-span-8) */}
                 <div className='lg:col-span-8 space-y-6'>
 
                     {/* Court Info Card */}
-                    <Card className='shadow-sm border-gray-100/80 dark:border-gray-700/50 overflow-hidden'>
-                        <CardContent className='p-6 md:p-8 space-y-8'>
-                            {/* Court name & badges */}
+                    <Card className='shadow-xs border-border/80 rounded-3xl overflow-hidden bg-card'>
+                        <CardContent className='p-5 sm:p-7 space-y-6'>
                             <div>
-                                <div className="flex items-center gap-2 flex-wrap mb-3">
-                                    <Badge variant="outline" className='bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/30 font-bold text-xs rounded-lg px-3 py-1'>
+                                <div className="flex items-center gap-2 flex-wrap mb-2.5">
+                                    <Badge variant="outline" className='bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold text-xs rounded-lg px-3 py-1'>
                                         {court.type === 'indoor' ? '🏢 Trong nhà' : court.type === 'outdoor' ? '🌤️ Ngoài trời' : court.type === 'vip' ? '⭐ VIP' : court.type}
                                     </Badge>
                                     {court.formats && (
@@ -341,48 +326,53 @@ const PitchDetail: React.FC = () => {
                                             {Array.isArray(court.formats) ? court.formats.join(', ') : court.formats}
                                         </Badge>
                                     )}
+                                    <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-xs font-semibold rounded-lg px-2.5 py-1 flex items-center gap-1">
+                                        <ShieldCheck size={12} /> Giữ sân 100%
+                                    </Badge>
                                 </div>
-                                <h1 className='text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-gray-200'>{court.name}</h1>
+                                <h1 className='text-2xl sm:text-3xl font-black tracking-tight text-foreground'>{court.name}</h1>
                                 {court.location && (
-                                    <p className="text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2 text-sm">
-                                        <span className="text-emerald-500">📍</span> {court.location}
+                                    <p className="text-muted-foreground mt-1.5 flex items-center gap-1.5 text-xs sm:text-sm font-medium">
+                                        <MapPin size={15} className="text-emerald-500 shrink-0" /> {court.location}
                                     </p>
                                 )}
                             </div>
 
-                            {/* Ảnh sân */}
+                            {/* Images Gallery */}
                             <div className='space-y-3'>
-                                <div className='rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700/50 shadow-sm img-zoom-container'>
+                                <div className='rounded-2xl overflow-hidden border border-border/60 shadow-xs relative bg-muted'>
                                     <img
                                         src={
                                             court.images?.[currentImage] ||
                                             court.images?.[0] ||
                                             'https://picsum.photos/1200/600'
                                         }
-                                        className='w-full h-[300px] md:h-[420px] object-cover'
+                                        className='w-full h-[280px] sm:h-[400px] object-cover'
                                         alt='court'
                                     />
                                 </div>
 
-                                <div className='flex gap-2 overflow-x-auto scrollbar-hide pb-1'>
-                                    {court.images?.map((img, idx) => (
-                                        <img
-                                            key={idx}
-                                            src={img}
-                                            className={`w-20 h-14 md:w-24 md:h-18 object-cover rounded-lg cursor-pointer border-2 transition-all duration-200 shrink-0 ${currentImage === idx
-                                                ? 'border-emerald-500 shadow-md shadow-emerald-500/20 scale-[1.03]'
-                                                : 'border-gray-200 dark:border-gray-600 hover:border-emerald-400 opacity-60 hover:opacity-100'
-                                                }`}
-                                            onClick={() => setCurrentImage(idx)}
-                                            alt={`thumb-${idx}`}
-                                        />
-                                    ))}
-                                </div>
+                                {court.images && court.images.length > 1 && (
+                                    <div className='flex gap-2.5 overflow-x-auto scrollbar-hide pb-1'>
+                                        {court.images.map((img, idx) => (
+                                            <img
+                                                key={idx}
+                                                src={img}
+                                                className={`w-20 h-14 sm:w-24 sm:h-16 object-cover rounded-xl cursor-pointer border-2 transition-all shrink-0 ${currentImage === idx
+                                                    ? 'border-emerald-500 shadow-md scale-105'
+                                                    : 'border-border/60 hover:border-emerald-400 opacity-70 hover:opacity-100'
+                                                    }`}
+                                                onClick={() => setCurrentImage(idx)}
+                                                alt={`thumb-${idx}`}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* SELECT TIME + NÚT THIẾT BỊ TRONG Ô CA */}
+                    {/* TIME SELECTOR GRID */}
                     <BookingTimeSelector
                         courtId={court._id}
                         basePrice={court.basePrice}
@@ -392,303 +382,270 @@ const PitchDetail: React.FC = () => {
                         equipmentCountBySlot={equipmentCountBySlot}
                     />
 
-                    {/* ======================================= */}
-                    {/* REVIEWS — Now in LEFT column, never     */}
-                    {/* overlapped by sticky sidebar            */}
-                    {/* ======================================= */}
-                    <Card className='shadow-sm border-gray-100/80 dark:border-gray-700 max-w-4xl mx-auto w-full'>
-                        <CardHeader className='cursor-pointer select-none' onClick={() => setOpen(!open)}>
+                    {/* REVIEWS SECTION */}
+                    <Card className='shadow-xs border-border/80 rounded-3xl overflow-hidden bg-card'>
+                        <CardHeader className='cursor-pointer select-none py-4 px-6 border-b border-border/40 hover:bg-muted/20 transition-colors' onClick={() => setReviewsOpen(!reviewsOpen)}>
                             <div className="flex items-center justify-between w-full">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-base">⭐</div>
-                                    <CardTitle className='text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100'>
+                                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-sm">⭐</div>
+                                    <CardTitle className='text-base font-extrabold text-foreground'>
                                         Đánh giá & nhận xét
                                         {reviews.length > 0 && (
-                                            <Badge variant="secondary" className='ml-2 text-[10px] font-bold rounded-md'>
+                                            <Badge variant="secondary" className='ml-2 text-[10px] font-extrabold rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400'>
                                                 {reviews.length}
                                             </Badge>
                                         )}
                                     </CardTitle>
                                 </div>
-                                <span className="text-gray-400 dark:text-gray-300 text-base transition-transform duration-200 hover:text-gray-600 w-8 h-8 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
-                                    {open ? "▾" : "▸"}
-                                </span>
+                                <div className="w-7 h-7 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground transition-colors">
+                                    {reviewsOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                                </div>
                             </div>
                         </CardHeader>
 
-                        {open && (
-                            <CardContent className='space-y-4 pt-0 max-w-3xl mx-auto w-full'>
-                                {/* Loading */}
-                                {loading && (
-                                    <div className="space-y-3">
-                                        {[0, 1].map(i => (
-                                            <div key={i} className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4">
-                                                <div className="flex items-center gap-3 mb-3">
-                                                    <div className="skeleton w-8 h-8 rounded-full"></div>
-                                                    <div className="flex-1 space-y-2">
-                                                        <div className="skeleton h-3.5 w-24 rounded-md"></div>
-                                                        <div className="skeleton h-3 w-16 rounded-md"></div>
-                                                    </div>
-                                                </div>
-                                                <div className="skeleton h-3.5 w-full rounded-md"></div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Empty */}
-                                {!loading && reviews.length === 0 && (
-                                    <div className="text-center py-10">
-                                        <div className="text-4xl mb-3">💬</div>
-                                        <p className="text-gray-500 dark:text-gray-300 text-sm font-medium">
-                                            Sân này chưa có đánh giá nào
+                        {reviewsOpen && (
+                            <CardContent className='p-6 space-y-4'>
+                                {reviews.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-muted-foreground text-xs font-semibold">
+                                            Sân bóng này chưa có đánh giá nào. Hãy là người đầu tiên đặt sân và trải nghiệm!
                                         </p>
                                     </div>
-                                )}
-
-                                {/* Reviews */}
-                                {!loading &&
+                                ) : (
                                     reviews.map((review) => (
                                         <div
                                             key={review._id}
-                                            className="bg-gray-50/80 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-700 rounded-xl p-4 hover:shadow-sm transition-all duration-200 border-l-[3px] border-l-amber-400 dark:border-l-amber-500"
+                                            className="bg-muted/30 border border-border/60 rounded-2xl p-4 space-y-2"
                                         >
-                                            {/* User */}
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <img
-                                                    src={
-                                                        review.userId?.avatar ||
-                                                        `https://ui-avatars.com/api/?name=${review.userId?.name || 'Khách'}&background=random`
-                                                    }
-                                                    alt={review.userId?.name || 'Người dùng'}
-                                                    className="w-8 h-8 rounded-full object-cover border-2 border-amber-200 dark:border-amber-700 shadow-sm"
-                                                />
-
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-semibold text-foreground truncate">
-                                                        {review.userId?.name || 'Người dùng ẩn danh'}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {new Date(review.createdAt).toLocaleDateString("vi-VN")}
-                                                    </p>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <img
+                                                        src={
+                                                            review.userId?.avatar ||
+                                                            `https://ui-avatars.com/api/?name=${review.userId?.name || 'Khách'}&background=random`
+                                                        }
+                                                        alt={review.userId?.name || 'Người dùng'}
+                                                        className="w-8 h-8 rounded-full object-cover border border-amber-500/30"
+                                                    />
+                                                    <div>
+                                                        <p className="text-xs font-bold text-foreground">
+                                                            {review.userId?.name || 'Khách hàng'}
+                                                        </p>
+                                                        <p className="text-[10px] text-muted-foreground">
+                                                            {new Date(review.createdAt).toLocaleDateString("vi-VN")}
+                                                        </p>
+                                                    </div>
                                                 </div>
-
-                                                {/* Rating badge */}
-                                                <Badge variant="outline" className='text-xs font-extrabold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/30 rounded-lg px-2.5 py-1'>
+                                                <Badge variant="outline" className='text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'>
                                                     {review.rating}/5 ★
                                                 </Badge>
                                             </div>
-
-                                            {/* Stars */}
-                                            <div className="flex items-center gap-0.5 mb-2">
-                                                {Array.from({ length: 5 }).map((_, i) => (
-                                                    <span
-                                                        key={i}
-                                                        className={`text-sm ${
-                                                            i < review.rating
-                                                                ? "text-amber-400"
-                                                                : "text-gray-200 dark:text-gray-600"
-                                                        }`}
-                                                    >
-                                                        ★
-                                                    </span>
-                                                ))}
-                                            </div>
-
-                                            {/* Comment */}
-                                            <p className="text-sm mt-2 leading-relaxed text-foreground">
+                                            <p className="text-xs text-foreground/90 leading-relaxed pt-1">
                                                 {review.comment}
                                             </p>
                                         </div>
-                                    ))}
+                                    ))
+                                )}
                             </CardContent>
                         )}
                     </Card>
                 </div>
 
-                {/* ============================================= */}
-                {/* CỘT PHẢI — col-span-4 (Sticky Sidebar)      */}
-                {/* Summary only — scrolls internally if tall    */}
-                {/* ============================================= */}
-                <div className='lg:col-span-4'>
-                    <Card className='shadow-sm border-gray-100/80 dark:border-gray-700 sticky top-24 h-fit max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide'>
-                        <CardHeader className='pb-2'>
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-base">📋</div>
-                                <CardTitle className='text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100'>Tóm tắt đặt sân</CardTitle>
+                {/* RIGHT COLUMN (col-span-4) - DESKTOP SIDEBAR WITH PINNED FOOTER */}
+                <div className='lg:col-span-4 sticky top-20 hidden lg:block'>
+                    <Card className='shadow-xl border-border/80 rounded-3xl overflow-hidden bg-card flex flex-col max-h-[calc(100vh-100px)]'>
+                        {/* Header */}
+                        <CardHeader className='pb-3 pt-5 px-6 border-b border-border/50 bg-muted/20 shrink-0'>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-extrabold text-sm">📋</div>
+                                    <CardTitle className='text-base font-extrabold text-foreground'>Tóm tắt đặt sân</CardTitle>
+                                </div>
+                                <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                                    {selectedSlots.length} Khung giờ
+                                </span>
                             </div>
                         </CardHeader>
 
-                        <CardContent className='space-y-0 text-sm'>
-                            {/* Summary rows */}
-                            <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                <span className="text-sm text-muted-foreground">Ngày đặt sân</span>
-                                <span className='text-sm font-medium text-foreground'>{dateDisplay}</span>
+                        {/* Scrollable Summary Rows */}
+                        <CardContent className='p-6 overflow-y-auto no-scrollbar space-y-0 text-xs flex-1'>
+                            <div className='flex justify-between py-2.5 border-b border-border/40'>
+                                <span className="text-muted-foreground">Ngày đặt sân</span>
+                                <span className='font-bold text-foreground'>{dateDisplay}</span>
                             </div>
 
-                            <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                <span className="text-sm text-muted-foreground">Tên sân</span>
-                                <span className='text-sm font-medium text-foreground truncate max-w-[55%] text-right'>
+                            <div className='flex justify-between py-2.5 border-b border-border/40'>
+                                <span className="text-muted-foreground">Tên sân</span>
+                                <span className='font-bold text-foreground truncate max-w-[55%] text-right'>
                                     {court.name || '--'}
                                 </span>
                             </div>
 
-                            <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                <span className="text-sm text-muted-foreground">Loại sân</span>
-                                <span className='text-sm font-medium text-foreground'>
-                                    {court.type === 'indoor'
-                                        ? 'Trong nhà'
-                                        : court.type === 'outdoor'
-                                            ? 'Ngoài trời'
-                                            : court.type === 'vip'
-                                                ? 'VIP'
-                                                : court.type}
+                            <div className='flex justify-between py-2.5 border-b border-border/40'>
+                                <span className="text-muted-foreground">Loại sân & Định dạng</span>
+                                <span className='font-bold text-foreground'>
+                                    {court.type === 'indoor' ? 'Trong nhà' : court.type === 'outdoor' ? 'Ngoài trời' : 'VIP'} ({Array.isArray(court.formats) ? court.formats.join(', ') : court.formats || 'Standard'})
                                 </span>
                             </div>
 
-                            {court.formats && (
-                                <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                    <span className="text-sm text-muted-foreground">Định dạng</span>
-                                    <span className='text-sm font-medium text-foreground text-right'>
-                                        {Array.isArray(court.formats)
-                                            ? court.formats.join(', ')
-                                            : court.formats}
-                                    </span>
-                                </div>
-                            )}
-
-                            <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                <span className="text-sm text-muted-foreground">Khung giờ</span>
-                                <span className='text-sm font-medium text-foreground text-right max-w-[55%]'>{timeDisplay}</span>
+                            <div className='flex justify-between py-2.5 border-b border-border/40'>
+                                <span className="text-muted-foreground">Khung giờ</span>
+                                <span className='font-bold text-emerald-600 dark:text-emerald-400 text-right max-w-[60%] truncate'>{timeDisplay}</span>
                             </div>
 
                             {selectedSlots.length > 0 && (
                                 <>
-                                    <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                        <span className="text-sm text-muted-foreground">Loại giá</span>
-                                        <span className='text-sm font-medium text-foreground'>{priceTypeLabel}</span>
+                                    <div className='flex justify-between py-2.5 border-b border-border/40'>
+                                        <span className="text-muted-foreground">Loại giá</span>
+                                        <span className='font-bold text-foreground'>{priceTypeLabel}</span>
                                     </div>
-                                    <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                        <span className="text-sm text-muted-foreground">Tổng số giờ</span>
-                                        <span className="text-sm font-medium text-foreground">{totalDuration / 60} giờ</span>
+                                    <div className='flex justify-between py-2.5 border-b border-border/40'>
+                                        <span className="text-muted-foreground">Tổng thời gian</span>
+                                        <span className="font-bold text-foreground">{totalDuration / 60} giờ</span>
                                     </div>
-                                    {/* VỊ TRÍ */}
-                                    <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                        <span className="text-sm text-muted-foreground">Vị trí</span>
-                                        <span className='text-sm font-medium text-foreground text-right max-w-[55%]'>
+                                    <div className='flex justify-between py-2.5 border-b border-border/40'>
+                                        <span className="text-muted-foreground">Vị trí</span>
+                                        <span className='font-medium text-foreground text-right max-w-[55%] truncate'>
                                             {court.location || 'Chưa có thông tin'}
                                         </span>
                                     </div>
 
-                                    {/* GIỜ MỞ CỬA */}
-                                    <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                        <span className="text-sm text-muted-foreground">Giờ mở cửa</span>
-                                        <span className='text-sm font-medium text-foreground text-right'>
-                                            {court.openHours || '06:00 - 22:00'}
+                                    {/* Equipment per slot */}
+                                    <div className='py-3 border-b border-border/40 space-y-2'>
+                                        <span className='block font-bold text-muted-foreground text-[11px] uppercase tracking-wider'>
+                                            Thiết bị theo khung giờ
                                         </span>
-                                    </div>
-
-                                    {/* TIỆN ÍCH */}
-                                    <div className='py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                        <span className='block font-medium text-sm text-muted-foreground mb-2'>Tiện ích</span>
-                                        {court.amenities && court.amenities.length > 0 ? (
-                                            <div className='flex flex-wrap gap-1.5'>
-                                                {court.amenities.map((a, idx) => (
-                                                    <Badge
-                                                        key={idx}
-                                                        variant="outline"
-                                                        className='bg-emerald-50 dark:bg-green-900/30 text-emerald-700 dark:text-green-400 border-emerald-100 dark:border-green-800 text-[11px] font-semibold rounded-md'
+                                        <div className='space-y-1.5'>
+                                            {selectedSlots.map((s) => {
+                                                const k = slotKeyOf(s);
+                                                const picked = equipmentBySlot[k] || [];
+                                                return (
+                                                    <div
+                                                        key={k}
+                                                        className='flex items-center justify-between gap-2 bg-muted/40 p-2 rounded-xl border border-border/50'
                                                     >
-                                                        {a}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <span className='text-gray-400 dark:text-gray-400 text-sm italic'>
-                                                Chưa có tiện ích
-                                            </span>
-                                        )}
+                                                        <span className='text-[11px] font-semibold text-foreground flex items-center gap-1.5 truncate'>
+                                                            <Clock size={11} className="text-emerald-500 shrink-0" />
+                                                            {s.startTime} – {s.endTime}
+                                                            {picked.length > 0 && (
+                                                                <Badge variant="outline" className='text-[9px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20 font-bold px-1.5 py-0'>
+                                                                    {picked.length} món
+                                                                </Badge>
+                                                            )}
+                                                        </span>
+                                                        <button
+                                                            type='button'
+                                                            onClick={() => openEquipForSlot(s)}
+                                                            className='text-[10px] px-2 py-0.5 rounded-lg border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-card hover:bg-emerald-500/10 transition-all font-extrabold shrink-0'
+                                                        >
+                                                            {picked.length > 0 ? 'Sửa' : '+ Thêm'}
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </>
                             )}
 
-                            {/* THIẾT BỊ THEO SLOT */}
-                            {selectedSlots.length > 0 && (
-                                <div className='py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                    <span className='block font-medium text-sm text-muted-foreground mb-2.5'>
-                                        Thiết bị theo khung giờ
-                                    </span>
-                                    <div className='space-y-2'>
-                                        {selectedSlots.map((s) => {
-                                            const k = slotKeyOf(s);
-                                            const picked = equipmentBySlot[k] || [];
-                                            return (
-                                                <div
-                                                    key={k}
-                                                    className='flex items-center justify-between gap-2 bg-gray-50 dark:bg-gray-900/40 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700/50'
-                                                >
-                                                    <span className='text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5'>
-                                                        <span className="text-emerald-500 text-[10px]">⏰</span>
-                                                        {s.startTime} – {s.endTime}
-                                                        {picked.length > 0 && (
-                                                            <Badge variant="outline" className='text-[9px] text-emerald-600 dark:text-green-400 bg-emerald-50 dark:bg-green-900/20 border-emerald-100 dark:border-green-800 font-bold rounded-md px-1.5 py-0'>
-                                                                {picked.length}
-                                                            </Badge>
-                                                        )}
-                                                    </span>
-                                                    <button
-                                                        type='button'
-                                                        onClick={() => openEquipForSlot(s)}
-                                                        className='text-[10px] px-2 py-1 rounded-md border border-emerald-200 dark:border-green-800 text-emerald-700 dark:text-green-400 bg-white dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-green-900/20 transition-all font-bold'
-                                                    >
-                                                        {picked.length > 0 ? 'Sửa' : '+ Thêm'}
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                            {/* Breakdown Prices */}
+                            <div className='pt-2 space-y-1.5'>
+                                <div className='flex justify-between text-xs text-muted-foreground'>
+                                    <span>Tiền sân</span>
+                                    <span className='font-bold text-foreground'>{courtTotal.toLocaleString('vi-VN')}đ</span>
                                 </div>
-                            )}
-
-                            {/*  tiền sân + tiền thiết bị */}
-                            <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                <span className="text-sm text-muted-foreground">Tiền sân</span>
-                                <span className='text-sm font-medium text-foreground'>
-                                    {courtTotal.toLocaleString('vi-VN')} VNĐ
-                                </span>
+                                <div className='flex justify-between text-xs text-muted-foreground'>
+                                    <span>Tiền thiết bị</span>
+                                    <span className='font-bold text-foreground'>{equipmentTotal.toLocaleString('vi-VN')}đ</span>
+                                </div>
                             </div>
+                        </CardContent>
 
-                            <div className='flex justify-between py-3 border-b border-gray-100 dark:border-gray-700/50'>
-                                <span className="text-sm text-muted-foreground">Tiền thiết bị</span>
-                                <span className='text-sm font-medium text-foreground'>
-                                    {equipmentTotal.toLocaleString('vi-VN')} VNĐ
+                        {/* PINNED ACTION FOOTER (ALWAYS VISIBLE ON DESKTOP) */}
+                        <div className='p-5 border-t border-border bg-card shrink-0 shadow-lg space-y-3'>
+                            <div className='flex justify-between items-center p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20'>
+                                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Tổng thanh toán</span>
+                                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                                    {grandTotal.toLocaleString('vi-VN')}đ
                                 </span>
-                            </div>
-
-                            {/* Total row with gradient background */}
-                            <div className='flex justify-between items-center mt-4 p-3.5 -mx-1 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/10 border border-emerald-100 dark:border-emerald-800/30'>
-                                <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Tổng thanh toán</span>
-                                <span className="text-base font-semibold text-emerald-600 dark:text-emerald-400 tracking-tight">{grandTotal.toLocaleString('vi-VN')} VNĐ</span>
                             </div>
 
                             <button
                                 onClick={handleBooking}
                                 disabled={!selectedSlots.length}
-                                className={`w-full mt-5 font-bold py-3 rounded-xl transition-all duration-200 text-sm ${selectedSlots.length
-                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:-translate-y-0.5 active:translate-y-0'
-                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                                className={`w-full font-black py-3.5 rounded-2xl transition-all duration-300 text-sm flex items-center justify-center gap-2 ${selectedSlots.length
+                                    ? 'bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/30 hover:scale-[1.01] active:scale-[0.99] cursor-pointer'
+                                    : 'bg-muted text-muted-foreground/60 cursor-not-allowed border border-border/50'
                                     }`}
                                 type='button'
                             >
-                                {selectedSlots.length ? '⚡ Đặt sân ngay' : 'Đặt sân ngay'}
+                                {selectedSlots.length ? (
+                                    <>
+                                        <Zap size={16} className="fill-white" />
+                                        <span>ĐẶT SÂN NGAY</span>
+                                    </>
+                                ) : (
+                                    'Vui lòng chọn khung giờ'
+                                )}
                             </button>
-                        </CardContent>
+
+                            <div className="flex items-center justify-center gap-3 text-[10px] font-semibold text-muted-foreground pt-1">
+                                <span className="flex items-center gap-1"><CheckCircle2 size={11} className="text-emerald-500" /> Giữ sân tức thì</span>
+                                <span>•</span>
+                                <span className="flex items-center gap-1"><ShieldCheck size={11} className="text-emerald-500" /> Đảm bảo 100%</span>
+                            </div>
+                        </div>
                     </Card>
                 </div>
 
             </div>
 
-            {/* MODAL CHỌN THIẾT BỊ */}
+            {/* MOBILE & TABLET FLOATING STICKY ACTION BAR (<1024px) */}
+            <div className='fixed bottom-0 left-0 right-0 z-50 bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-border/80 p-3 sm:p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.15)] lg:hidden'>
+                <div className='max-w-md mx-auto flex items-center justify-between gap-3'>
+                    <div className='flex flex-col min-w-0'>
+                        {selectedSlots.length > 0 ? (
+                            <>
+                                <span className='text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider truncate'>
+                                    {selectedSlots.length} ca đặt — {dateDisplay}
+                                </span>
+                                <div className='flex items-baseline gap-1'>
+                                    <span className='text-xs font-semibold text-muted-foreground'>Tổng:</span>
+                                    <span className='text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight'>
+                                        {grandTotal.toLocaleString('vi-VN')}đ
+                                    </span>
+                                </div>
+                            </>
+                        ) : (
+                            <div className='flex flex-col'>
+                                <span className='text-xs font-bold text-foreground'>Đặt sân {court.name}</span>
+                                <span className='text-[10px] text-muted-foreground'>Vui lòng chọn ca bên trên</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={handleBooking}
+                        disabled={!selectedSlots.length}
+                        className={`px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 shadow-md ${selectedSlots.length
+                            ? 'bg-linear-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/30 active:scale-95'
+                            : 'bg-muted text-muted-foreground/60 cursor-not-allowed border border-border/50'
+                            }`}
+                        type='button'
+                    >
+                        {selectedSlots.length ? (
+                            <>
+                                <Zap size={14} className="fill-white" />
+                                <span>Đặt ngay</span>
+                            </>
+                        ) : (
+                            'Chọn ca'
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {/* EQUIPMENT MODAL */}
             <EquipmentPickerModal
                 open={equipModalOpen}
                 onClose={() => setEquipModalOpen(false)}
@@ -701,7 +658,7 @@ const PitchDetail: React.FC = () => {
                     .flatMap(k => equipmentBySlot[k])}
                 onSave={handleSaveEquip}
             />
-        </div >
+        </div>
     );
 };
 

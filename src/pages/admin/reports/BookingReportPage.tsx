@@ -12,6 +12,11 @@ import {
     Zap,
     TrendingUp,
     PieChart as PieChartIcon,
+    Flame,
+    CheckCircle2,
+    AlertCircle,
+    Activity,
+    ShieldCheck
 } from 'lucide-react';
 import {
     CartesianGrid,
@@ -60,7 +65,7 @@ const formatCurrency = (value?: number | string) => {
     return Number(value).toLocaleString('vi-VN');
 };
 
-const COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'];
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'];
 
 export default function BookingStatsReportPage() {
     const [stats, setStats] = useState<BookingStats | null>(null);
@@ -143,12 +148,12 @@ export default function BookingStatsReportPage() {
 
     if (loading && !stats)
         return (
-            <div className='flex items-center justify-center min-h-[600px]'>
-                <div className='relative'>
-                    <div className='animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-emerald-500'></div>
-                    <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-600'>
-                        MIRA
-                    </div>
+            <div className='flex items-center justify-center min-h-[500px]'>
+                <div className='relative flex flex-col items-center gap-3'>
+                    <div className='animate-spin rounded-full h-14 w-14 border-4 border-emerald-500/20 border-t-emerald-500'></div>
+                    <span className='text-xs font-black text-emerald-600 dark:text-emerald-400 tracking-wider uppercase animate-pulse'>
+                        Đang tải dữ liệu MIRA Football...
+                    </span>
                 </div>
             </div>
         );
@@ -159,38 +164,42 @@ export default function BookingStatsReportPage() {
         { name: 'Còn trống', value: stats?.courtStatus?.available || 0 },
     ];
 
-    return (
-        <div className='space-y-8 p-1 md:p-6 animate-in fade-in duration-1000'>
-            {/* 🚀 Premium Header */}
-            <div className='flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white dark:bg-slate-900/50 p-6 rounded-4xl border border-slate-100 dark:border-white/5 shadow-sm relative overflow-hidden'>
-                <div className='absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32'></div>
+    const totalCourts = (stats?.courtStatus?.inUse || 0) + (stats?.courtStatus?.reserved || 0) + (stats?.courtStatus?.available || 0);
+    const occupancyRate = totalCourts > 0 
+        ? Math.round((((stats?.courtStatus?.inUse || 0) + (stats?.courtStatus?.reserved || 0)) / totalCourts) * 100) 
+        : 0;
 
-                <div className='relative z-10'>
-                    <h1 className='text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-4'>
-                        <div className='p-3.5 bg-linear-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-xl shadow-emerald-200 dark:shadow-none'>
-                            <LayoutDashboard size={28} />
-                        </div>
-                        <div>
-                            <span>Thống kê & Phân tích</span>
-                            <div className='h-1 w-12 bg-emerald-500 rounded-full mt-1'></div>
-                        </div>
+    return (
+        <div className='space-y-6 sm:space-y-8 p-1 sm:p-2 animate-in fade-in duration-700'>
+            {/* Header Hero Section */}
+            <div className='flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-card dark:bg-slate-900/60 p-5 sm:p-7 rounded-3xl border border-border/80 shadow-xs relative overflow-hidden'>
+                <div className='absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none'></div>
+
+                <div className='relative z-10 space-y-1.5'>
+                    <div className='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-extrabold uppercase tracking-widest'>
+                        <ShieldCheck size={13} />
+                        Báo cáo hiệu suất MIRA Football
+                    </div>
+                    <h1 className='text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3'>
+                        <span>Thống kê & Phân tích</span>
                     </h1>
-                    <p className='text-slate-500 dark:text-slate-400 mt-2 font-medium flex items-center gap-2'>
-                        <span className='w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse'></span>
-                        Hệ thống báo cáo hiệu suất kinh doanh Mira
+                    <p className='text-xs sm:text-sm text-muted-foreground font-medium flex items-center gap-2'>
+                        <span className='w-2 h-2 rounded-full bg-emerald-500 animate-pulse'></span>
+                        Cập nhật theo thời gian thực — Dữ liệu kinh doanh và vận hành sân bóng
                     </p>
                 </div>
 
-                <div className='flex items-center gap-4 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-2xl border border-slate-100 dark:border-white/5 relative z-10'>
-                    <div className='flex bg-white dark:bg-slate-800 p-1 rounded-xl shadow-sm'>
+                {/* Period Controls */}
+                <div className='flex flex-wrap sm:flex-nowrap items-center gap-3 bg-muted/40 p-2 rounded-2xl border border-border/60 relative z-10 w-full xl:w-auto justify-between sm:justify-start'>
+                    <div className='flex bg-card p-1 rounded-xl shadow-xs border border-border/50'>
                         {(['day', 'week', 'month', 'year'] as const).map((p) => (
                             <button
                                 key={p}
                                 onClick={() => handlePeriodChange(p)}
-                                className={`px-4 sm:px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+                                className={`px-3.5 sm:px-5 py-1.5 text-xs font-bold rounded-lg transition-all ${
                                     selectedPeriod === p
-                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-500/20'
-                                        : 'text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                        ? 'bg-emerald-600 text-white shadow-xs'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                                 }`}
                             >
                                 {p === 'day'
@@ -203,199 +212,211 @@ export default function BookingStatsReportPage() {
                             </button>
                         ))}
                     </div>
-                    <div className='hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1'></div>
-                    <div className='flex items-center gap-2 sm:gap-4 px-1 sm:px-2'>
+                    <div className='hidden sm:block h-6 w-px bg-border/80 mx-1'></div>
+                    <div className='flex items-center gap-2 sm:gap-3'>
                         <button
                             onClick={() => handleNavigate('prev')}
-                            className='p-2 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm transition-all'
+                            className='p-2 bg-card hover:bg-emerald-500/10 hover:text-emerald-600 text-muted-foreground border border-border/60 rounded-xl shadow-xs transition-all'
+                            title="Kỳ trước"
                         >
-                            <ChevronLeft size={18} />
+                            <ChevronLeft size={16} />
                         </button>
-                        <div className='flex flex-col items-center min-w-[100px] sm:min-w-[140px]'>
-                            <span className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+                        <div className='flex flex-col items-center min-w-[110px] sm:min-w-[140px]'>
+                            <span className='text-[10px] font-black text-muted-foreground/80 uppercase tracking-widest'>
                                 {selectedPeriod === 'week' ? 'Giai đoạn' : 'Thời gian'}
                             </span>
-                            <span className='text-xs sm:text-sm font-black text-slate-700 dark:text-slate-200 truncate'>
+                            <span className='text-xs sm:text-sm font-extrabold text-foreground truncate'>
                                 {getPeriodLabel()}
                             </span>
                         </div>
                         <button
                             onClick={() => handleNavigate('next')}
-                            className='p-2 bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-400 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-white/5 rounded-xl shadow-sm transition-all'
+                            className='p-2 bg-card hover:bg-emerald-500/10 hover:text-emerald-600 text-muted-foreground border border-border/60 rounded-xl shadow-xs transition-all'
+                            title="Kỳ tiếp"
                         >
-                            <ChevronRight size={18} />
+                            <ChevronRight size={16} />
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/*  Section 1: KPI Cards */}
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+            {/* Section 1: KPI Stat Cards */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6'>
+                {/* 1. Today Revenue */}
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className='group bg-linear-to-br from-emerald-500 to-teal-600 p-6 rounded-4xl text-white shadow-xl shadow-emerald-200 dark:shadow-none relative overflow-hidden cursor-default'
+                    className='group bg-linear-to-br from-emerald-600 via-teal-600 to-emerald-700 p-6 rounded-3xl text-white shadow-md shadow-emerald-500/10 relative overflow-hidden cursor-default border border-emerald-500/30'
                 >
-                    <div className='absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform'>
+                    <div className='absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform pointer-events-none'>
                         <DollarSign size={80} />
                     </div>
                     <div className='relative z-10'>
-                        <div className='flex items-center gap-2 mb-4'>
-                            <div className='p-2 bg-white/20 rounded-lg backdrop-blur-md'>
-                                <TrendingUp size={16} />
+                        <div className='flex items-center justify-between mb-4'>
+                            <div className='flex items-center gap-2'>
+                                <div className='p-2 bg-white/20 rounded-xl backdrop-blur-md'>
+                                    <TrendingUp size={16} />
+                                </div>
+                                <span className='text-emerald-100 text-[10px] font-black uppercase tracking-widest'>
+                                    Doanh thu Hôm nay
+                                </span>
                             </div>
-                            <span className='text-emerald-50 text-[10px] font-black uppercase tracking-widest'>
-                                Doanh thu Hôm nay
-                            </span>
                         </div>
-                        <h3 className='text-3xl font-black mb-1'>
+                        <h3 className='text-3xl font-black mb-1.5 tracking-tight'>
                             {formatCurrency(stats?.revenueOverview?.daily)}{' '}
-                            <span className='text-lg font-bold'>₫</span>
+                            <span className='text-xl font-bold'>đ</span>
                         </h3>
-                        <p className='text-emerald-100/70 text-xs font-medium'>
+                        <p className='text-emerald-100/80 text-xs font-medium flex items-center gap-1'>
+                            <ArrowUpRight size={14} className="text-emerald-200" />
                             +12% so với hôm qua
                         </p>
                     </div>
                 </motion.div>
 
+                {/* 2. Total Period Revenue */}
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className='group bg-linear-to-bl from-blue-500 to-indigo-600 border-none p-6 rounded-4xl text-white shadow-xl shadow-blue-200 dark:shadow-none relative overflow-hidden cursor-default'
+                    className='group bg-linear-to-br from-indigo-600 via-purple-600 to-indigo-700 p-6 rounded-3xl text-white shadow-md shadow-indigo-500/10 relative overflow-hidden cursor-default border border-indigo-500/30'
                 >
-                    <div className='absolute bottom-0 right-0 p-4 opacity-10 group-hover:-translate-y-2 transition-transform'>
+                    <div className='absolute bottom-0 right-0 p-4 opacity-10 group-hover:-translate-y-2 transition-transform pointer-events-none'>
                         <Zap size={80} />
                     </div>
                     <div className='relative z-10'>
-                        <div className='flex items-center gap-2 mb-4'>
-                            <div className='p-2 bg-white/20 rounded-lg backdrop-blur-md'>
-                                <Zap size={16} className='text-amber-300' />
+                        <div className='flex items-center justify-between mb-4'>
+                            <div className='flex items-center gap-2'>
+                                <div className='p-2 bg-white/20 rounded-xl backdrop-blur-md'>
+                                    <Zap size={16} className='text-amber-300' />
+                                </div>
+                                <span className='text-indigo-100 text-[10px] font-black uppercase tracking-widest'>
+                                    Tổng cộng kỳ này
+                                </span>
                             </div>
-                            <span className='text-blue-100 text-[10px] font-black uppercase tracking-widest'>
-                                Tổng cộng kỳ này
-                            </span>
                         </div>
-                        <h3 className='text-3xl font-black text-white mb-1'>
+                        <h3 className='text-3xl font-black mb-1.5 tracking-tight'>
                             {formatCurrency(stats?.totalRevenue)}{' '}
-                            <span className='text-lg text-blue-100 font-bold'>₫</span>
+                            <span className='text-xl text-indigo-100 font-bold'>đ</span>
                         </h3>
-                        <div className='flex items-center gap-2 mt-2'>
-                            <span className='text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded shadow-sm'>
-                                TÍCH CỰC
+                        <div className='flex items-center gap-2 mt-1'>
+                            <span className='text-[10px] font-extrabold bg-white/20 text-white px-2 py-0.5 rounded-md shadow-xs uppercase tracking-wider'>
+                                ⚡ TÍCH CỰC
                             </span>
                         </div>
                     </div>
                 </motion.div>
 
+                {/* 3. Total Paid */}
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className='bg-white dark:bg-slate-900 p-6 rounded-4xl border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                    className='bg-card p-6 rounded-3xl border border-border/80 shadow-xs relative overflow-hidden'
                 >
                     <div className='flex items-center justify-between mb-4'>
-                        <div className='p-2 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg'>
-                            <TrendingUp size={16} />
+                        <div className='p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl'>
+                            <CheckCircle2 size={18} />
                         </div>
-                        <span className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+                        <span className='text-[10px] font-black text-muted-foreground uppercase tracking-widest'>
                             Đã thanh toán
                         </span>
                     </div>
-                    <h3 className='text-2xl font-black text-slate-900 dark:text-white'>
+                    <h3 className='text-2xl font-black text-foreground tracking-tight'>
                         {formatCurrency(stats?.revenueOverview?.totalPaid)}{' '}
-                        <span className='text-sm font-bold'>VNĐ</span>
+                        <span className='text-base font-bold text-emerald-600 dark:text-emerald-400'>đ</span>
                     </h3>
-                    <div className='w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-4 overflow-hidden'>
+                    <div className='w-full bg-muted h-2 rounded-full mt-4 overflow-hidden'>
                         <div
-                            className='bg-blue-500 h-full rounded-full'
+                            className='bg-emerald-500 h-full rounded-full transition-all duration-500'
                             style={{
-                                width: `${stats?.revenueOverview ? (stats.revenueOverview.totalPaid / (stats.revenueOverview.totalPaid + stats.revenueOverview.totalUnpaid + 1)) * 100 : 0}%`,
+                                width: `${stats?.revenueOverview ? Math.min(100, Math.round((stats.revenueOverview.totalPaid / ((stats.revenueOverview.totalPaid + stats.revenueOverview.totalUnpaid) || 1)) * 100)) : 0}%`,
                             }}
                         ></div>
                     </div>
                 </motion.div>
 
+                {/* 4. Total Unpaid */}
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4 }}
-                    className='bg-white dark:bg-slate-900 p-6 rounded-4xl border border-rose-100 dark:border-white/5 shadow-xl shadow-rose-100/50 dark:shadow-none'
+                    className='bg-card p-6 rounded-3xl border border-rose-500/30 shadow-xs relative overflow-hidden'
                 >
                     <div className='flex items-center justify-between mb-4'>
-                        <div className='p-2 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg'>
-                            <Clock size={16} />
+                        <div className='p-2.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl'>
+                            <AlertCircle size={18} />
                         </div>
-                        <span className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+                        <span className='text-[10px] font-black text-muted-foreground uppercase tracking-widest'>
                             Chưa thanh toán
                         </span>
                     </div>
-                    <h3 className='text-2xl font-black text-rose-500 dark:text-rose-400'>
+                    <h3 className='text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight'>
                         {formatCurrency(stats?.revenueOverview?.totalUnpaid)}{' '}
-                        <span className='text-sm font-bold'>₫</span>
+                        <span className='text-base font-bold'>đ</span>
                     </h3>
-                    <div className='mt-4 flex items-center gap-2'>
-                        <span className='text-[10px] font-bold text-slate-400 italic'>
-                            Cần nhắc nhở thanh toán
+                    <div className='mt-4 flex items-center gap-1.5'>
+                        <Clock size={12} className="text-amber-500 shrink-0" />
+                        <span className='text-[10px] font-bold text-muted-foreground italic'>
+                            Cần nhắc nhở thu hồi công nợ
                         </span>
                     </div>
                 </motion.div>
             </div>
 
-            {/* 📊 Section 2: Main Charts */}
-            <div className='grid grid-cols-1 lg:grid-cols-12 gap-8'>
-                {/* Biểu đồ xu hướng Doanh thu */}
+            {/* Section 2: Charts Grid */}
+            <div className='grid grid-cols-1 lg:grid-cols-12 gap-6'>
+                {/* Revenue Trend Area Chart */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className='lg:col-span-8 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                    className='lg:col-span-8 bg-card p-6 sm:p-8 rounded-3xl border border-border/80 shadow-xs'
                 >
-                    <div className='flex justify-between items-center mb-8'>
+                    <div className='flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8'>
                         <div>
-                            <h3 className='text-xl text-slate-900 dark:text-white font-extrabold flex items-center gap-2'>
-                                <TrendingUp className='text-emerald-500' size={20} />
+                            <h3 className='text-lg sm:text-xl text-foreground font-black flex items-center gap-2.5'>
+                                <TrendingUp className='text-emerald-500' size={22} />
                                 Phân tích Xu hướng Doanh thu
                             </h3>
-                            <p className='text-slate-400 text-xs font-medium mt-1'>
-                                Dữ liệu doanh thu biến động theo thời gian
+                            <p className='text-muted-foreground text-xs font-medium mt-1'>
+                                Biến động doanh thu theo mốc thời gian kinh doanh
                             </p>
                         </div>
                         <div className='flex items-center gap-2'>
-                            <div className='flex items-center gap-1.5'>
+                            <div className='flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20'>
                                 <div className='w-2.5 h-2.5 rounded-full bg-emerald-500'></div>
-                                <span className='text-[10px] font-bold text-slate-500 uppercase'>
-                                    Doanh thu
+                                <span className='text-[11px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider'>
+                                    Doanh thu (đ)
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    <div className='h-[350px] w-full'>
+                    <div className='h-[320px] sm:h-[360px] w-full'>
                         <ResponsiveContainer width='100%' height='100%'>
                             <AreaChart data={stats?.revenueTrend}>
                                 <defs>
                                     <linearGradient id='colorRev' x1='0' y1='0' x2='0' y2='1'>
-                                        <stop offset='5%' stopColor='#10b981' stopOpacity={0.1} />
+                                        <stop offset='5%' stopColor='#10b981' stopOpacity={0.25} />
                                         <stop offset='95%' stopColor='#10b981' stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid
                                     vertical={false}
                                     strokeDasharray='3 3'
-                                    strokeOpacity={0.05}
+                                    strokeOpacity={0.1}
                                 />
                                 <XAxis
                                     dataKey='date'
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
                                     dy={10}
                                 />
                                 <YAxis
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }}
                                     tickFormatter={(v) =>
                                         v >= 1000000
                                             ? `${(v / 1000000).toFixed(1)}Tr`
@@ -404,24 +425,26 @@ export default function BookingStatsReportPage() {
                                 />
                                 <Tooltip
                                     contentStyle={{
-                                        borderRadius: '20px',
-                                        border: 'none',
-                                        boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
-                                        padding: '12px',
+                                        borderRadius: '16px',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                                        padding: '12px 16px',
+                                        backgroundColor: '#0f172a',
+                                        color: '#fff'
                                     }}
-                                    itemStyle={{ fontWeight: 800, color: '#0f172a' }}
+                                    itemStyle={{ fontWeight: 800, color: '#34d399' }}
                                     labelStyle={{
                                         fontWeight: 900,
                                         marginBottom: '4px',
-                                        color: '#64748b',
+                                        color: '#94a3b8',
                                     }}
-                                    formatter={(v: any) => [formatCurrency(v) + ' ₫', 'Doanh thu']}
+                                    formatter={(v: any) => [`${formatCurrency(v)} đ`, 'Doanh thu']}
                                 />
                                 <Area
                                     type='monotone'
                                     dataKey='revenue'
                                     stroke='#10b981'
-                                    strokeWidth={3}
+                                    strokeWidth={3.5}
                                     fillOpacity={1}
                                     fill='url(#colorRev)'
                                 />
@@ -430,32 +453,32 @@ export default function BookingStatsReportPage() {
                     </div>
                 </motion.div>
 
-                {/* ⚽ Section: Trạng thái Sân bóng */}
+                {/* Court Occupancy Status Donut */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
-                    className='lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden flex flex-col'
+                    className='lg:col-span-4 bg-card border border-border/80 p-6 sm:p-8 rounded-3xl shadow-xs flex flex-col justify-between relative overflow-hidden'
                 >
-                    <div className='absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-5 pointer-events-none text-slate-900 dark:text-white'>
-                        <PieChartIcon size={220} />
+                    <div className='absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-5 pointer-events-none text-foreground'>
+                        <PieChartIcon size={200} />
                     </div>
 
-                    <h3 className='text-xl font-extrabold mb-6 relative z-10 flex items-center gap-2 text-slate-900 dark:text-white'>
-                        <span className='w-2 h-2 rounded-full bg-emerald-500 animate-pulse'></span>
+                    <h3 className='text-lg sm:text-xl font-black mb-6 relative z-10 flex items-center gap-2 text-foreground'>
+                        <Activity className='text-emerald-500' size={20} />
                         Vận hành Sân Hiện tại
                     </h3>
 
-                    <div className='flex-1 min-h-[220px] relative z-10'>
+                    <div className='flex-1 min-h-[220px] relative z-10 my-2'>
                         <ResponsiveContainer width='100%' height='100%'>
                             <PieChart>
                                 <Pie
                                     data={pieData}
                                     cx='50%'
                                     cy='50%'
-                                    innerRadius={70}
-                                    outerRadius={90}
-                                    paddingAngle={8}
+                                    innerRadius={68}
+                                    outerRadius={92}
+                                    paddingAngle={6}
                                     dataKey='value'
                                 >
                                     {pieData.map((entry, index) => (
@@ -478,40 +501,31 @@ export default function BookingStatsReportPage() {
                             </PieChart>
                         </ResponsiveContainer>
                         <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none'>
-                            <p className='text-[10px] font-black text-slate-400 uppercase tracking-tighter'>
-                                Hiệu suất
+                            <p className='text-[10px] font-black text-muted-foreground uppercase tracking-widest'>
+                                HIỆU SUẤT
                             </p>
-                            <p className='text-3xl font-black text-slate-900 dark:text-white'>
-                                {stats?.courtStatus
-                                    ? Math.round(
-                                          (stats.courtStatus.inUse /
-                                              (stats.courtStatus.inUse +
-                                                  stats.courtStatus.available +
-                                                  0.1)) *
-                                              100
-                                      ) || 0
-                                    : 0}
-                                %
+                            <p className='text-3xl font-black text-emerald-600 dark:text-emerald-400'>
+                                {occupancyRate}%
                             </p>
                         </div>
                     </div>
 
-                    <div className='space-y-3 mt-6 relative z-10'>
+                    <div className='space-y-2.5 mt-4 relative z-10'>
                         {pieData.map((item, idx) => (
                             <div
                                 key={idx}
-                                className='flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/10 hover:shadow-sm transition-all'
+                                className='flex items-center justify-between p-3 bg-muted/30 rounded-xl border border-border/50 hover:bg-muted/60 transition-all'
                             >
-                                <div className='flex items-center gap-3'>
+                                <div className='flex items-center gap-2.5'>
                                     <div
-                                        className='w-3 h-3 rounded-full shadow-sm'
+                                        className='w-3 h-3 rounded-full shadow-xs'
                                         style={{ backgroundColor: COLORS[idx] }}
                                     ></div>
-                                    <span className='text-xs font-bold text-slate-600 dark:text-slate-400'>
+                                    <span className='text-xs font-bold text-foreground'>
                                         {item.name}
                                     </span>
                                 </div>
-                                <span className='text-sm font-black text-slate-900 dark:text-white'>
+                                <span className='text-xs font-black text-foreground bg-card px-2.5 py-0.5 rounded-md border border-border/50'>
                                     {item.value} sân
                                 </span>
                             </div>
@@ -520,113 +534,113 @@ export default function BookingStatsReportPage() {
                 </motion.div>
             </div>
 
-            {/* 🏆 Section 3: Rankings & Metrics */}
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8'>
-                {/* 📊 Section: Lượt đặt sân */}
+            {/* Section 3: Rankings & Metrics */}
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
+                {/* Bookings Count Overview */}
                 <motion.div
-                    whileHover={{ y: -5 }}
-                    className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                    whileHover={{ y: -3 }}
+                    className='bg-card p-6 sm:p-7 rounded-3xl border border-border/80 shadow-xs'
                 >
-                    <div className='flex justify-between items-center mb-8'>
-                        <h3 className='text-lg font-black text-slate-800 dark:text-white flex items-center gap-3'>
-                            <div className='p-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl'>
-                                <Calendar size={20} />
+                    <div className='flex justify-between items-center mb-6'>
+                        <h3 className='text-base font-black text-foreground flex items-center gap-2.5'>
+                            <div className='p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl'>
+                                <Calendar size={18} />
                             </div>
                             Lượt đặt sân bóng
                         </h3>
-                        <div className='p-2 bg-slate-50 dark:bg-white/5 rounded-full'>
-                            <ArrowUpRight size={16} className='text-slate-400' />
+                        <div className='p-2 bg-muted rounded-full'>
+                            <ArrowUpRight size={14} className='text-muted-foreground' />
                         </div>
                     </div>
 
-                    <div className='space-y-4'>
-                        <div className='flex justify-between items-center p-5 bg-indigo-50/50 dark:bg-indigo-500/5 rounded-2xl group cursor-default border border-transparent hover:border-indigo-100 dark:hover:border-indigo-500/20 transition-all'>
+                    <div className='space-y-3.5'>
+                        <div className='flex justify-between items-center p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 hover:border-indigo-500/30 transition-all'>
                             <div className='flex items-center gap-3'>
-                                <div className='w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center font-black text-indigo-600 dark:text-indigo-400 shadow-sm group-hover:scale-110 transition-transform'>
+                                <div className='w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-xs'>
                                     1
                                 </div>
-                                <span className='font-extrabold text-slate-700 dark:text-slate-200'>
+                                <span className='font-bold text-xs text-foreground'>
                                     Hôm nay
                                 </span>
                             </div>
-                            <span className='text-3xl font-black text-indigo-600 dark:text-indigo-400'>
-                                {stats?.bookingsOverview?.today || 0}
+                            <span className='text-2xl font-black text-indigo-600 dark:text-indigo-400'>
+                                {stats?.bookingsOverview?.today || 0} <span className="text-xs font-bold">đơn</span>
                             </span>
                         </div>
-                        <div className='flex justify-between items-center p-5 bg-teal-50/50 dark:bg-teal-500/5 rounded-2xl group cursor-default border border-transparent hover:border-teal-100 dark:hover:border-teal-500/20 transition-all'>
+                        <div className='flex justify-between items-center p-4 bg-teal-500/5 rounded-2xl border border-teal-500/10 hover:border-teal-500/30 transition-all'>
                             <div className='flex items-center gap-3'>
-                                <div className='w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center font-black text-teal-600 dark:text-teal-400 shadow-sm group-hover:scale-110 transition-transform'>
+                                <div className='w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-black text-sm shadow-xs'>
                                     7
                                 </div>
-                                <span className='font-extrabold text-slate-700 dark:text-slate-200'>
+                                <span className='font-bold text-xs text-foreground'>
                                     Tuần này
                                 </span>
                             </div>
-                            <span className='text-3xl font-black text-teal-600 dark:text-teal-400'>
-                                {stats?.bookingsOverview?.week || 0}
+                            <span className='text-2xl font-black text-teal-600 dark:text-teal-400'>
+                                {stats?.bookingsOverview?.week || 0} <span className="text-xs font-bold">đơn</span>
                             </span>
                         </div>
-                        <div className='flex justify-between items-center p-5 bg-amber-50/50 dark:bg-amber-500/5 rounded-2xl group cursor-default border border-transparent hover:border-amber-100 dark:hover:border-amber-500/20 transition-all'>
+                        <div className='flex justify-between items-center p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 hover:border-amber-500/30 transition-all'>
                             <div className='flex items-center gap-3'>
-                                <div className='w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center font-black text-amber-600 dark:text-amber-400 shadow-sm group-hover:scale-110 transition-transform'>
+                                <div className='w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black text-sm shadow-xs'>
                                     30
                                 </div>
-                                <span className='font-extrabold text-slate-700 dark:text-slate-200'>
+                                <span className='font-bold text-xs text-foreground'>
                                     Tháng này
                                 </span>
                             </div>
-                            <span className='text-3xl font-black text-amber-600 dark:text-amber-400'>
-                                {stats?.bookingsOverview?.month || 0}
+                            <span className='text-2xl font-black text-amber-600 dark:text-amber-400'>
+                                {stats?.bookingsOverview?.month || 0} <span className="text-xs font-bold">đơn</span>
                             </span>
                         </div>
                     </div>
                 </motion.div>
 
-                {/* ⚽ Section: Rankings */}
+                {/* Pitch Leaderboard */}
                 <motion.div
-                    whileHover={{ y: -5 }}
-                    className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                    whileHover={{ y: -3 }}
+                    className='bg-card p-6 sm:p-7 rounded-3xl border border-border/80 shadow-xs'
                 >
-                    <div className='flex justify-between items-center mb-8'>
-                        <h3 className='text-lg font-black text-slate-800 dark:text-white flex items-center gap-3'>
-                            <div className='p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl'>
-                                <Trophy size={20} />
+                    <div className='flex justify-between items-center mb-6'>
+                        <h3 className='text-base font-black text-foreground flex items-center gap-2.5'>
+                            <div className='p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl'>
+                                <Trophy size={18} />
                             </div>
-                            Bảng xếp hạng Sân
+                            Bảng xếp hạng Sân Hot
                         </h3>
                     </div>
 
-                    <div className='space-y-5'>
+                    <div className='space-y-4'>
                         {stats?.courtsStats?.slice(0, 5).map((c, i) => (
                             <div key={i} className='group'>
-                                <div className='flex justify-between mb-2 items-end'>
-                                    <div className='flex items-center gap-3'>
+                                <div className='flex justify-between mb-1.5 items-end'>
+                                    <div className='flex items-center gap-2.5'>
                                         <div
-                                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black ${i === 0 ? 'bg-amber-400 text-white' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}
+                                            className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-black ${i === 0 ? 'bg-amber-500 text-white shadow-xs' : 'bg-muted text-muted-foreground'}`}
                                         >
-                                            {i + 1}
+                                            {i === 0 ? '👑' : i + 1}
                                         </div>
-                                        <span className='text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:text-amber-500 transition-colors'>
+                                        <span className='text-xs font-bold text-foreground group-hover:text-amber-500 transition-colors'>
                                             {c.name}
                                         </span>
                                     </div>
                                     <div className='flex items-center gap-1'>
-                                        <span className='text-sm font-black text-slate-900 dark:text-white'>
+                                        <span className='text-xs font-black text-foreground'>
                                             {c.count}
                                         </span>
-                                        <span className='text-[10px] font-bold text-slate-400 uppercase mt-0.5'>
-                                            Lượt
+                                        <span className='text-[10px] font-bold text-muted-foreground uppercase'>
+                                            lượt
                                         </span>
                                     </div>
                                 </div>
-                                <div className='w-full h-2 bg-slate-50 dark:bg-white/5 rounded-full overflow-hidden'>
+                                <div className='w-full h-2 bg-muted rounded-full overflow-hidden'>
                                     <motion.div
                                         initial={{ width: 0 }}
                                         animate={{
                                             width: `${(c.count / (stats?.courtsStats?.[0]?.count || 1)) * 100}%`,
                                         }}
                                         transition={{ duration: 1, ease: 'easeOut' }}
-                                        className={`h-full rounded-full ${i === 0 ? 'bg-amber-400' : 'bg-slate-200 dark:bg-slate-700 group-hover:bg-amber-400/50'}`}
+                                        className={`h-full rounded-full ${i === 0 ? 'bg-amber-500' : 'bg-emerald-500/80 group-hover:bg-amber-500'}`}
                                     ></motion.div>
                                 </div>
                             </div>
@@ -634,72 +648,69 @@ export default function BookingStatsReportPage() {
                     </div>
                 </motion.div>
 
-                {/* 👤 Section: Customers */}
+                {/* VIP Customer Loyalty */}
                 <motion.div
-                    whileHover={{ y: -5 }}
-                    className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                    whileHover={{ y: -3 }}
+                    className='bg-card p-6 sm:p-7 rounded-3xl border border-border/80 shadow-xs md:col-span-2 lg:col-span-1'
                 >
-                    <div className='flex justify-between items-center mb-8'>
-                        <h3 className='text-lg font-black text-slate-800 dark:text-white flex items-center gap-3'>
-                            <div className='p-2 bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-xl'>
-                                <Users size={20} />
+                    <div className='flex justify-between items-center mb-6'>
+                        <h3 className='text-base font-black text-foreground flex items-center gap-2.5'>
+                            <div className='p-2 bg-violet-500/10 text-violet-600 dark:text-violet-400 rounded-xl'>
+                                <Users size={18} />
                             </div>
                             Khách hàng thân thiết
                         </h3>
                     </div>
 
-                    <div className='flex items-center justify-between mb-8 p-1 bg-slate-50 dark:bg-white/5 rounded-2xl'>
-                        <div className='flex-1 text-center p-3'>
-                            <p className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+                    <div className='flex items-center justify-between mb-6 p-2 bg-muted/40 rounded-2xl border border-border/50'>
+                        <div className='flex-1 text-center p-2'>
+                            <p className='text-[10px] font-black text-muted-foreground uppercase tracking-wider'>
                                 Tổng khách
                             </p>
-                            <p className='text-2xl font-black text-slate-900 dark:text-white'>
+                            <p className='text-xl font-black text-foreground'>
                                 {stats?.customerStats?.total || 0}
                             </p>
                         </div>
-                        <div className='w-px h-8 bg-slate-200 dark:bg-slate-700'></div>
-                        <div className='flex-1 text-center p-3'>
-                            <p className='text-[10px] font-black text-emerald-500 uppercase tracking-widest'>
+                        <div className='w-px h-7 bg-border/80'></div>
+                        <div className='flex-1 text-center p-2'>
+                            <p className='text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider'>
                                 Tháng mới
                             </p>
-                            <p className='text-2xl font-black text-emerald-600 dark:text-emerald-400'>
+                            <p className='text-xl font-black text-emerald-600 dark:text-emerald-400'>
                                 +{stats?.customerStats?.newThisMonth || 0}
                             </p>
                         </div>
                     </div>
 
-                    <div className='space-y-4'>
+                    <div className='space-y-3'>
                         {stats?.customerStats?.topList?.slice(0, 3).map((item, i) => (
                             <div
                                 key={i}
-                                className='flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-default'
+                                className='flex items-center justify-between p-2.5 rounded-xl hover:bg-muted/50 transition-all border border-transparent hover:border-border/60'
                             >
-                                <div className='flex items-center gap-4'>
+                                <div className='flex items-center gap-3'>
                                     <div className='relative'>
-                                        <div className='w-11 h-11 rounded-2xl bg-linear-to-tr from-violet-500 to-indigo-600 flex items-center justify-center text-white font-black shadow-lg shadow-violet-500/20'>
+                                        <div className='w-10 h-10 rounded-xl bg-linear-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-xs'>
                                             {item.user?.name?.charAt(0) || 'U'}
                                         </div>
                                         {i === 0 && (
-                                            <div className='absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center text-[8px]'>
+                                            <div className='absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full border-2 border-card flex items-center justify-center text-[8px]'>
                                                 👑
                                             </div>
                                         )}
                                     </div>
-                                    <div>
-                                        <p className='text-sm font-extrabold text-slate-800 dark:text-slate-200 truncate max-w-[120px]'>
-                                            {item.user?.name || 'Khách ẩn danh'}
+                                    <div className="min-w-0">
+                                        <p className='text-xs font-bold text-foreground truncate max-w-[110px]'>
+                                            {item.user?.name || 'Khách hàng'}
                                         </p>
-                                        <p className='text-[10px] text-slate-400 font-bold'>
-                                            {item.user?.phone || 'Chưa cập nhật'}
+                                        <p className='text-[10px] text-muted-foreground font-mono truncate'>
+                                            {item.user?.phone || 'N/A'}
                                         </p>
                                     </div>
                                 </div>
                                 <div className='text-right'>
-                                    <p className='text-lg font-black text-slate-900 dark:text-white'>
-                                        {item.count}
-                                    </p>
-                                    <p className='text-[10px] font-black text-violet-500 dark:text-violet-400 uppercase'>
-                                        Đơn
+                                    <p className='text-sm font-black text-emerald-600 dark:text-emerald-400'>
+                                        {item.count} <span className="text-[10px] font-semibold text-muted-foreground">đơn</span>
                                     </p>
                                 </div>
                             </div>
@@ -708,68 +719,64 @@ export default function BookingStatsReportPage() {
                 </motion.div>
             </div>
 
-            {/* 🕐 Section 4: Hot Hours Analytics */}
+            {/* Section 4: Hot Peak Hours Grid */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className='bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none'
+                className='bg-card p-6 sm:p-8 rounded-3xl border border-border/80 shadow-xs'
             >
-                <div className='flex justify-between items-center mb-10'>
+                <div className='flex justify-between items-center mb-8'>
                     <div>
-                        <h3 className='text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-3'>
-                            <div className='p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl'>
-                                <Clock size={22} />
+                        <h3 className='text-lg sm:text-xl font-black text-foreground flex items-center gap-2.5'>
+                            <div className='p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl'>
+                                <Clock size={20} />
                             </div>
-                            Khung giờ Vàng
+                            Khung giờ Vàng (Peak Hours Analytics)
                         </h3>
-                        <p className='text-slate-400 text-xs font-medium mt-1'>
-                            Phân tích hiệu suất đặt sân theo từng khung giờ trong ngày
+                        <p className='text-muted-foreground text-xs font-medium mt-1'>
+                            Tần suất và mật độ đặt sân theo từng khung giờ trong ngày
                         </p>
                     </div>
                 </div>
 
-                <div className='grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6'>
+                <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4'>
                     {(stats?.peakHours || []).map((p, i) => {
                         const maxCount = Math.max(...(stats?.peakHours || []).map((h) => h.count));
-                        // Ngăn chia cho 0 và xử lý cường độ
                         const validMaxCount = maxCount > 0 ? maxCount : 1;
                         const intensity = p.count / validMaxCount;
-
-                        // Kích hoạt giao diện dark mode cho khung giờ được đặt nhiều nhất
-                        const isHot = intensity > 0.8 && p.count > 0;
+                        const isHot = intensity > 0.7 && p.count > 0;
 
                         return (
                             <motion.div
                                 key={i}
-                                whileHover={{ scale: 1.05 }}
-                                className={`p-6 text-center rounded-3xl border transition-all group relative overflow-hidden flex flex-col items-center justify-center ${
+                                whileHover={{ scale: 1.03 }}
+                                className={`p-4 text-center rounded-2xl border transition-all flex flex-col items-center justify-center relative overflow-hidden ${
                                     isHot
-                                        ? 'bg-linear-to-br from-amber-400 to-orange-500 dark:from-emerald-500/10 dark:to-emerald-500/5 text-white border-none shadow-xl shadow-orange-200 dark:shadow-emerald-500/10'
-                                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-white/5 text-slate-900 dark:text-slate-300'
+                                        ? 'bg-linear-to-br from-amber-500 via-orange-500 to-amber-600 text-white border-none shadow-md shadow-orange-500/20'
+                                        : 'bg-muted/30 border-border/60 text-foreground'
                                 }`}
                             >
                                 {isHot && (
-                                    <div className='absolute inset-0 bg-gradient-to-t from-black/10 to-transparent opacity-50 pointer-events-none'></div>
-                                )}
-                                {isHot && (
-                                    <div className='absolute top-3 right-3 w-1.5 h-1.5 bg-white rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.8)]'></div>
+                                    <div className='absolute top-2 right-2 flex items-center gap-1 text-amber-200'>
+                                        <Flame size={12} className="animate-bounce" />
+                                    </div>
                                 )}
 
                                 <p
-                                    className={`text-[10px] font-black uppercase tracking-widest mb-4 z-10 ${isHot ? 'text-amber-50 dark:text-emerald-400 group-hover:text-white transition-colors' : 'text-slate-400'}`}
+                                    className={`text-[10px] font-black uppercase tracking-wider mb-2 ${isHot ? 'text-amber-100' : 'text-muted-foreground'}`}
                                 >
                                     {p.time}
                                 </p>
-                                <div className='flex flex-col items-center z-10'>
+                                <div className='flex flex-col items-center'>
                                     <p
-                                        className={`text-4xl font-black mb-1 group-hover:scale-110 transition-transform ${isHot ? 'text-white dark:text-emerald-400 drop-shadow-md' : 'text-slate-800 dark:text-slate-200'}`}
+                                        className={`text-2xl font-black mb-1 ${isHot ? 'text-white' : 'text-foreground'}`}
                                     >
                                         {p.count}
                                     </p>
                                     <span
-                                        className={`text-[10px] font-black px-2 py-0.5 mt-1 rounded shadow-xs uppercase ${isHot ? 'bg-white/20 dark:bg-emerald-500/20 text-white dark:text-emerald-300' : 'bg-white dark:bg-white/10 text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-none'}`}
+                                        className={`text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${isHot ? 'bg-white/20 text-white' : 'bg-card text-muted-foreground border border-border/60'}`}
                                     >
-                                        Đặt sân
+                                        lượt đặt
                                     </span>
                                 </div>
                             </motion.div>

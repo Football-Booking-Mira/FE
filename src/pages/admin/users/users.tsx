@@ -100,7 +100,18 @@ const Users = () => {
             setCreateErrors({});
             toast.success("Thêm người dùng thành công");
         },
-        onError: () => toast.error("Lỗi khi thêm người dùng")
+        onError: (error: any) => {
+            const apiData = error?.response?.data;
+            const msg = apiData?.errors?.[0]?.message || apiData?.message || "Lỗi khi thêm người dùng";
+            if (apiData?.errors?.length) {
+                const apiFormErrors: Record<string, string> = {};
+                apiData.errors.forEach((err: { field: string; message: string }) => {
+                    if (err.field) apiFormErrors[err.field] = err.message;
+                });
+                setCreateErrors(apiFormErrors);
+            }
+            toast.error(msg);
+        }
     });
 
     const mutationUpdateRole = useMutation({
@@ -183,30 +194,37 @@ const Users = () => {
     const handleCreateSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const errors: any = {};
-        if (!createName.trim()) errors.name = "Vui lòng nhập họ tên";
-        else if (createName.trim().length < 2) errors.name = "Họ tên phải có ít nhất 2 ký tự";
+        const cleanName = createName.trim();
+        const cleanEmail = createEmail.trim();
+        const cleanPhone = createPhone.trim();
+        const cleanPassword = createPassword.trim();
+
+        if (!cleanName) errors.name = "Vui lòng nhập họ tên";
+        else if (cleanName.length < 2) errors.name = "Họ tên phải có ít nhất 2 ký tự";
         
-        if (!createEmail.trim()) errors.email = "Vui lòng nhập email";
-        else if (!/\S+@\S+\.\S+/.test(createEmail)) errors.email = "Email không đúng định dạng";
+        if (!cleanEmail) errors.email = "Vui lòng nhập email";
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) errors.email = "Địa chỉ email không đúng định dạng (ví dụ: name@gmail.com)";
         
-        if (!createPhone.trim()) errors.phone = "Vui lòng nhập số điện thoại";
-        else if (!/^0[0-9]{9}$/.test(createPhone.trim())) {
-            errors.phone = "Số điện thoại phải gồm 10 số và bắt đầu bằng số 0";
+        if (!cleanPhone) errors.phone = "Vui lòng nhập số điện thoại";
+        else if (!/^0[0-9]{9}$/.test(cleanPhone)) {
+            errors.phone = "Số điện thoại phải bao gồm đúng 10 chữ số (bắt đầu bằng số 0)";
         }
         
-        if (!createPassword.trim()) errors.password = "Vui lòng nhập mật khẩu";
-        else if (createPassword.trim().length < 6) errors.password = "Mật khẩu phải từ 6 ký tự";
+        if (!cleanPassword) errors.password = "Vui lòng nhập mật khẩu";
+        else if (cleanPassword.length < 6) errors.password = "Mật khẩu phải từ 6 ký tự";
 
         if (Object.keys(errors).length > 0) {
             setCreateErrors(errors);
+            const firstErr = errors.phone || errors.email || errors.name || errors.password;
+            toast.error(firstErr || "Vui lòng kiểm tra lại thông tin nhập!");
             return;
         }
         setCreateErrors({});
         mutationCreate.mutate({
-            name: createName,
-            email: createEmail,
-            phone: createPhone,
-            password: createPassword,
+            name: cleanName,
+            email: cleanEmail,
+            phone: cleanPhone,
+            password: cleanPassword,
         });
     };
 
@@ -604,9 +622,10 @@ const Users = () => {
                                 <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
                                 <input
                                     type="text"
-                                    placeholder="Nhập số điện thoại..."
+                                    placeholder="Nhập số điện thoại 10 số (ví dụ: 0971046258)..."
                                     value={createPhone}
-                                    onChange={(e) => setCreatePhone(e.target.value)}
+                                    maxLength={10}
+                                    onChange={(e) => setCreatePhone(e.target.value.replace(/[^\d]/g, '').slice(0, 10))}
                                     className={`w-full h-10 pl-9 pr-4 bg-card border ${createErrors.phone ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
                                 />
                             </div>

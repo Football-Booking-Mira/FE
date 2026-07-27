@@ -169,17 +169,31 @@ const BookingCreate: React.FC = () => {
 
     const handleCreateCustomer = async (e: React.FormEvent) => {
         e.preventDefault();
-        const errors: {name?: string, phone?: string} = {};
-        if (!newCustomerName.trim()) errors.name = "Vui lòng nhập họ tên";
-        else if (newCustomerName.trim().length < 2) errors.name = "Họ tên phải có ít nhất 2 ký tự";
+        const errors: {name?: string, phone?: string, email?: string} = {};
+        const cleanName = newCustomerName.trim();
+        const cleanPhone = newCustomerPhone.trim();
+        const cleanEmail = newCustomerEmail.trim();
+
+        if (!cleanName) {
+            errors.name = "Vui lòng nhập họ tên khách hàng";
+        } else if (cleanName.length < 2) {
+            errors.name = "Họ tên phải có ít nhất 2 ký tự";
+        }
         
-        if (!newCustomerPhone.trim()) errors.phone = "Vui lòng nhập số điện thoại";
-        else if (!/^0[0-9]{9}$/.test(newCustomerPhone.trim())) {
-            errors.phone = "Số điện thoại phải đúng 10 chữ số và bắt đầu bằng số 0";
+        if (!cleanPhone) {
+            errors.phone = "Vui lòng nhập số điện thoại";
+        } else if (!/^0[0-9]{9}$/.test(cleanPhone)) {
+            errors.phone = "Số điện thoại phải bao gồm đúng 10 chữ số (bắt đầu bằng số 0)";
+        }
+        
+        if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+            errors.email = "Địa chỉ email không đúng định dạng (ví dụ: name@gmail.com)";
         }
         
         if (Object.keys(errors).length > 0) {
             setFormErrors(errors);
+            const firstErr = errors.phone || errors.email || errors.name;
+            toast.error(firstErr || "Thông tin nhập không hợp lệ!");
             return;
         }
         setFormErrors({});
@@ -191,12 +205,22 @@ const BookingCreate: React.FC = () => {
             const res = await fetch(`${API_URL}/users`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
-                body: JSON.stringify({ name: newCustomerName, phone: newCustomerPhone, email: newCustomerEmail || "" }),
+                body: JSON.stringify({ name: cleanName, phone: cleanPhone, email: cleanEmail }),
             });
             const data = await res.json().catch(() => ({}));
-            if (res.status !== 200 && res.status !== 201) return toast.error(data.message || "Không thể thêm khách hàng");
+            if (res.status !== 200 && res.status !== 201) {
+                const serverMsg = data.errors?.[0]?.message || data.message || "Không thể thêm khách hàng";
+                if (data.errors?.length) {
+                    const apiFormErrors: Record<string, string> = {};
+                    data.errors.forEach((err: { field: string; message: string }) => {
+                        if (err.field) apiFormErrors[err.field] = err.message;
+                    });
+                    setFormErrors(apiFormErrors);
+                }
+                return toast.error(serverMsg);
+            }
             setSelectedCustomer(data.user || data.data || data);
-            toast.success("Thêm khách hàng thành công!");
+            toast.success("Thêm khách hàng mới thành công!");
             setCustomerCreateModalOpen(false);
             
             // Clear form fields
@@ -553,9 +577,10 @@ const BookingCreate: React.FC = () => {
                                 <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
                                 <input
                                     type="text"
-                                    placeholder="Nhập số điện thoại (ví dụ: 0944444402)"
+                                    placeholder="Nhập số điện thoại 10 số (ví dụ: 0971046258)"
                                     value={newCustomerPhone}
-                                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                                    maxLength={10}
+                                    onChange={(e) => setNewCustomerPhone(e.target.value.replace(/[^\d]/g, '').slice(0, 10))}
                                     className={`w-full h-10 pl-9 pr-4 bg-card border ${formErrors.phone ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
                                 />
                             </div>
@@ -572,9 +597,10 @@ const BookingCreate: React.FC = () => {
                                     placeholder="Nhập email khách hàng"
                                     value={newCustomerEmail}
                                     onChange={(e) => setNewCustomerEmail(e.target.value)}
-                                    className="w-full h-10 pl-9 pr-4 bg-card border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className={`w-full h-10 pl-9 pr-4 bg-card border ${formErrors.email ? 'border-rose-500' : 'border-border'} rounded-xl text-xs text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500`}
                                 />
                             </div>
+                            {formErrors.email && <p className="text-[10px] text-rose-500 font-semibold pl-0.5">{formErrors.email}</p>}
                         </div>
 
                         {/* Action buttons */}
