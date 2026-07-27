@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Check, XCircle, Home, ClipboardList, Copy, CheckSquare, ShieldCheck, HelpCircle, Phone, Calendar, Clock, CreditCard } from 'lucide-react';
+import { Check, XCircle, Home, ClipboardList, Copy, ShieldCheck, HelpCircle, Calendar, Clock, CreditCard } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import { toast } from 'react-toastify';
+import api from '@/common/utils/api';
 
 interface SlotItem {
   id: string;
@@ -29,6 +30,27 @@ interface CheckoutData {
   isRetryPayment?: boolean;
 }
 
+//  booking IDs from vnp_OrderInfo
+const parseBookingIdsFromUrl = (orderInfoRaw: string): string[] => {
+  if (!orderInfoRaw) return [];
+  try {
+    const decoded = decodeURIComponent(orderInfoRaw);
+    const match = decoded.match(/BOOKING_IDS=([^&]+)/);
+    if (match && match[1]) {
+      return match[1].split(',');
+    }
+    if (decoded.includes(',')) {
+      return decoded.split(',');
+    }
+    if (decoded.startsWith('6') && decoded.length === 24) {
+      return [decoded];
+    }
+  } catch (e) {
+    console.error('Error parsing booking IDs:', e);
+  }
+  return [];
+};
+
 const PaymentResultPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -48,6 +70,7 @@ const PaymentResultPage: React.FC = () => {
     }
   });
 
+  const [displayCheckoutData, setDisplayCheckoutData] = useState<CheckoutData | null>(localCheckoutData);
   const [copied, setCopied] = useState(false);
 
   // VNPay amount is multiplied by 100, ZaloPay amount is raw
@@ -55,12 +78,74 @@ const PaymentResultPage: React.FC = () => {
     ? (method === 'zalopay' ? Number(rawAmount) : Number(rawAmount) / 100)
     : 0;
 
-  const displayAmount = amount > 0 ? amount : (localCheckoutData?.totalPrice || 0);
+  const displayAmount = amount > 0 ? amount : (displayCheckoutData?.totalPrice || 0);
   const formattedAmount = displayAmount > 0 ? displayAmount.toLocaleString('vi-VN') + 'đ' : '—';
 
   const isSuccess = rspCode === '00' || rspCode === '0';
 
+  useEffect(() => {
+    if (localCheckoutData) {
+      setDisplayCheckoutData(localCheckoutData);
+      return;
+    }
 
+    // Fallback: If local storage was cleared or page was refreshed, fetch details from backend using URL query parameters
+    const user = JSON.parse(window.localStorage.getItem('user') || 'null');
+    const userId = user?._id;
+    if (!userId) return;
+
+    const orderInfoRaw = searchParams.get('vnp_OrderInfo') || '';
+    const urlBookingIds = parseBookingIdsFromUrl(orderInfoRaw);
+    const urlOrderId = searchParams.get('orderId');
+
+    if (urlBookingIds.length > 0 || urlOrderId) {
+      api.get(`/bookings/user/${userId}`)
+        .then((res) => {
+          const bookingsList: any[] = res.data?.data || [];
+          let matched: any[] = [];
+
+          if (urlBookingIds.length > 0) {
+            matched = bookingsList.filter((b) => urlBookingIds.includes(String(b._id)));
+          } else if (urlOrderId) {
+            matched = bookingsList.filter((b) => {
+              const bOrderId = b.orderId?._id || b.orderId;
+              return String(bOrderId) === String(urlOrderId) || String(b.code) === String(urlOrderId) || (b.orderId && String(b.orderId.code) === String(urlOrderId));
+            });
+          }
+
+          if (matched.length > 0) {
+            // Sort chronologically
+            matched.sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || '')));
+
+            const first = matched[0];
+            const courtName = first.courtId?.name || 'MIRA Football Court';
+            const date = first.date;
+            const slots = matched.map((b) => ({
+              id: b._id,
+              startTime: b.startTime,
+              endTime: b.endTime,
+              price: b.total || b.fieldAmount || 0,
+              fieldName: first.courtId?.name
+            }));
+            const totalPrice = matched.reduce((sum, b) => sum + (b.total || b.fieldAmount || 0), 0);
+
+            setDisplayCheckoutData({
+              courtId: first.courtId?._id || first.courtId,
+              courtName,
+              date,
+              slots,
+              totalPrice,
+              bookingId: first._id,
+              bookingIds: matched.map((b) => b._id),
+              isMultiBooking: matched.length > 1
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load fallback booking details:', err);
+        });
+    }
+  }, [localCheckoutData, searchParams]);
 
   const handleCopyCode = () => {
     if (txnRef) {
@@ -75,9 +160,9 @@ const PaymentResultPage: React.FC = () => {
   };
 
   const handleRetryPayment = () => {
-    if (localCheckoutData) {
+    if (displayCheckoutData) {
       const updated = {
-        ...localCheckoutData,
+        ...displayCheckoutData,
         isRetryPayment: true,
       };
       window.localStorage.setItem('checkout-data', JSON.stringify(updated));
@@ -87,9 +172,13 @@ const PaymentResultPage: React.FC = () => {
     }
   };
 
-  const formattedDate = localCheckoutData?.date
-    ? dayjs(localCheckoutData.date).format('DD/MM/YYYY')
+  const formattedDate = displayCheckoutData?.date
+    ? dayjs(displayCheckoutData.date).format('DD/MM/YYYY')
     : dayjs().format('DD/MM/YYYY');
+
+  const displayTxnRef = txnRef
+    ? (txnRef.length > 8 ? txnRef.slice(0, 8) : txnRef)
+    : '—';
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-slate-100 to-slate-200 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 md:p-8 relative overflow-hidden transition-colors duration-300">
@@ -153,7 +242,7 @@ const PaymentResultPage: React.FC = () => {
             </motion.div>
 
             {/* Title & Headline */}
-            <h1 className={`text-2xl md:text-3xl font-extrabold tracking-tight mb-2 text-center`}>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-2 text-center">
               {isSuccess ? (
                 <span className="bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
                   Đặt Sân Thành Công!
@@ -179,7 +268,7 @@ const PaymentResultPage: React.FC = () => {
                 <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Mã đơn hàng</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 px-2.5 py-1 rounded-md text-slate-700 dark:text-slate-200 font-bold shadow-sm max-w-[160px] truncate font-mono">
-                    {txnRef ? (txnRef.length > 8 ? txnRef.slice(0, 8) : txnRef) : '—'}
+                    {displayTxnRef}
                   </span>
                   {txnRef && (
                     <button
@@ -197,7 +286,7 @@ const PaymentResultPage: React.FC = () => {
               <div className="flex justify-between items-start py-1">
                 <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider mt-0.5">Sân bóng</span>
                 <span className="font-bold text-slate-800 dark:text-slate-200 text-sm max-w-[200px] text-right">
-                  {localCheckoutData?.courtName || 'MIRA Football Court'}
+                  {displayCheckoutData?.courtName || 'MIRA Football Court'}
                 </span>
               </div>
 
@@ -213,9 +302,9 @@ const PaymentResultPage: React.FC = () => {
               {/* Time Slots */}
               <div className="flex justify-between items-start py-1">
                 <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider mt-0.5">Khung giờ</span>
-                {localCheckoutData?.slots && localCheckoutData.slots.length > 0 ? (
+                {displayCheckoutData?.slots && displayCheckoutData.slots.length > 0 ? (
                   <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
-                    {localCheckoutData.slots.map((slot, idx) => (
+                    {displayCheckoutData.slots.map((slot, idx) => (
                       <span
                         key={idx}
                         className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10"
@@ -227,9 +316,11 @@ const PaymentResultPage: React.FC = () => {
                 ) : (
                   <span className="font-semibold text-slate-700 dark:text-slate-300 text-sm flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    {localCheckoutData?.overallStart && localCheckoutData?.overallEnd
-                      ? `${localCheckoutData.overallStart} - ${localCheckoutData.overallEnd}`
-                      : '—'}
+                    {displayCheckoutData?.overallStart && displayCheckoutData?.overallEnd
+                      ? `${displayCheckoutData.overallStart} - ${displayCheckoutData.overallEnd}`
+                      : displayCheckoutData?.startTime && displayCheckoutData?.endTime
+                        ? `${displayCheckoutData.startTime} - ${displayCheckoutData.endTime}`
+                        : '—'}
                   </span>
                 )}
               </div>
