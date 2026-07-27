@@ -60,15 +60,7 @@ const PaymentResultPage: React.FC = () => {
 
   const isSuccess = rspCode === '00' || rspCode === '0';
 
-  // Clear checkout-data only on success after a short delay
-  useEffect(() => {
-    if (isSuccess) {
-      const timer = setTimeout(() => {
-        localStorage.removeItem('checkout-data');
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [isSuccess]);
+
 
   const handleCopyCode = () => {
     if (txnRef) {
