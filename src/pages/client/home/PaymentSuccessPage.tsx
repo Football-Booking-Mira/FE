@@ -328,7 +328,7 @@ const PaymentResultPage: React.FC = () => {
             <div className="w-full mt-6 pt-6 border-t border-slate-100 dark:border-slate-800/60 text-center">
               <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
                 <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-                <span>Cần hỗ trợ? Hotline: <span className="font-bold text-slate-600 dark:text-slate-400">1900 6384</span></span>
+                <span>Cần hỗ trợ? Hotline: <span className="font-bold text-slate-600 dark:text-slate-400">0123 456 789</span></span>
               </p>
             </div>
           </div>
