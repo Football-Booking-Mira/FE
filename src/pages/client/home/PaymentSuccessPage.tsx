@@ -187,7 +187,7 @@ const PaymentResultPage: React.FC = () => {
                 <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Mã đơn hàng</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50 px-2.5 py-1 rounded-md text-slate-700 dark:text-slate-200 font-bold shadow-sm max-w-[160px] truncate font-mono">
-                    {txnRef || '—'}
+                    {txnRef ? (txnRef.length > 8 ? txnRef.slice(0, 8) : txnRef) : '—'}
                   </span>
                   {txnRef && (
                     <button
@@ -281,7 +281,7 @@ const PaymentResultPage: React.FC = () => {
             {/* Payment Method / Support Info */}
             <div className="w-full text-center mb-8 text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-              <span>Giao dịch bảo mật 256-bit qua cổng {method ? method.toUpperCase() : 'thanh toán'}</span>
+              <span>Thanh toán an toàn qua cổng {method ? method.toUpperCase() : 'thanh toán'}</span>
             </div>
 
             {/* Action Buttons */}
