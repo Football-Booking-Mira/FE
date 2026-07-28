@@ -32,14 +32,26 @@ export const useLogin = (
                 envelope.user ||
                 null;
 
+            // Extract token from response (needed for Bearer header on cross-origin)
+            const accessToken =
+                inner.accessToken ||
+                envelope.token ||
+                inner.token ||
+                '';
+
             if (!user) {
                 message.error('Đăng nhập thất bại! Không nhận được dữ liệu người dùng.');
                 return;
             }
 
-            // Save display user info without sensitive tokens in localStorage
-            localStorage.setItem('user', JSON.stringify(user));
-            localStorage.removeItem('token'); // Remove legacy localStorage token
+            // Store token for Authorization header (cross-origin cookie may be blocked)
+            if (accessToken) {
+                localStorage.setItem('token', accessToken);
+            }
+
+            // Store user info (without embedding the raw token in the user object)
+            const userWithToken = { ...user, token: accessToken };
+            localStorage.setItem('user', JSON.stringify(userWithToken));
 
             // Update context
             setIsAuthenticated(true);
