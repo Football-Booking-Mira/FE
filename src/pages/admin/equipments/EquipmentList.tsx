@@ -1009,16 +1009,31 @@ const EquipmentList: React.FC = () => {
 
                                                     {/* Name */}
                                                     <TableCell>
-                                                                        <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/70 cursor-help italic">
-                                                                            <FileText className="h-3 w-3 shrink-0" />
-                                                                            <span className="truncate max-w-[180px]">{e.description}</span>
-                                                                        </p>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent side="bottom" className="max-w-xs">
-                                                                        {e.description}
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            )}
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className="w-10 h-10 rounded-lg border border-border/60 bg-muted/30 shrink-0 overflow-hidden flex items-center justify-center">
+                                                                {e.image ? (
+                                                                    <img src={e.image} alt={e.name} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <Package className="w-5 h-5 text-muted-foreground/40" />
+                                                                )}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="font-bold text-xs text-foreground truncate">{e.name}</p>
+                                                                <p className="text-[10px] text-muted-foreground capitalize">Đơn vị: {e.unit}</p>
+                                                                {e.description && (
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/70 cursor-help italic">
+                                                                                <FileText className="h-3 w-3 shrink-0" />
+                                                                                <span className="truncate max-w-[180px]">{e.description}</span>
+                                                                            </p>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="bottom" className="max-w-xs">
+                                                                            {e.description}
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </TableCell>
 
