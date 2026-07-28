@@ -9,10 +9,7 @@ export type ILoginPayload = {
     password: string;
 };
 
-// Không quá gò type, vì BE đang đổi shape
 export type ILoginResponseAny = any;
-
-
 
 export const useLogin = (
     setStateOnSuccess: () => void,
@@ -24,47 +21,27 @@ export const useLogin = (
     return useMutation({
         mutationFn: async (values: ILoginPayload) => {
             const response = await api.post('/auth/login', values);
-            // response.data chính là body BE trả về (createResponse)
             return response.data as ILoginResponseAny;
         },
         onSuccess(res) {
-            console.log('🔍 Login raw response:', res);
-
-            // res = { success, status, message, data: {...}, token? }
             const envelope: any = res || {};
             const inner: any = envelope.data || {};
 
-            // Lấy user từ data
             const user =
                 inner.user ||
-                envelope.user || // phòng khi BE trả user ở ngoài
+                envelope.user ||
                 null;
 
-            // Lấy token thử theo nhiều khả năng
-            const accessToken =
-                inner.accessToken || // TH: data: { user, accessToken }
-                envelope.token || // TH: token nằm ngoài: { data: { user }, token }
-                inner.token || // phòng khi token nằm trong data.token
-                '';
-
-            console.log('🔑 Login accessToken:', accessToken);
-
-            if (!user || !accessToken) {
-                message.error('Không nhận được token từ server!');
+            if (!user) {
+                message.error('Đăng nhập thất bại! Không nhận được dữ liệu người dùng.');
                 return;
             }
 
-            // Lưu token riêng
-            localStorage.setItem('token', accessToken);
+            // Save display user info without sensitive tokens in localStorage
+            localStorage.setItem('user', JSON.stringify(user));
+            localStorage.removeItem('token'); // Remove legacy localStorage token
 
-            // Gộp token vào user để FE dùng cho tiện
-            const userWithToken = {
-                ...user,
-                token: accessToken,
-            };
-            localStorage.setItem('user', JSON.stringify(userWithToken));
-
-            // Cập nhật context
+            // Update context
             setIsAuthenticated(true);
             setUserName(user.name);
             setUserRole(user.role);
