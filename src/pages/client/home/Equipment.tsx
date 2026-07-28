@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, RotateCw, Trophy, Shirt, Box, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, RotateCw, Trophy, Shirt, Box, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import api from "@/common/utils/api";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 type EquipmentMode = "rent" | "sell" | "both";
 type EquipmentStatus = "in_stock" | "out_of_stock" | "discontinued";
@@ -41,15 +48,15 @@ const MODE_LABELS: Record<EquipmentMode, string> = {
 const UserEquipmentList: React.FC = () => {
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterMode, setFilterMode] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("default");
 
-  // Custom Pagination State since we are removing Ant Design Table
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 12; // Grid friendly
+  const pageSize = 12;
 
   const fetchEquipments = async () => {
     try {
@@ -66,7 +73,6 @@ const UserEquipmentList: React.FC = () => {
     fetchEquipments();
   }, []);
 
-  // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [search, filterStatus, filterMode, sortBy]);
@@ -83,7 +89,6 @@ const UserEquipmentList: React.FC = () => {
       );
     }
 
-    // 🔹 Filter theo mode
     if (filterMode && filterMode !== "all") {
       if (filterMode === "both") {
         list = list.filter((e) => e.mode === "rent" || e.mode === "sell");
@@ -92,7 +97,6 @@ const UserEquipmentList: React.FC = () => {
       }
     }
 
-    // 🔹 Filter theo trạng thái dựa trên availableQuantity
     if (filterStatus && filterStatus !== "all") {
       list = list.filter((e) => {
         if (filterStatus === "in_stock") return e.availableQuantity > 0;
@@ -102,7 +106,6 @@ const UserEquipmentList: React.FC = () => {
       });
     }
 
-    // 🔹 Sắp xếp
     if (sortBy === "price_asc") {
       list.sort(
         (a, b) =>
@@ -124,7 +127,6 @@ const UserEquipmentList: React.FC = () => {
     return list;
   }, [equipments, search, filterStatus, filterMode, sortBy]);
 
-  // Derived Pagination
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginatedData = filtered.slice(
     (currentPage - 1) * pageSize,
@@ -221,14 +223,18 @@ const UserEquipmentList: React.FC = () => {
                 const searchName = e.name.toLowerCase();
 
                 return (
-                  <Card key={e._id} className="bg-card border-border shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden flex flex-col group">
-                    {/* Image Area */}
-                    <div className="h-44 bg-muted/30 dark:bg-muted/10 flex items-center justify-center border-b border-border/50 group-hover:bg-muted/50 transition-colors overflow-hidden relative">
+                  <Card
+                    key={e._id}
+                    className="bg-card border-border shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden flex flex-col group cursor-pointer"
+                    onClick={() => setSelectedEquipment(e)}
+                  >
+                    {/* Image Area - full picture via object-contain */}
+                    <div className="h-52 bg-white dark:bg-slate-900/80 p-3 flex items-center justify-center border-b border-border/50 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 transition-colors overflow-hidden relative">
                       {e.image ? (
                         <img
                           src={e.image}
                           alt={e.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-sm"
                         />
                       ) : searchName.includes('áo') || searchName.includes('quần') || searchName.includes('giày') || searchName.includes('tất') ? (
                         <Shirt className="w-16 h-16 text-primary/20 dark:text-primary/10" />
@@ -324,6 +330,97 @@ const UserEquipmentList: React.FC = () => {
             )}
           </>
         )}
+
+        {/* Full Image / Lightbox Detail Modal */}
+        <Dialog open={!!selectedEquipment} onOpenChange={(v) => !v && setSelectedEquipment(null)}>
+          <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-0 border border-border rounded-2xl bg-card">
+            <DialogHeader className="px-6 py-4 border-b border-border bg-muted/20 text-left">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="flex items-center gap-2 text-base font-extrabold">
+                  <Eye className="w-5 h-5 text-primary" />
+                  {selectedEquipment?.name}
+                </DialogTitle>
+                <Badge variant="outline" className="text-xs font-semibold">
+                  {selectedEquipment?.code}
+                </Badge>
+              </div>
+            </DialogHeader>
+
+            {selectedEquipment && (
+              <div className="p-6 space-y-5 text-left">
+                {/* Image View */}
+                <div className="w-full h-72 rounded-xl border border-border bg-white dark:bg-slate-900 flex items-center justify-center p-3 overflow-hidden shadow-inner">
+                  {selectedEquipment.image ? (
+                    <img
+                      src={selectedEquipment.image}
+                      alt={selectedEquipment.name}
+                      className="max-h-full max-w-full object-contain drop-shadow-md"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground/30">
+                      <Box className="w-16 h-16" />
+                      <span className="text-xs">Chưa có hình ảnh minh họa</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stock & Mode */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/30 p-4 rounded-xl border border-border/60">
+                  <div>
+                    <span className="text-xs text-muted-foreground font-medium block">Tình trạng kho</span>
+                    <span className="font-extrabold text-sm text-foreground">
+                      Còn {selectedEquipment.availableQuantity} / {selectedEquipment.totalQuantity} {selectedEquipment.unit}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground font-medium block">Hình thức</span>
+                    <Badge variant="secondary" className="mt-0.5">
+                      {MODE_LABELS[selectedEquipment.mode] || selectedEquipment.mode}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Pricing */}
+                <div className="grid grid-cols-2 gap-4 border-t border-border pt-3">
+                  {(selectedEquipment.mode === "rent" || selectedEquipment.mode === "both") && (
+                    <div>
+                      <span className="text-xs font-medium text-muted-foreground block">Giá thuê sân</span>
+                      <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {(selectedEquipment.rentPrice || 0).toLocaleString("vi-VN")}đ / {selectedEquipment.unit}
+                      </span>
+                    </div>
+                  )}
+                  {(selectedEquipment.mode === "sell" || selectedEquipment.mode === "both") && (
+                    <div>
+                      <span className="text-xs font-medium text-muted-foreground block">Giá mua trực tiếp</span>
+                      <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+                        {(selectedEquipment.salePrice || 0).toLocaleString("vi-VN")}đ / {selectedEquipment.unit}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                {selectedEquipment.description && (
+                  <div className="border-t border-border pt-3">
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Mô tả chi tiết
+                    </span>
+                    <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed bg-muted/20 p-3 rounded-xl border border-border/50">
+                      {selectedEquipment.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
+              <Button variant="outline" onClick={() => setSelectedEquipment(null)} className="rounded-xl px-6">
+                Đóng
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
