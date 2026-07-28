@@ -15,6 +15,8 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
+    Upload as UploadIcon,
+    Image as ImageIcon,
 } from 'lucide-react';
 import api from '@/common/utils/api';
 import { cn } from '@/lib/utils';
@@ -74,6 +76,7 @@ interface Equipment {
     rentPrice?: number;
     salePrice?: number;
     description?: string;
+    image?: string;
 }
 
 interface FormData {
@@ -87,6 +90,7 @@ interface FormData {
     rentPrice: number;
     salePrice: number;
     description: string;
+    image: string;
 }
 
 // ─── Constants ──────────────────────────────────────────
@@ -215,6 +219,7 @@ const DEFAULT_FORM: FormData = {
     rentPrice: 0,
     salePrice: 0,
     description: '',
+    image: '',
 };
 
 // ─── Stat Card Component ─────────────────────────────────
@@ -487,6 +492,71 @@ const FormDialog: React.FC<FormDialogProps> = ({
                             className="rounded-xl text-xs font-normal"
                         />
                     </div>
+
+                    {/* Image Upload */}
+                    <div className="space-y-1.5 pt-1">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Hình ảnh thiết bị</Label>
+                        <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/20">
+                            <div className="w-16 h-16 rounded-lg border border-border/80 bg-card shrink-0 overflow-hidden flex items-center justify-center relative shadow-xs">
+                                {formData.image ? (
+                                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                                ) : (
+                                    <ImageIcon className="w-7 h-7 text-muted-foreground/30" />
+                                )}
+                            </div>
+                            <div className="flex-1 space-y-2 text-left">
+                                <Input
+                                    placeholder="Dán URL ảnh hoặc tải ảnh lên bên dưới..."
+                                    value={formData.image}
+                                    onChange={(e) => onChange('image', e.target.value)}
+                                    className="h-9 rounded-lg text-xs"
+                                />
+                                <div className="flex items-center gap-2">
+                                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-colors">
+                                        <UploadIcon className="w-3.5 h-3.5" />
+                                        <span>Tải ảnh lên</span>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                try {
+                                                    toast.loading("Đang tải ảnh thiết bị...");
+                                                    const uploadData = new FormData();
+                                                    uploadData.append("avatar", file);
+                                                    const res = await api.post("/upload/avatar", uploadData, {
+                                                        headers: { "Content-Type": "multipart/form-data" },
+                                                    });
+                                                    toast.dismiss();
+                                                    const url = res.data?.data?.url || res.data?.url;
+                                                    if (url) {
+                                                        onChange("image", url);
+                                                        toast.success("Tải ảnh thành công!");
+                                                    } else {
+                                                        toast.error("Không nhận được URL ảnh từ server!");
+                                                    }
+                                                } catch (err: any) {
+                                                    toast.dismiss();
+                                                    toast.error(err?.response?.data?.message || "Tải ảnh thất bại!");
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                    {formData.image && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onChange('image', '')}
+                                            className="text-xs font-semibold text-rose-500 hover:underline"
+                                        >
+                                            Xóa ảnh
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <DialogFooter className="px-6 py-4 border-t border-border/60 flex items-center justify-end gap-3">
@@ -626,6 +696,7 @@ const EquipmentList: React.FC = () => {
             rentPrice: item.rentPrice || 0,
             salePrice: item.salePrice || 0,
             description: item.description || '',
+            image: item.image || '',
         });
         setErrors({});
         setModalOpen(true);
@@ -653,6 +724,7 @@ const EquipmentList: React.FC = () => {
             rentPrice: mode === 'sell' ? 0 : formData.rentPrice,
             salePrice: mode === 'rent' ? 0 : formData.salePrice,
             description: formData.description.trim(),
+            image: formData.image.trim(),
         };
 
         try {
@@ -937,12 +1009,6 @@ const EquipmentList: React.FC = () => {
 
                                                     {/* Name */}
                                                     <TableCell>
-                                                        <div className="min-w-0">
-                                                            <p className="font-bold text-xs text-foreground truncate">{e.name}</p>
-                                                            <p className="text-[10px] text-muted-foreground capitalize">Đơn vị: {e.unit}</p>
-                                                            {e.description && (
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
                                                                         <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground/70 cursor-help italic">
                                                                             <FileText className="h-3 w-3 shrink-0" />
                                                                             <span className="truncate max-w-[180px]">{e.description}</span>

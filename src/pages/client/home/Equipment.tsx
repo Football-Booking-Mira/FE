@@ -28,6 +28,7 @@ interface Equipment {
   rentPrice?: number;
   salePrice?: number;
   description?: string;
+  image?: string;
 }
 
 // Nhãn hiển thị cho người dùng
@@ -221,9 +222,15 @@ const UserEquipmentList: React.FC = () => {
 
                 return (
                   <Card key={e._id} className="bg-card border-border shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden flex flex-col group">
-                    {/* Image Area Placeholder */}
-                    <div className="h-40 bg-muted/30 dark:bg-muted/10 flex items-center justify-center border-b border-border/50 group-hover:bg-muted/50 transition-colors">
-                      {searchName.includes('áo') || searchName.includes('quần') || searchName.includes('giày') || searchName.includes('tất') ? (
+                    {/* Image Area */}
+                    <div className="h-44 bg-muted/30 dark:bg-muted/10 flex items-center justify-center border-b border-border/50 group-hover:bg-muted/50 transition-colors overflow-hidden relative">
+                      {e.image ? (
+                        <img
+                          src={e.image}
+                          alt={e.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : searchName.includes('áo') || searchName.includes('quần') || searchName.includes('giày') || searchName.includes('tất') ? (
                         <Shirt className="w-16 h-16 text-primary/20 dark:text-primary/10" />
                       ) : searchName.includes('bóng') || searchName.includes('cúp') ? (
                         <Trophy className="w-16 h-16 text-primary/20 dark:text-primary/10" />
