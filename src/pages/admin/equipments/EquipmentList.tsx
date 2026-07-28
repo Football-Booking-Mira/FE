@@ -282,10 +282,11 @@ const DeleteDialog: React.FC<DeleteDialogProps> = ({ open, name, loading, onConf
 // ─── Detail Dialog ───────────────────────────────────────
 interface DetailDialogProps {
     equipment: Equipment | null;
+    onEdit?: (equipment: Equipment) => void;
     onClose: () => void;
 }
 
-const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onClose }) => {
+const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose }) => {
     if (!equipment) return null;
 
     const used = Math.max(0, (equipment.totalQuantity || 0) - (equipment.availableQuantity || 0));
@@ -293,105 +294,146 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onClose }) => {
     const statusConfig = STATUS_CONFIGS[equipment.status];
     const StatusIcon = statusConfig.icon;
 
+    const isLowStock = equipment.status === 'in_stock' && equipment.availableQuantity <= 5 && equipment.availableQuantity > 0;
+
     return (
         <Dialog open={!!equipment} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
-                <DialogHeader className="px-6 py-4 border-b border-border bg-muted/20 text-left">
+            <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border border-slate-800/80 rounded-2xl bg-slate-950/95 text-slate-100 backdrop-blur-2xl shadow-2xl">
+                <DialogHeader className="px-6 py-4 border-b border-slate-800/80 bg-slate-900/50 text-left">
                     <div className="flex items-center justify-between">
-                        <DialogTitle className="flex items-center gap-2 text-sm font-extrabold text-foreground uppercase tracking-wider">
-                            <Eye className="h-4 w-4 text-sky-500" />
-                            Chi tiết thiết bị
+                        <DialogTitle className="flex items-center gap-2.5 text-base font-extrabold text-white">
+                            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                <Eye className="h-4 w-4" />
+                            </div>
+                            <span>Hồ sơ & Chi tiết thiết bị</span>
                         </DialogTitle>
-                        <Badge variant="outline" className={cn('text-xs font-bold border gap-1', statusConfig.color)}>
+                        <Badge variant="outline" className={cn('text-xs font-bold border gap-1.5 px-3 py-1', statusConfig.color)}>
                             <StatusIcon className="h-3.5 w-3.5" />
                             {STATUS_LABELS[equipment.status]}
                         </Badge>
                     </div>
                 </DialogHeader>
 
-                <div className="p-6 space-y-5 text-left">
-                    {/* Image Area */}
-                    <div className="w-full h-56 rounded-xl border border-border/80 bg-muted/30 flex items-center justify-center overflow-hidden p-2 relative shadow-xs">
-                        {equipment.image ? (
-                            <img src={equipment.image} alt={equipment.name} className="w-full h-full object-contain drop-shadow-sm" />
-                        ) : (
-                            <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
-                                <Package className="w-12 h-12" />
-                                <span className="text-xs font-semibold">Chưa có ảnh thiết bị</span>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Basic Info */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">Mã thiết bị</span>
-                            <code className="rounded-md bg-muted px-2 py-1 text-xs font-mono font-bold text-foreground inline-block mt-1">
-                                {equipment.code}
-                            </code>
+                <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 text-left">
+                    {/* Left Column: Visual Showcase & Badges (5 cols) */}
+                    <div className="md:col-span-5 space-y-4">
+                        <div className="w-full h-64 lg:h-72 rounded-2xl border border-slate-800 bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 overflow-hidden relative shadow-inner group">
+                            {equipment.image ? (
+                                <img src={equipment.image} alt={equipment.name} className="max-h-full max-w-full object-contain drop-shadow-xl group-hover:scale-105 transition-transform duration-500" />
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 text-slate-500">
+                                    <Package className="w-16 h-16 opacity-30" />
+                                    <span className="text-xs font-medium">Chưa có ảnh thiết bị</span>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">Loại kinh doanh</span>
-                            <Badge variant="outline" className={cn('text-xs font-bold border mt-1', MODE_COLORS[equipment.mode])}>
-                                {MODE_LABELS[equipment.mode]}
-                            </Badge>
-                        </div>
-                    </div>
 
-                    <div>
-                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">Tên thiết bị</span>
-                        <h3 className="text-base font-extrabold text-foreground mt-0.5">{equipment.name}</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">Đơn vị tính: <span className="font-semibold text-foreground">{equipment.unit}</span></p>
-                    </div>
-
-                    {/* Stock Details */}
-                    <div className="bg-muted/20 p-4 rounded-xl border border-border/60 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                            <span className="text-muted-foreground text-[10px] uppercase tracking-wider">Tình trạng tồn kho</span>
-                            <span className="font-mono text-foreground">
-                                {equipment.availableQuantity} / {equipment.totalQuantity} {equipment.unit} ({percent}%)
-                            </span>
-                        </div>
-                        <Progress value={percent} className="h-2 w-full [&>[data-slot=progress-indicator]]:bg-emerald-500" />
-                        <div className="flex justify-between text-xs text-muted-foreground pt-1">
-                            <span>Khả dụng: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{equipment.availableQuantity}</strong> {equipment.unit}</span>
-                            <span>Đang dùng/thuê: <strong className="text-foreground font-mono">{used}</strong> {equipment.unit}</span>
-                        </div>
-                    </div>
-
-                    {/* Price Info */}
-                    <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-3">
-                        {(equipment.mode === 'rent' || equipment.mode === 'both') && (
+                        {/* Quick Spec Grid */}
+                        <div className="grid grid-cols-2 gap-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80">
                             <div>
-                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">Giá thuê</span>
-                                <span className="text-sm font-extrabold font-mono text-emerald-600 dark:text-emerald-400">
-                                    {(equipment.rentPrice || 0).toLocaleString('vi-VN')} đ / {equipment.unit}
-                                </span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Mã thiết bị</span>
+                                <code className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-mono font-bold text-emerald-400 inline-block mt-1">
+                                    {equipment.code}
+                                </code>
                             </div>
-                        )}
-                        {(equipment.mode === 'sell' || equipment.mode === 'both') && (
                             <div>
-                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">Giá bán</span>
-                                <span className="text-sm font-extrabold font-mono text-amber-600 dark:text-amber-400">
-                                    {(equipment.salePrice || 0).toLocaleString('vi-VN')} đ / {equipment.unit}
-                                </span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Đơn vị tính</span>
+                                <span className="text-xs font-bold text-slate-200 block mt-1 capitalize">{equipment.unit}</span>
                             </div>
+                        </div>
+
+                        {onEdit && (
+                            <Button
+                                onClick={() => {
+                                    onClose();
+                                    onEdit(equipment);
+                                }}
+                                className="w-full h-10 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md gap-2"
+                            >
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span>Chỉnh sửa thiết bị này</span>
+                            </Button>
                         )}
                     </div>
 
-                    {/* Description */}
-                    {equipment.description && (
-                        <div className="border-t border-border/60 pt-3">
-                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block mb-1">Mô tả thiết bị</span>
-                            <p className="text-xs text-foreground/90 whitespace-pre-line leading-relaxed bg-muted/20 p-3 rounded-xl border border-border/40">
-                                {equipment.description}
-                            </p>
+                    {/* Right Column: Operational Metrics & Pricing (7 cols) */}
+                    <div className="md:col-span-7 space-y-5 flex flex-col justify-between">
+                        <div className="space-y-4">
+                            {/* Mode & Name Header */}
+                            <div className="space-y-2">
+                                <Badge variant="outline" className={cn('text-xs font-bold border', MODE_COLORS[equipment.mode])}>
+                                    {MODE_LABELS[equipment.mode]}
+                                </Badge>
+                                <h2 className="text-xl lg:text-2xl font-black text-white leading-tight">
+                                    {equipment.name}
+                                </h2>
+                            </div>
+
+                            {/* Stock Analytics Card */}
+                            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800/80 space-y-3">
+                                <div className="flex items-center justify-between text-xs font-bold">
+                                    <span className="text-slate-400 text-[10px] uppercase tracking-wider">Phân tích tồn kho</span>
+                                    <span className="font-mono text-white">
+                                        Tỷ lệ khả dụng: <span className={cn('font-bold', isLowStock ? 'text-amber-400' : 'text-emerald-400')}>{percent}%</span>
+                                    </span>
+                                </div>
+                                <Progress
+                                    value={percent}
+                                    className={cn('h-2 w-full', isLowStock ? '[&>[data-slot=progress-indicator]]:bg-amber-500' : '[&>[data-slot=progress-indicator]]:bg-emerald-500')}
+                                />
+                                <div className="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+                                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                                        <span className="text-[9px] text-slate-400 block uppercase font-bold">Tổng nhập</span>
+                                        <span className="font-mono font-extrabold text-slate-100">{equipment.totalQuantity} {equipment.unit}</span>
+                                    </div>
+                                    <div className="bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/20">
+                                        <span className="text-[9px] text-emerald-400 block uppercase font-bold">Khả dụng</span>
+                                        <span className="font-mono font-extrabold text-emerald-400">{equipment.availableQuantity} {equipment.unit}</span>
+                                    </div>
+                                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                                        <span className="text-[9px] text-slate-400 block uppercase font-bold">Đang dùng</span>
+                                        <span className="font-mono font-extrabold text-slate-300">{used} {equipment.unit}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Pricing Breakdown Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {(equipment.mode === 'rent' || equipment.mode === 'both') && (
+                                    <div className="bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-xl space-y-1">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">Đơn giá thuê</span>
+                                        <div className="text-xl font-extrabold text-emerald-400 font-mono">
+                                            {(equipment.rentPrice || 0).toLocaleString('vi-VN')}<span className="text-xs ml-0.5">đ</span>
+                                            <span className="text-xs font-normal text-slate-400 font-sans"> / {equipment.unit}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                {(equipment.mode === 'sell' || equipment.mode === 'both') && (
+                                    <div className="bg-amber-950/40 border border-amber-500/30 p-3.5 rounded-xl space-y-1">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">Đơn giá bán</span>
+                                        <div className="text-xl font-extrabold text-amber-400 font-mono">
+                                            {(equipment.salePrice || 0).toLocaleString('vi-VN')}<span className="text-xs ml-0.5">đ</span>
+                                            <span className="text-xs font-normal text-slate-400 font-sans"> / {equipment.unit}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Description Block */}
+                            {equipment.description && (
+                                <div className="space-y-1.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Mô tả thiết bị</span>
+                                    <div className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
+                                        {equipment.description}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
 
-                <DialogFooter className="px-6 py-4 border-t border-border/60 flex items-center justify-end">
-                    <Button variant="outline" onClick={onClose} className="text-xs font-semibold h-10 px-5 rounded-xl">
+                <DialogFooter className="px-6 py-4 border-t border-slate-800/80 bg-slate-900/40 flex items-center justify-end">
+                    <Button variant="outline" onClick={onClose} className="border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800 text-xs font-semibold h-10 px-5 rounded-xl">
                         Đóng
                     </Button>
                 </DialogFooter>
@@ -1321,6 +1363,7 @@ const EquipmentList: React.FC = () => {
 
                 <DetailDialog
                     equipment={detailTarget}
+                    onEdit={openEditModal}
                     onClose={() => setDetailTarget(null)}
                 />
             </div>
