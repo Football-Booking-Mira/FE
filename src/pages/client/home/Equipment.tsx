@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useDeferredValue, useCallback } from "react";
 import { Search, RotateCw, Trophy, Shirt, Box, ChevronLeft, ChevronRight, Eye, ShieldCheck, CheckCircle2, Clock, Sparkles } from "lucide-react";
 import api from "@/common/utils/api";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +45,95 @@ const MODE_LABELS: Record<EquipmentMode, string> = {
   both: "Cho thuê & bán", // chỉ dùng cho select
 };
 
+// Memoized Equipment Card Component to avoid unnecessary re-renders
+const EquipmentCard = React.memo<{
+  equipment: Equipment;
+  onSelect: (e: Equipment) => void;
+}>(({ equipment: e, onSelect }) => {
+  const isOutOfStock = e.availableQuantity === 0;
+  const isDiscontinued = e.status === "discontinued";
+  const isAvailable = !isOutOfStock && !isDiscontinued;
+  const searchName = e.name.toLowerCase();
+
+  return (
+    <Card
+      className="bg-card border-border shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden flex flex-col group cursor-pointer"
+      onClick={() => onSelect(e)}
+    >
+      {/* Image Area - full picture via object-contain with lazy loading */}
+      <div className="h-52 bg-white dark:bg-slate-900/80 p-3 flex items-center justify-center border-b border-border/50 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 transition-colors overflow-hidden relative">
+        {e.image ? (
+          <img
+            src={e.image}
+            alt={e.name}
+            loading="lazy"
+            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-sm"
+          />
+        ) : searchName.includes('áo') || searchName.includes('quần') || searchName.includes('giày') || searchName.includes('tất') ? (
+          <Shirt className="w-16 h-16 text-primary/20 dark:text-primary/10" />
+        ) : searchName.includes('bóng') || searchName.includes('cúp') ? (
+          <Trophy className="w-16 h-16 text-primary/20 dark:text-primary/10" />
+        ) : (
+          <Box className="w-16 h-16 text-primary/20 dark:text-primary/10" />
+        )}
+      </div>
+      
+      <CardHeader className="p-5 pb-3">
+        <div className="flex justify-between items-start gap-3 mb-2">
+          <CardTitle className="text-lg font-bold truncate" title={e.name}>
+            {e.name}
+          </CardTitle>
+          <Badge 
+            variant={isAvailable ? "default" : "destructive"} 
+            className={isAvailable ? "bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 whitespace-nowrap" : "whitespace-nowrap"}
+          >
+            {isDiscontinued ? 'Ngừng bán' : isAvailable ? 'Còn hàng' : 'Hết hàng'}
+          </Badge>
+        </div>
+        <div className="flex justify-between items-center mt-2">
+          <Badge variant="secondary" className="font-medium text-xs">
+            {MODE_LABELS[e.mode] || 'Không rõ'}
+          </Badge>
+          <span className="text-sm text-muted-foreground font-medium">Còn lại: {e.availableQuantity} {e.unit}</span>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="p-5 pt-0 flex-1">
+        <p className="line-clamp-2 text-sm text-muted-foreground" title={e.description}>
+          {e.description || "Chưa có mô tả cho thiết bị này."}
+        </p>
+      </CardContent>
+
+      <CardFooter className="p-5 border-t border-border pt-4 bg-slate-50/50 dark:bg-slate-900/50">
+        {e.mode === 'rent' ? (
+          <div className="flex justify-between items-center w-full">
+            <span className="text-sm font-medium text-muted-foreground">Giá thuê:</span> 
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 text-base">{(e.rentPrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
+          </div>
+        ) : e.mode === 'sell' ? (
+          <div className="flex justify-between items-center w-full">
+            <span className="text-sm font-medium text-muted-foreground">Giá bán:</span> 
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 text-base">{(e.salePrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 w-full">
+            <div className="flex justify-between items-center w-full">
+              <span className="text-sm font-medium text-muted-foreground">Thuê:</span> 
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{(e.rentPrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
+            </div>
+            <div className="flex justify-between items-center w-full">
+              <span className="text-sm font-medium text-muted-foreground">Bán:</span> 
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{(e.salePrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
+            </div>
+          </div>
+        )}
+      </CardFooter>
+    </Card>
+  );
+});
+
+EquipmentCard.displayName = "EquipmentCard";
+
 const UserEquipmentList: React.FC = () => {
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,6 +146,16 @@ const UserEquipmentList: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
+
+  // Use deferred values for smooth 60fps filter responses
+  const deferredSearch = useDeferredValue(search);
+  const deferredStatus = useDeferredValue(filterStatus);
+  const deferredMode = useDeferredValue(filterMode);
+  const deferredSortBy = useDeferredValue(sortBy);
+
+  const handleSelectEquipment = useCallback((e: Equipment) => {
+    setSelectedEquipment(e);
+  }, []);
 
   const fetchEquipments = async () => {
     try {
@@ -80,7 +179,7 @@ const UserEquipmentList: React.FC = () => {
   const filtered = useMemo(() => {
     let list = [...equipments];
 
-    const keyword = search.trim().toLowerCase();
+    const keyword = deferredSearch.trim().toLowerCase();
     if (keyword) {
       list = list.filter(
         (e) =>
@@ -89,49 +188,47 @@ const UserEquipmentList: React.FC = () => {
       );
     }
 
-    if (filterMode && filterMode !== "all") {
-      if (filterMode === "both") {
+    if (deferredMode && deferredMode !== "all") {
+      if (deferredMode === "both") {
         list = list.filter((e) => e.mode === "rent" || e.mode === "sell");
       } else {
-        list = list.filter((e) => e.mode === filterMode);
+        list = list.filter((e) => e.mode === deferredMode);
       }
     }
 
-    if (filterStatus && filterStatus !== "all") {
+    if (deferredStatus && deferredStatus !== "all") {
       list = list.filter((e) => {
-        if (filterStatus === "in_stock") return e.availableQuantity > 0;
-        if (filterStatus === "out_of_stock") return e.availableQuantity === 0;
-        if (filterStatus === "discontinued") return e.status === "discontinued";
+        if (deferredStatus === "in_stock") return e.availableQuantity > 0;
+        if (deferredStatus === "out_of_stock") return e.availableQuantity === 0;
+        if (deferredStatus === "discontinued") return e.status === "discontinued";
         return true;
       });
     }
 
-    if (sortBy === "price_asc") {
+    if (deferredSortBy === "price_asc") {
       list.sort(
         (a, b) =>
           (a.salePrice || a.rentPrice || 0) - (b.salePrice || b.rentPrice || 0)
       );
-    }
-
-    if (sortBy === "price_desc") {
+    } else if (deferredSortBy === "price_desc") {
       list.sort(
         (a, b) =>
           (b.salePrice || b.rentPrice || 0) - (a.salePrice || a.rentPrice || 0)
       );
-    }
-
-    if (sortBy === "quantity") {
+    } else if (deferredSortBy === "quantity") {
       list.sort((a, b) => b.availableQuantity - a.availableQuantity);
     }
 
     return list;
-  }, [equipments, search, filterStatus, filterMode, sortBy]);
+  }, [equipments, deferredSearch, deferredStatus, deferredMode, deferredSortBy]);
 
   const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginatedData = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const paginatedData = useMemo(() => {
+    return filtered.slice(
+      (currentPage - 1) * pageSize,
+      currentPage * pageSize
+    );
+  }, [filtered, currentPage, pageSize]);
 
   return (
     <div className="min-h-screen bg-background text-foreground py-8 md:py-12 px-4 transition-colors duration-300">
@@ -216,88 +313,9 @@ const UserEquipmentList: React.FC = () => {
           <>
             {/* Grid Layout */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
-              {paginatedData.map((e) => {
-                const isOutOfStock = e.availableQuantity === 0;
-                const isDiscontinued = e.status === "discontinued";
-                const isAvailable = !isOutOfStock && !isDiscontinued;
-                const searchName = e.name.toLowerCase();
-
-                return (
-                  <Card
-                    key={e._id}
-                    className="bg-card border-border shadow-sm hover:shadow-md transition-all rounded-xl overflow-hidden flex flex-col group cursor-pointer"
-                    onClick={() => setSelectedEquipment(e)}
-                  >
-                    {/* Image Area - full picture via object-contain */}
-                    <div className="h-52 bg-white dark:bg-slate-900/80 p-3 flex items-center justify-center border-b border-border/50 group-hover:bg-slate-50 dark:group-hover:bg-slate-900 transition-colors overflow-hidden relative">
-                      {e.image ? (
-                        <img
-                          src={e.image}
-                          alt={e.name}
-                          className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300 drop-shadow-sm"
-                        />
-                      ) : searchName.includes('áo') || searchName.includes('quần') || searchName.includes('giày') || searchName.includes('tất') ? (
-                        <Shirt className="w-16 h-16 text-primary/20 dark:text-primary/10" />
-                      ) : searchName.includes('bóng') || searchName.includes('cúp') ? (
-                        <Trophy className="w-16 h-16 text-primary/20 dark:text-primary/10" />
-                      ) : (
-                        <Box className="w-16 h-16 text-primary/20 dark:text-primary/10" />
-                      )}
-                    </div>
-                    
-                    <CardHeader className="p-5 pb-3">
-                      <div className="flex justify-between items-start gap-3 mb-2">
-                        <CardTitle className="text-lg font-bold truncate" title={e.name}>
-                          {e.name}
-                        </CardTitle>
-                        <Badge 
-                          variant={isAvailable ? "default" : "destructive"} 
-                          className={isAvailable ? "bg-emerald-500 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-700 whitespace-nowrap" : "whitespace-nowrap"}
-                        >
-                          {isDiscontinued ? 'Ngừng bán' : isAvailable ? 'Còn hàng' : 'Hết hàng'}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center mt-2">
-                        <Badge variant="secondary" className="font-medium text-xs">
-                          {MODE_LABELS[e.mode] || 'Không rõ'}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground font-medium">Còn lại: {e.availableQuantity} {e.unit}</span>
-                      </div>
-                    </CardHeader>
-                    
-                    <CardContent className="p-5 pt-0 flex-1">
-                      <p className="line-clamp-2 text-sm text-muted-foreground" title={e.description}>
-                        {e.description || "Chưa có mô tả cho thiết bị này."}
-                      </p>
-                    </CardContent>
-
-                    <CardFooter className="p-5 border-t border-border pt-4 bg-slate-50/50 dark:bg-slate-900/50">
-                      {e.mode === 'rent' ? (
-                        <div className="flex justify-between items-center w-full">
-                          <span className="text-sm font-medium text-muted-foreground">Giá thuê:</span> 
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-base">{(e.rentPrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
-                        </div>
-                      ) : e.mode === 'sell' ? (
-                        <div className="flex justify-between items-center w-full">
-                          <span className="text-sm font-medium text-muted-foreground">Giá bán:</span> 
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-base">{(e.salePrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-2 w-full">
-                          <div className="flex justify-between items-center w-full">
-                            <span className="text-sm font-medium text-muted-foreground">Thuê:</span> 
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">{(e.rentPrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
-                          </div>
-                          <div className="flex justify-between items-center w-full">
-                            <span className="text-sm font-medium text-muted-foreground">Bán:</span> 
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400">{(e.salePrice || 0).toLocaleString('vi-VN')}đ <span className="text-xs font-normal text-muted-foreground">/ {e.unit}</span></span>
-                          </div>
-                        </div>
-                      )}
-                    </CardFooter>
-                  </Card>
-                );
-              })}
+              {paginatedData.map((e) => (
+                <EquipmentCard key={e._id} equipment={e} onSelect={handleSelectEquipment} />
+              ))}
             </div>
 
             {/* Pagination Controls */}

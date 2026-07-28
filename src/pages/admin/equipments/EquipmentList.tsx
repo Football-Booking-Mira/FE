@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useDeferredValue } from 'react';
 import {
     Plus,
     Pencil,
@@ -785,14 +785,16 @@ const EquipmentList: React.FC = () => {
         fetchEquipments();
     }, [fetchEquipments]);
 
+    const deferredSearch = useDeferredValue(search);
+
     // ─── FILTERED LIST ───────────────────────────────────
     const filteredEquipments = useMemo(() => {
-        const keyword = search.trim().toLowerCase();
+        const keyword = deferredSearch.trim().toLowerCase();
         if (!keyword) return equipments;
         return equipments.filter(
             (e) => e.name.toLowerCase().includes(keyword) || e.code.toLowerCase().includes(keyword)
         );
-    }, [equipments, search]);
+    }, [equipments, deferredSearch]);
 
     const handleSearchChange = (val: string) => {
         setSearch(val);
