@@ -86,13 +86,13 @@ const Profile: React.FC = () => {
                 throw new Error('Không tìm thấy ID người dùng');
             }
 
-            const response = await fetch(`${baseURL}/api/users/${userId}`);
+            const response = await api.get(`/users/${userId}`);
+            const result: ApiResponse = response.data;
 
-            if (!response.ok) {
+            if (!result.data) {
                 throw new Error('Không thể tải thông tin người dùng');
             }
 
-            const result: ApiResponse = await response.json();
             setUser(result.data);
             setFormData({
                 name: result.data.name || '',
@@ -135,35 +135,17 @@ const Profile: React.FC = () => {
         try {
             setUpdating(true);
             const userDataStr = localStorage.getItem('user');
-            const token = localStorage.getItem('token');
 
             if (!userDataStr) {
                 throw new Error('Không tìm thấy thông tin người dùng');
             }
 
-            if (!token) {
-                throw new Error('Không tìm thấy token xác thực');
-            }
-
             const userData = JSON.parse(userDataStr);
             const userId = userData.id || userData._id;
 
-            const response = await fetch(`${baseURL}/api/users/${userId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(formData)
-            });
+            const response = await api.put(`/users/${userId}`, formData);
+            const result = response.data;
 
-            if (!response.ok) {
-                throw new Error('Cập nhật thất bại');
-            }
-
-            const result = await response.json();
-
-            // API update trả về structure: { message, user }
             const updatedUser = result.user || result.data || result;
 
             if (updatedUser && updatedUser._id) {
@@ -175,11 +157,9 @@ const Profile: React.FC = () => {
                     avatar: updatedUser.avatar || ''
                 });
 
-                // Cập nhật local storage để Header thay đổi avatar ngay lập tức
                 const updatedLocalStorageUser = { ...userData, ...updatedUser };
                 localStorage.setItem('user', JSON.stringify(updatedLocalStorageUser));
                 
-                // Cập nhật Context lập tức để UI thay đổi thay vì reload trang
                 if (updatedUser.avatar) {
                     setUserAvatar(updatedUser.avatar);
                 }
@@ -210,31 +190,18 @@ const Profile: React.FC = () => {
 
         try {
             const userDataStr = localStorage.getItem('user');
-            const token = localStorage.getItem('token');
 
             if (!userDataStr) {
                 throw new Error('Không tìm thấy thông tin người dùng');
             }
 
-            if (!token) {
-                throw new Error('Không tìm thấy token xác thực');
-            }
-
             const userData = JSON.parse(userDataStr);
             const userId = userData.id || userData._id;
 
-            const response = await fetch(`${baseURL}/api/users/${userId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Xóa tài khoản thất bại');
-            }
+            await api.delete(`/users/${userId}`);
 
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
             setToast({
                 type: 'success',
                 message: 'Xóa tài khoản thành công!'

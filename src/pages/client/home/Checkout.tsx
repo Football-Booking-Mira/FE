@@ -185,26 +185,55 @@ const Checkout: React.FC = () => {
         refetch: refetchPublicVouchers,
     } = usePublicVouchers(20);
 
-    // Prefill thông tin người đặt từ tài khoản hiện tại (localStorage.user)
+    // Prefill thông tin người đặt từ tài khoản hiện tại (localStorage.user / API /auth/me)
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem('user');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                if (!name) setName(parsed.name || userName || '');
-                if (!phone) setPhone(parsed.phone || '');
-                if (!email) setEmail(parsed.email || '');
-            } else {
-                if (!name && userName) setName(userName);
+        const loadUserInfo = async () => {
+            try {
+                const stored = localStorage.getItem('user');
+                let parsedPhone = '';
+                let parsedEmail = '';
+                let parsedName = '';
+
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    parsedName = parsed.name || userName || '';
+                    parsedPhone = parsed.phone || '';
+                    parsedEmail = parsed.email || '';
+                }
+
+                // Nếu thiếu SĐT hoặc email, gọi API /auth/me để cập nhật đầy đủ thông tin
+                if (!parsedPhone || !parsedEmail) {
+                    try {
+                        const res = await api.get('/auth/me');
+                        const dbUser = res.data?.data || res.data;
+                        if (dbUser) {
+                            if (dbUser.name) parsedName = dbUser.name;
+                            if (dbUser.phone) parsedPhone = dbUser.phone;
+                            if (dbUser.email) parsedEmail = dbUser.email;
+
+                            if (stored) {
+                                const current = JSON.parse(stored);
+                                localStorage.setItem('user', JSON.stringify({ ...current, ...dbUser }));
+                            }
+                        }
+                    } catch {
+                        // ignore fallback
+                    }
+                }
+
+                setName(parsedName);
+                setPhone(parsedPhone);
+                setEmail(parsedEmail);
+            } catch {
+                if (userName) setName(userName);
             }
-        } catch {
-            // bỏ qua
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        };
+
+        loadUserInfo();
+    }, [userName]);
 
     // ĐỌC checkout-data & gọi API thanh toán lại (nếu có)
     useEffect(() => {
