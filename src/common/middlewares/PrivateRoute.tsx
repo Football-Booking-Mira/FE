@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+import { useAuth } from "@/common/contexts";
 
 interface PrivateRouteProps {
   children: ReactNode;
@@ -8,11 +9,12 @@ interface PrivateRouteProps {
 
 export function PrivateRoute({
   children,
-  redirectTo = "/",
+  redirectTo = "/signin",
 }: PrivateRouteProps) {
-  const token = localStorage.getItem("token");
+  const { isAuthenticated } = useAuth();
+  const hasUser = typeof window !== "undefined" && !!localStorage.getItem("user");
 
-  if (!token) {
+  if (!isAuthenticated && !hasUser) {
     return <Navigate to={redirectTo} replace />;
   }
 

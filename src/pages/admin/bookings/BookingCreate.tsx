@@ -200,25 +200,8 @@ const BookingCreate: React.FC = () => {
 
         try {
             setCustomerSaving(true);
-            const token = localStorage.getItem("token");
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-            const res = await fetch(`${API_URL}/users`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
-                body: JSON.stringify({ name: cleanName, phone: cleanPhone, email: cleanEmail }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.status !== 200 && res.status !== 201) {
-                const serverMsg = data.errors?.[0]?.message || data.message || "Không thể thêm khách hàng";
-                if (data.errors?.length) {
-                    const apiFormErrors: Record<string, string> = {};
-                    data.errors.forEach((err: { field: string; message: string }) => {
-                        if (err.field) apiFormErrors[err.field] = err.message;
-                    });
-                    setFormErrors(apiFormErrors);
-                }
-                return toast.error(serverMsg);
-            }
+            const res = await api.post('/users', { name: cleanName, phone: cleanPhone, email: cleanEmail });
+            const data = res.data?.data || res.data;
             setSelectedCustomer(data.user || data.data || data);
             toast.success("Thêm khách hàng mới thành công!");
             setCustomerCreateModalOpen(false);

@@ -2,14 +2,24 @@ import axios, { AxiosError } from "axios";
 
 const instance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true,
 });
 
-// Thêm token vào header
-instance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token"); // hoặc cookie
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+}
 
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Request interceptor for CSRF token
+instance.interceptors.request.use((config) => {
+  const csrfToken = getCookie('csrf_token');
+  const method = (config.method || '').toUpperCase();
+  
+  if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    config.headers['X-CSRF-Token'] = csrfToken;
   }
 
   return config;

@@ -172,14 +172,8 @@ const PitchDetail: React.FC = () => {
 
         const fetchReviews = async () => {
             try {
-                const token = localStorage.getItem("token");
                 const res = await fetch(
-                    `${API_BASE}/review/court-pulic/${id}`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
+                    `${API_BASE}/review/court-pulic/${id}`
                 );
 
                 const json = await res.json();
@@ -269,7 +263,7 @@ const PitchDetail: React.FC = () => {
         }
 
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (!user?._id || !user?.token) {
+        if (!user?._id) {
             toast.error('Vui lòng đăng nhập để đặt sân');
             navigate('/signin');
             return;

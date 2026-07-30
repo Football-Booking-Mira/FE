@@ -29,6 +29,8 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
+import api from "@/common/utils/api";
+
 interface Props {
     open: boolean;
     reviewId: string | null;
@@ -52,17 +54,7 @@ const ReviewAdminDetailModal: React.FC<Props> = ({
     const fetchDetail = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("token");
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-            
-            const res = await axios.get(
-                `${API_URL}/review/${reviewId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
+            const res = await api.get(`/review/${reviewId}`);
             setReview(res.data.data);
         } catch (err) {
             console.error(err);

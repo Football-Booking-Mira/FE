@@ -149,28 +149,18 @@ export default function BookingPaymentModal({ open, booking, onClose, onSuccess 
 
         try {
             setQrLoading(true);
-            const token = localStorage.getItem("token");
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-            
-            const res = await fetch(`${API_URL}/bookings/payment/vietqr`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
+            const res = await api.post('/bookings/payment/vietqr', {
+                bookingId: targetBooking._id,
+                amount,
+                customer: {
+                    name: targetBooking.customerInfo?.name || targetBooking.customerId?.name || "Khách hàng",
+                    phone: targetBooking.customerInfo?.phone || targetBooking.customerId?.phone || "",
+                    email: targetBooking.customerInfo?.email || targetBooking.customerId?.email || "",
                 },
-                body: JSON.stringify({
-                    bookingId: targetBooking._id,
-                    amount,
-                    customer: {
-                        name: targetBooking.customerInfo?.name || targetBooking.customerId?.name || "Khách hàng",
-                        phone: targetBooking.customerInfo?.phone || targetBooking.customerId?.phone || "",
-                        email: targetBooking.customerInfo?.email || targetBooking.customerId?.email || "",
-                    },
-                }),
             });
 
-            const result = await res.json();
-            if (!res.ok || !result?.success) {
+            const result = res.data;
+            if (!result?.success) {
                 toast.error(result?.message || "Không tạo được mã QR! Vui lòng thử lại.");
                 return;
             }

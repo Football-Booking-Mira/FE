@@ -44,11 +44,17 @@ export function VerifyEmailPage() {
           const accessToken = payload.token || payload.accessToken || "";
           const user = payload.user || null;
 
-          if (accessToken) {
-            localStorage.setItem("token", accessToken);
-          }
           if (user) {
-            localStorage.setItem("user", JSON.stringify({ ...user, token: accessToken }));
+            const safeUserUI = {
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              phone: user.phone,
+              role: user.role,
+              status: user.status,
+              avatar: user.avatar || "",
+            };
+            localStorage.setItem("user", JSON.stringify(safeUserUI));
             setIsAuthenticated(true);
             setUserName(user.name);
             setUserRole(user.role);

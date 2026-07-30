@@ -15,7 +15,7 @@ import {
     Modal, Form, Input, Checkbox,
     message
 } from "antd";
-import axios from "axios";
+import api from "@/common/utils/api";
 import { useEffect, useState } from "react";
 
 const { TabPane } = Tabs;
@@ -86,21 +86,12 @@ const Reviews = ({ }: any) => {
 
             setSubmitting(true);
 
-            const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
-            await axios.post(
-                `${API_URL}/review`,
-                {
-                    bookingId: selectedBookingId,
-                    rating: values.rating, 
-                    comment: values.comment,
-                    isAnonymous: values.isAnonymous || false,
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                }
-            );
+            await api.post('/review', {
+                bookingId: selectedBookingId,
+                rating: values.rating, 
+                comment: values.comment,
+                isAnonymous: values.isAnonymous || false,
+            });
 
             message.success("Đánh giá thành công!");
 

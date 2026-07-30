@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { socket } from "@/common/socket";
 import { message } from "antd";
+import api from "@/common/utils/api";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -18,7 +19,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export { AuthContext };
 
-// Đọc user từ localStorage (token nằm trong user)
 const storedUser =
   typeof window !== "undefined"
     ? (() => {
@@ -35,7 +35,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
-    () => !!storedUser?.token
+    () => !!storedUser?._id || !!storedUser?.name
   );
   const [userName, setUserName] = useState<string>(
     () => storedUser?.name || "User"
@@ -48,11 +48,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   useEffect(() => {
-    // Đồng bộ khi localStorage thay đổi (nếu user đăng nhập ở tab khác)
+    // Verify authentication status with server on load using HttpOnly cookies
+    api.get("/auth/me")
+      .then((res) => {
+        const user = res.data?.data;
+        if (user) {
+          setIsAuthenticated(true);
+          setUserName(user.name);
+          setUserRole(user.role);
+          setUserAvatar(user.avatar || "");
+          const safeUserUI = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            status: user.status,
+            avatar: user.avatar || "",
+          };
+          localStorage.setItem("user", JSON.stringify(safeUserUI));
+        }
+      })
+      .catch(() => {
+        // If 401/403 or unauthenticated, clear local UI state
+        setIsAuthenticated(false);
+        setUserName("User");
+        setUserRole("");
+        setUserAvatar("");
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      });
+
+    // Synchronize state across browser tabs
     const onStorage = (e: StorageEvent) => {
       if (e.key === "user") {
         const newUser = JSON.parse(localStorage.getItem("user") || "null");
-        setIsAuthenticated(!!newUser?.token);
+        setIsAuthenticated(!!newUser?._id);
         setUserName(newUser?.name ?? "User");
         setUserRole(newUser?.role ?? "");
         setUserAvatar(newUser?.avatar ?? "");
@@ -60,7 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     };
     window.addEventListener("storage", onStorage);
 
-    // Lắng nghe realtime event bắt buộc logout (Khóa tài khoản / Xóa tài khoản)
+    // Handle force logout events from Socket.IO
     const handleForceLogout = (payload: { userId: string; message?: string }) => {
       const currentUserStr = localStorage.getItem("user");
       if (currentUserStr) {
@@ -89,11 +120,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   const logout = () => {
+    api.post("/auth/logout").catch(() => {});
     setIsAuthenticated(false);
     setUserName("User");
     setUserRole("");
     setUserAvatar("");
-    localStorage.removeItem("user"); // chỉ cần xóa user
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
   };
 
   return (

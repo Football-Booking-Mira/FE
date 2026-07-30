@@ -36,6 +36,8 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+import api from '@/common/utils/api';
+
 const ReviewsAdmin = () => {
     const [loading, setLoading] = useState(false);
     const [reviews, setReviews] = useState<any[]>([]);
@@ -44,7 +46,6 @@ const ReviewsAdmin = () => {
     const [ratingFilter, setRatingFilter] = useState<number | 'all'>('all');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
 
-    const token = localStorage.getItem('token');
     const [detailOpen, setDetailOpen] = useState(false);
     const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
 
@@ -53,15 +54,10 @@ const ReviewsAdmin = () => {
     const [selectedReviewIdForStatus, setSelectedReviewIdForStatus] = useState<string | null>(null);
     const [targetStatus, setTargetStatus] = useState<'active' | 'hidden' | null>(null);
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
     const fetchReviews = async (page: number) => {
         try {
             setLoading(true);
-            const res = await axios.get(
-                `${API_URL}/review/admin/list?page=${page}&limit=${pagination.limit}`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await api.get(`/review/admin/list?page=${page}&limit=${pagination.limit}`);
             const data = res.data.data;
             const cleaned = (data.reviews || []).filter((r: any) => r?.bookingId);
             setReviews(cleaned);
@@ -77,11 +73,7 @@ const ReviewsAdmin = () => {
 
     const updateStatus = async (id: string, status: 'active' | 'hidden') => {
         try {
-            await axios.patch(
-                `${API_URL}/review/${id}/status`,
-                { status },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await api.patch(`/review/${id}/status`, { status });
             fetchReviews(pagination.page);
         } catch (err) {
             console.error(err);
