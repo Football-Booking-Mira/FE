@@ -28,11 +28,25 @@ function getStoredCsrfToken(): string | null {
 }
 
 /* ========================
-   REQUEST INTERCEPTOR (CSRF & Cookies)
+   REQUEST INTERCEPTOR (Auth & CSRF & Cookies)
 ========================= */
 api.interceptors.request.use(
   (config) => {
-    // Attach CSRF Token for state-changing requests (POST, PUT, PATCH, DELETE)
+    // 1. Attach Bearer token if present in localStorage (ensures auth works on cross-domain deployments where third-party cookies are blocked)
+    const token = localStorage.getItem('token') || (() => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        return storedUser ? JSON.parse(storedUser)?.token : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // 2. Attach CSRF Token for state-changing requests (POST, PUT, PATCH, DELETE)
     const csrfToken = getStoredCsrfToken();
     const method = (config.method || '').toUpperCase();
     

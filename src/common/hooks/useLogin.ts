@@ -37,10 +37,12 @@ export const useLogin = (
                 return;
             }
 
-            // Remove legacy raw token storage
-            localStorage.removeItem('token');
+            const token = inner.token || envelope.token || '';
+            if (token) {
+                localStorage.setItem('token', token);
+            }
 
-            // Store non-sensitive user UI preferences in localStorage (without embedding token)
+            // Store non-sensitive user UI preferences in localStorage
             const safeUserUI = {
                 _id: user._id,
                 name: user.name,
@@ -49,6 +51,7 @@ export const useLogin = (
                 role: user.role,
                 status: user.status,
                 avatar: user.avatar || '',
+                token: token || '',
             };
             localStorage.setItem('user', JSON.stringify(safeUserUI));
 

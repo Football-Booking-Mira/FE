@@ -23,8 +23,21 @@ function getStoredCsrfToken(): string | null {
   return null;
 }
 
-// Request interceptor for CSRF token
+// Request interceptor for Auth & CSRF token
 instance.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token') || (() => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      return storedUser ? JSON.parse(storedUser)?.token : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   const csrfToken = getStoredCsrfToken();
   const method = (config.method || '').toUpperCase();
   

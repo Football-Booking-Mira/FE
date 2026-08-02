@@ -42,6 +42,9 @@ export function VerifyEmailPage() {
           
           const payload = res?.data || res || {};
           const accessToken = payload.token || payload.accessToken || "";
+          if (accessToken) {
+            localStorage.setItem("token", accessToken);
+          }
           const user = payload.user || null;
 
           if (user) {
@@ -53,6 +56,7 @@ export function VerifyEmailPage() {
               role: user.role,
               status: user.status,
               avatar: user.avatar || "",
+              token: accessToken || "",
             };
             localStorage.setItem("user", JSON.stringify(safeUserUI));
             setIsAuthenticated(true);
