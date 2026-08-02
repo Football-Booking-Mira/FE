@@ -1,6 +1,11 @@
 import { Modal, Form, Input, Button, Checkbox } from "antd";
 import { useLogin } from "@/common/hooks/useLogin";
 import { formatApiError } from "@/common/utils/formApiErr";
+import {
+  getRememberedEmail,
+  setRememberedEmail,
+  removeRememberedEmail,
+} from "@/common/utils/rememberMe";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -32,9 +37,9 @@ export function LoginModal({
       password: values.password,
     };
     if (values.rememberMe) {
-      localStorage.setItem("rememberMe", JSON.stringify(values));
+      setRememberedEmail(values.email);
     } else {
-      localStorage.removeItem("rememberMe");
+      removeRememberedEmail();
     }
     await login(payload);
   };
@@ -43,6 +48,8 @@ export function LoginModal({
     form.resetFields();
     onClose();
   };
+
+  const rememberedEmail = getRememberedEmail();
 
   return (
     <Modal
@@ -61,11 +68,11 @@ export function LoginModal({
         layout="vertical"
         onFinish={handleSubmit}
         requiredMark="optional"
-        initialValues={
-          localStorage.getItem("rememberMe")
-            ? JSON.parse(localStorage.getItem("rememberMe") || "{}")
-            : {}
-        }
+        initialValues={{
+          email: rememberedEmail,
+          password: "",
+          rememberMe: !!rememberedEmail,
+        }}
       >
         <Form.Item
           label="Email"
@@ -94,7 +101,6 @@ export function LoginModal({
         <Form.Item
           name="rememberMe"
           valuePropName="checked"
-          initialValue={false}
         >
           <Checkbox>Ghi nhớ tôi</Checkbox>
         </Form.Item>

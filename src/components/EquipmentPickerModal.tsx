@@ -34,8 +34,6 @@ interface Props {
     slotLabel: string; // "14:45 - 15:45"
     slotKey: string; // "14:45-15:45"
 
-    token?: string;
-
     initialItems: EquipmentPickItem[];
     //  Những món đã chọn ở các ca KHÁC (để trừ kho toàn cục trong phiên đặt này)
     otherSlotsPicked?: EquipmentPickItem[];
@@ -51,7 +49,6 @@ const EquipmentPickerModal: React.FC<Props> = ({
     onClose,
     slotLabel,
     slotKey,
-    token,
     initialItems,
     otherSlotsPicked = [],
     onSave,
@@ -77,7 +74,7 @@ const EquipmentPickerModal: React.FC<Props> = ({
             setLoading(true);
             try {
                 const res = await fetch(`${API_BASE}/equipments/public`, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                    credentials: 'include',
                 });
                 const data = await res.json();
                 if (data?.success) {
@@ -94,7 +91,7 @@ const EquipmentPickerModal: React.FC<Props> = ({
         };
 
         fetchEquip();
-    }, [open, token]);
+    }, [open]);
 
     const rows = useMemo(() => {
         return (equipments || [])

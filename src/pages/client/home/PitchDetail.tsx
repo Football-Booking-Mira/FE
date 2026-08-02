@@ -645,7 +645,6 @@ const PitchDetail: React.FC = () => {
                 onClose={() => setEquipModalOpen(false)}
                 slotLabel={activeSlotLabel}
                 slotKey={activeSlotKey}
-                token={JSON.parse(localStorage.getItem('user') || '{}')?.token}
                 initialItems={activeSlotKey ? equipmentBySlot[activeSlotKey] || [] : []}
                 otherSlotsPicked={Object.keys(equipmentBySlot)
                     .filter(k => k !== activeSlotKey)

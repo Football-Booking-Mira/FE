@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { socket } from "@/common/socket";
 import { message } from "antd";
 import api from "@/common/utils/api";
+import { migrateLegacyRememberMe } from "@/common/utils/rememberMe";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -48,6 +49,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   useEffect(() => {
+    // Run legacy rememberMe migration on app mount
+    migrateLegacyRememberMe();
+
     // Verify authentication status with server on load using HttpOnly cookies
     api.get("/auth/me")
       .then((res) => {

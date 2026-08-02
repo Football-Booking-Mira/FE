@@ -32,9 +32,6 @@ const Reviews = ({ }: any) => {
     const [submitting, setSubmitting] = useState(false);
     const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
-    const token = localStorage.getItem('token');
-
-
     const [form] = Form.useForm();
     useEffect(() => {
         fetchData();

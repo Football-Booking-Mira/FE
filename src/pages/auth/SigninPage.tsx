@@ -3,6 +3,11 @@ import { useLogin } from "@/common/hooks/useLogin";
 import { formatApiError } from "@/common/utils/formApiErr";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeftOutlined } from "@ant-design/icons";
+import {
+    getRememberedEmail,
+    setRememberedEmail,
+    removeRememberedEmail,
+} from "@/common/utils/rememberMe";
 
 export function SigninPage() {
     const [form] = Form.useForm();
@@ -19,12 +24,14 @@ export function SigninPage() {
             password: values.password,
         };
         if (values.rememberMe) {
-            localStorage.setItem("rememberMe", JSON.stringify(values));
+            setRememberedEmail(values.email);
         } else {
-            localStorage.removeItem("rememberMe");
+            removeRememberedEmail();
         }
         await login(payload);
     };
+
+    const rememberedEmail = getRememberedEmail();
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
@@ -66,11 +73,11 @@ export function SigninPage() {
                         layout="vertical"
                         onFinish={handleSubmit}
                         requiredMark="optional"
-                        initialValues={
-                            localStorage.getItem("rememberMe")
-                                ? JSON.parse(localStorage.getItem("rememberMe") || "{}")
-                                : { rememberMe: false }
-                        }
+                        initialValues={{
+                            email: rememberedEmail,
+                            password: "",
+                            rememberMe: !!rememberedEmail,
+                        }}
                         size="large"
                     >
                         <Form.Item
