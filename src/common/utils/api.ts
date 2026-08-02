@@ -17,13 +17,23 @@ function getCookie(name: string): string | null {
   return null;
 }
 
+function getStoredCsrfToken(): string | null {
+  const cookieToken = getCookie('csrf_token');
+  if (cookieToken) return cookieToken;
+
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    return sessionStorage.getItem('csrf_token');
+  }
+  return null;
+}
+
 /* ========================
    REQUEST INTERCEPTOR (CSRF & Cookies)
 ========================= */
 api.interceptors.request.use(
   (config) => {
     // Attach CSRF Token for state-changing requests (POST, PUT, PATCH, DELETE)
-    const csrfToken = getCookie('csrf_token');
+    const csrfToken = getStoredCsrfToken();
     const method = (config.method || '').toUpperCase();
     
     if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -82,7 +92,13 @@ const translateError = (error: AxiosError<any>): string => {
 };
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const headerCsrf = response.headers?.['x-csrf-token'] || response.headers?.['X-CSRF-Token'];
+    if (headerCsrf && typeof window !== 'undefined' && window.sessionStorage) {
+      sessionStorage.setItem('csrf_token', headerCsrf);
+    }
+    return response;
+  },
 
   (error: AxiosError<any>) => {
     console.error(" API RAW ERROR:", error);
