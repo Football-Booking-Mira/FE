@@ -9,6 +9,7 @@ import {
 import { Spin } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'react-toastify';
+import api from '@/common/utils/api';
 
 interface ChatMessage {
     role: 'user' | 'model';
@@ -20,7 +21,7 @@ const ChatBot: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
             role: 'model',
-            text: 'Xin chào! Tôi là AI tư vấn viên của sân. Tôi có thể giúp gì cho bạn?',
+            text: 'Xin chào! Tôi là MiraFootball - trợ lý AI tư vấn sân bóng & dịch vụ 24/7. Tôi có thể giúp gì cho bạn?',
         },
     ]);
     const [input, setInput] = useState('');
@@ -49,24 +50,17 @@ const ChatBot: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-            const response = await fetch(`${API_URL}/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message: userMsg,
-                    history: messages.slice(1),
-                }),
+            const res = await api.post('/chat', {
+                message: userMsg,
+                history: messages.slice(1),
             });
 
-            const data = await response.json();
+            const data = res.data;
 
             if (data.success) {
                 setMessages((prev) => [...prev, { role: 'model', text: data.data.reply }]);
             } else {
-                toast.error(data.message || 'Lỗi khi kết nối với AI');
+                toast.error(data.message || 'Lỗi khi kết nối với MiraFootball AI');
                 setMessages((prev) => [
                     ...prev,
                     {
@@ -75,9 +69,10 @@ const ChatBot: React.FC = () => {
                     },
                 ]);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Lỗi chat:', error);
-            toast.error('Không thể kết nối đến máy chủ');
+            const errMsg = error?.response?.data?.message || error?.message || 'Không thể kết nối đến máy chủ';
+            toast.error(errMsg);
             setMessages((prev) => [
                 ...prev,
                 {
@@ -109,7 +104,7 @@ const ChatBot: React.FC = () => {
                         Mới
                     </span>
                     <div className='absolute right-full mr-4 bg-white text-gray-800 text-sm py-1.5 px-3 rounded-lg shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none font-medium'>
-                        Chat với AI
+                        Chat với MiraFootball 24/7
                     </div>
                 </button>
             )}
@@ -124,11 +119,11 @@ const ChatBot: React.FC = () => {
                                 <RobotOutlined className='text-xl' />
                             </div>
                             <div>
-                                <h3 className='font-bold text-base leading-tight'>AI Coach</h3>
+                                <h3 className='font-bold text-base leading-tight'>MiraFootball</h3>
                                 <div className='flex items-center gap-1.5 mt-0.5'>
                                     <span className='w-2 h-2 bg-green-300 rounded-full animate-pulse'></span>
                                     <span className='text-[11px] font-medium text-green-100'>
-                                        Trực tuyến
+                                        Trực tuyến 24/7
                                     </span>
                                 </div>
                             </div>
@@ -215,7 +210,7 @@ const ChatBot: React.FC = () => {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyPress}
-                                placeholder='Hỏi tôi về sân và thiết bị...'
+                                placeholder='Hỏi MiraFootball về sân và thiết bị...'
                                 className='flex-1 bg-transparent px-3 py-2 text-sm outline-none dark:text-gray-200 placeholder-gray-400'
                                 disabled={isLoading}
                             />
