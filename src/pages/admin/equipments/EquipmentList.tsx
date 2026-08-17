@@ -126,6 +126,12 @@ const UNIT_OPTIONS = [
     { value: 'quả', label: 'Quả' },
     { value: 'đôi', label: 'Đôi' },
     { value: 'chai', label: 'Chai' },
+    { value: 'gói', label: 'Gói' },
+    { value: 'hộp', label: 'Hộp' },
+    { value: 'cuộn', label: 'Cuộn' },
+    { value: 'túi', label: 'Túi' },
+    { value: 'lon', label: 'Lon' },
+    { value: 'lần', label: 'Lần' },
 ];
 
 const MOCK_DEVICES: Equipment[] = [
@@ -235,8 +241,8 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, accentCla
     <Card className="border border-border/80 rounded-xl shadow-xs overflow-hidden">
         <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1 text-left">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">{label}</span>
-                <span className="text-2xl font-extrabold text-foreground font-mono">{value}</span>
+                <span className="text-xs font-semibold text-muted-foreground block">{label}</span>
+                <span className="text-2xl font-bold text-foreground">{value}</span>
             </div>
             <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl shrink-0', accentClass)}>
                 <Icon className="h-4 w-4" />
@@ -258,7 +264,7 @@ const DeleteDialog: React.FC<DeleteDialogProps> = ({ open, name, loading, onConf
     <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
         <DialogContent className="sm:max-w-md p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
             <DialogHeader className="px-6 py-5 border-b border-border bg-muted/20 text-left">
-                <DialogTitle className="flex items-center gap-2 text-rose-600 text-sm font-extrabold uppercase tracking-wider">
+                <DialogTitle className="flex items-center gap-2 text-rose-600 text-base font-bold">
                     <Trash2 className="h-4 w-4" />
                     Xác nhận xóa thiết bị
                 </DialogTitle>
@@ -298,16 +304,16 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
 
     return (
         <Dialog open={!!equipment} onOpenChange={(v) => !v && onClose()}>
-            <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border border-slate-800/80 rounded-2xl bg-slate-950/95 text-slate-100 backdrop-blur-2xl shadow-2xl">
-                <DialogHeader className="px-6 py-4 border-b border-slate-800/80 bg-slate-900/50 text-left">
-                    <div className="flex items-center justify-between">
-                        <DialogTitle className="flex items-center gap-2.5 text-base font-extrabold text-white">
-                            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+            <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border border-border rounded-2xl bg-card text-card-foreground shadow-2xl">
+                <DialogHeader className="px-6 pr-14 py-4 border-b border-border bg-muted/30 text-left">
+                    <div className="flex items-center justify-between gap-4">
+                        <DialogTitle className="flex items-center gap-2.5 text-base font-extrabold text-foreground">
+                            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                                 <Eye className="h-4 w-4" />
                             </div>
                             <span>Hồ sơ & Chi tiết thiết bị</span>
                         </DialogTitle>
-                        <Badge variant="outline" className={cn('text-xs font-bold border gap-1.5 px-3 py-1', statusConfig.color)}>
+                        <Badge variant="outline" className={cn('text-xs font-bold border gap-1.5 px-3 py-1 shrink-0', statusConfig.color)}>
                             <StatusIcon className="h-3.5 w-3.5" />
                             {STATUS_LABELS[equipment.status]}
                         </Badge>
@@ -317,11 +323,11 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
                 <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 text-left">
                     {/* Left Column: Visual Showcase & Badges (5 cols) */}
                     <div className="md:col-span-5 space-y-4">
-                        <div className="w-full h-64 lg:h-72 rounded-2xl border border-slate-800 bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 overflow-hidden relative shadow-inner group">
+                        <div className="w-full h-64 lg:h-72 rounded-2xl border border-border bg-muted/20 dark:bg-slate-900/80 flex items-center justify-center p-4 overflow-hidden relative shadow-inner group">
                             {equipment.image ? (
                                 <img src={equipment.image} alt={equipment.name} className="max-h-full max-w-full object-contain drop-shadow-xl group-hover:scale-105 transition-transform duration-500" />
                             ) : (
-                                <div className="flex flex-col items-center gap-2 text-slate-500">
+                                <div className="flex flex-col items-center gap-2 text-muted-foreground">
                                     <Package className="w-16 h-16 opacity-30" />
                                     <span className="text-xs font-medium">Chưa có ảnh thiết bị</span>
                                 </div>
@@ -329,16 +335,16 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
                         </div>
 
                         {/* Quick Spec Grid */}
-                        <div className="grid grid-cols-2 gap-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80">
+                        <div className="grid grid-cols-2 gap-3 bg-muted/30 p-3.5 rounded-xl border border-border">
                             <div>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Mã thiết bị</span>
-                                <code className="rounded-md bg-slate-800 px-2 py-0.5 text-xs font-mono font-bold text-emerald-400 inline-block mt-1">
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">Mã thiết bị</span>
+                                <code className="rounded-md bg-muted px-2 py-0.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 inline-block mt-1">
                                     {equipment.code}
                                 </code>
                             </div>
                             <div>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Đơn vị tính</span>
-                                <span className="text-xs font-bold text-slate-200 block mt-1 capitalize">{equipment.unit}</span>
+                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider block">Đơn vị tính</span>
+                                <span className="text-xs font-bold text-foreground block mt-1 capitalize">{equipment.unit}</span>
                             </div>
                         </div>
 
@@ -364,17 +370,17 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
                                 <Badge variant="outline" className={cn('text-xs font-bold border', MODE_COLORS[equipment.mode])}>
                                     {MODE_LABELS[equipment.mode]}
                                 </Badge>
-                                <h2 className="text-xl lg:text-2xl font-black text-white leading-tight">
+                                <h2 className="text-xl lg:text-2xl font-black text-foreground leading-tight">
                                     {equipment.name}
                                 </h2>
                             </div>
 
                             {/* Stock Analytics Card */}
-                            <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-800/80 space-y-3">
+                            <div className="bg-muted/30 p-4 rounded-xl border border-border space-y-3">
                                 <div className="flex items-center justify-between text-xs font-bold">
-                                    <span className="text-slate-400 text-[10px] uppercase tracking-wider">Phân tích tồn kho</span>
-                                    <span className="font-mono text-white">
-                                        Tỷ lệ khả dụng: <span className={cn('font-bold', isLowStock ? 'text-amber-400' : 'text-emerald-400')}>{percent}%</span>
+                                    <span className="text-muted-foreground text-[10px] uppercase tracking-wider">Phân tích tồn kho</span>
+                                    <span className="font-mono text-foreground">
+                                        Tỷ lệ khả dụng: <span className={cn('font-bold', isLowStock ? 'text-amber-500' : 'text-emerald-600 dark:text-emerald-400')}>{percent}%</span>
                                     </span>
                                 </div>
                                 <Progress
@@ -382,17 +388,17 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
                                     className={cn('h-2 w-full', isLowStock ? '[&>[data-slot=progress-indicator]]:bg-amber-500' : '[&>[data-slot=progress-indicator]]:bg-emerald-500')}
                                 />
                                 <div className="grid grid-cols-3 gap-2 text-center text-xs pt-1">
-                                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
-                                        <span className="text-[9px] text-slate-400 block uppercase font-bold">Tổng nhập</span>
-                                        <span className="font-mono font-extrabold text-slate-100">{equipment.totalQuantity} {equipment.unit}</span>
+                                    <div className="bg-background/80 p-2 rounded-lg border border-border">
+                                        <span className="text-[9px] text-muted-foreground block uppercase font-bold">Tổng nhập</span>
+                                        <span className="font-mono font-extrabold text-foreground">{equipment.totalQuantity} {equipment.unit}</span>
                                     </div>
-                                    <div className="bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/20">
-                                        <span className="text-[9px] text-emerald-400 block uppercase font-bold">Khả dụng</span>
-                                        <span className="font-mono font-extrabold text-emerald-400">{equipment.availableQuantity} {equipment.unit}</span>
+                                    <div className="bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 block uppercase font-bold">Khả dụng</span>
+                                        <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{equipment.availableQuantity} {equipment.unit}</span>
                                     </div>
-                                    <div className="bg-slate-950/60 p-2 rounded-lg border border-slate-800">
-                                        <span className="text-[9px] text-slate-400 block uppercase font-bold">Đang dùng</span>
-                                        <span className="font-mono font-extrabold text-slate-300">{used} {equipment.unit}</span>
+                                    <div className="bg-background/80 p-2 rounded-lg border border-border">
+                                        <span className="text-[9px] text-muted-foreground block uppercase font-bold">Đang dùng</span>
+                                        <span className="font-mono font-extrabold text-foreground">{used} {equipment.unit}</span>
                                     </div>
                                 </div>
                             </div>
@@ -400,20 +406,20 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
                             {/* Pricing Breakdown Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {(equipment.mode === 'rent' || equipment.mode === 'both') && (
-                                    <div className="bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-xl space-y-1">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">Đơn giá thuê</span>
-                                        <div className="text-xl font-extrabold text-emerald-400 font-mono">
+                                    <div className="bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl space-y-1">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Đơn giá thuê</span>
+                                        <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
                                             {(equipment.rentPrice || 0).toLocaleString('vi-VN')}<span className="text-xs ml-0.5">đ</span>
-                                            <span className="text-xs font-normal text-slate-400 font-sans"> / {equipment.unit}</span>
+                                            <span className="text-xs font-normal text-muted-foreground font-sans"> / {equipment.unit}</span>
                                         </div>
                                     </div>
                                 )}
                                 {(equipment.mode === 'sell' || equipment.mode === 'both') && (
-                                    <div className="bg-amber-950/40 border border-amber-500/30 p-3.5 rounded-xl space-y-1">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">Đơn giá bán</span>
-                                        <div className="text-xl font-extrabold text-amber-400 font-mono">
+                                    <div className="bg-amber-500/10 border border-amber-500/20 p-3.5 rounded-xl space-y-1">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block">Đơn giá bán</span>
+                                        <div className="text-xl font-extrabold text-amber-600 dark:text-amber-400 font-mono">
                                             {(equipment.salePrice || 0).toLocaleString('vi-VN')}<span className="text-xs ml-0.5">đ</span>
-                                            <span className="text-xs font-normal text-slate-400 font-sans"> / {equipment.unit}</span>
+                                            <span className="text-xs font-normal text-muted-foreground font-sans"> / {equipment.unit}</span>
                                         </div>
                                     </div>
                                 )}
@@ -422,8 +428,8 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
                             {/* Description Block */}
                             {equipment.description && (
                                 <div className="space-y-1.5">
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Mô tả thiết bị</span>
-                                    <div className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">Mô tả thiết bị</span>
+                                    <div className="text-xs text-foreground leading-relaxed bg-muted/30 p-3.5 rounded-xl border border-border whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
                                         {equipment.description}
                                     </div>
                                 </div>
@@ -432,8 +438,8 @@ const DetailDialog: React.FC<DetailDialogProps> = ({ equipment, onEdit, onClose 
                     </div>
                 </div>
 
-                <DialogFooter className="px-6 py-4 border-t border-slate-800/80 bg-slate-900/40 flex items-center justify-end">
-                    <Button variant="outline" onClick={onClose} className="border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-800 text-xs font-semibold h-10 px-5 rounded-xl">
+                <DialogFooter className="px-6 py-4 border-t border-border bg-muted/20 flex items-center justify-end">
+                    <Button variant="outline" onClick={onClose} className="border-border text-foreground hover:bg-muted text-xs font-semibold h-10 px-5 rounded-xl">
                         Đóng
                     </Button>
                 </DialogFooter>
@@ -467,11 +473,21 @@ const FormDialog: React.FC<FormDialogProps> = ({
         onChange(field, Number(cleaned) || 0);
     };
 
+    const handleQuantityChange = (field: 'totalQuantity' | 'availableQuantity', raw: string) => {
+        const cleaned = raw.replace(/[^\d]/g, '');
+        const num = cleaned === '' ? 0 : Number(cleaned);
+        onChange(field, num);
+        // Auto sync availableQuantity with totalQuantity when creating a new equipment
+        if (!editing && field === 'totalQuantity') {
+            onChange('availableQuantity', num);
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
             <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-0 border border-border/80 rounded-2xl shadow-xl bg-card">
                 <DialogHeader className="px-6 py-4 border-b border-border bg-muted/20 text-left">
-                    <DialogTitle className="flex items-center gap-2 text-sm font-extrabold text-foreground uppercase tracking-wider">
+                    <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
                         {editing ? (
                             <>
                                 <Pencil className="h-4 w-4 text-indigo-500" />
@@ -495,18 +511,18 @@ const FormDialog: React.FC<FormDialogProps> = ({
                     {/* Row: Code + Name */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <Label htmlFor="eq-code" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Mã thiết bị <span className="text-rose-500">*</span></Label>
+                            <Label htmlFor="eq-code" className="text-xs font-semibold text-foreground">Mã thiết bị <span className="text-rose-500">*</span></Label>
                             <Input
                                 id="eq-code"
                                 placeholder="VD: TB001"
                                 value={formData.code}
                                 onChange={(e) => onChange('code', e.target.value)}
-                                className={cn('h-10 rounded-xl text-xs font-mono', errors.code && 'border-rose-500')}
+                                className={cn('h-10 rounded-xl text-xs font-medium', errors.code && 'border-rose-500')}
                             />
                             {errors.code && <p className="text-[10px] text-rose-500 font-semibold">{errors.code}</p>}
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="eq-name" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Tên thiết bị <span className="text-rose-500">*</span></Label>
+                            <Label htmlFor="eq-name" className="text-xs font-semibold text-foreground">Tên thiết bị <span className="text-rose-500">*</span></Label>
                             <Input
                                 id="eq-name"
                                 placeholder="VD: Bóng đá FIFA, Áo pitch..."
@@ -521,20 +537,34 @@ const FormDialog: React.FC<FormDialogProps> = ({
                     {/* Row: Unit + Mode */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Đơn vị <span className="text-rose-500">*</span></Label>
-                            <Select value={formData.unit} onValueChange={(v) => onChange('unit', v)}>
-                                <SelectTrigger className="w-full h-10 rounded-xl text-xs font-semibold">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-border bg-card">
-                                    {UNIT_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt.value} value={opt.value} className="text-xs font-semibold">{opt.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Label className="text-xs font-semibold text-foreground">Đơn vị <span className="text-rose-500">*</span></Label>
+                            <Input
+                                value={formData.unit}
+                                onChange={(e) => onChange('unit', e.target.value)}
+                                placeholder="Nhập hoặc chọn đơn vị (ví dụ: cái, gói, đôi, chiếc...)"
+                                className={cn('h-10 rounded-xl text-xs font-semibold', errors.unit && 'border-rose-500')}
+                            />
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                {UNIT_OPTIONS.map((opt) => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => onChange('unit', opt.value)}
+                                        className={cn(
+                                            "px-2 py-0.5 rounded-lg text-[11px] font-medium transition-colors border cursor-pointer",
+                                            formData.unit?.trim().toLowerCase() === opt.value.toLowerCase()
+                                                ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold"
+                                                : "bg-secondary/40 border-border/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                        )}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {errors.unit && <p className="text-[10px] text-rose-500 font-semibold">{errors.unit}</p>}
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Loại kinh doanh <span className="text-rose-500">*</span></Label>
+                            <Label className="text-xs font-semibold text-foreground">Loại kinh doanh <span className="text-rose-500">*</span></Label>
                             <Select value={formData.mode} onValueChange={(v) => onChange('mode', v)}>
                                 <SelectTrigger className="w-full h-10 rounded-xl text-xs font-semibold">
                                     <SelectValue />
@@ -551,26 +581,28 @@ const FormDialog: React.FC<FormDialogProps> = ({
                     {/* Row: Quantities */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <Label htmlFor="eq-total" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Số lượng tổng <span className="text-rose-500">*</span></Label>
+                            <Label htmlFor="eq-total" className="text-xs font-semibold text-foreground">Số lượng tổng <span className="text-rose-500">*</span></Label>
                             <Input
                                 id="eq-total"
-                                type="number"
-                                min={0}
-                                value={formData.totalQuantity}
-                                onChange={(e) => onChange('totalQuantity', Number(e.target.value) || 0)}
-                                className={cn('h-10 rounded-xl text-xs font-mono font-semibold', errors.totalQuantity && 'border-rose-500')}
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="0"
+                                value={formData.totalQuantity ? String(formData.totalQuantity) : ''}
+                                onChange={(e) => handleQuantityChange('totalQuantity', e.target.value)}
+                                className={cn('h-10 rounded-xl text-xs font-medium', errors.totalQuantity && 'border-rose-500')}
                             />
                             {errors.totalQuantity && <p className="text-[10px] text-rose-500 font-semibold">{errors.totalQuantity}</p>}
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="eq-avail" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Còn lại trong kho <span className="text-rose-500">*</span></Label>
+                            <Label htmlFor="eq-avail" className="text-xs font-semibold text-foreground">Còn lại trong kho <span className="text-rose-500">*</span></Label>
                             <Input
                                 id="eq-avail"
-                                type="number"
-                                min={0}
-                                value={formData.availableQuantity}
-                                onChange={(e) => onChange('availableQuantity', Number(e.target.value) || 0)}
-                                className={cn('h-10 rounded-xl text-xs font-mono font-semibold', errors.availableQuantity && 'border-rose-500')}
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="0"
+                                value={formData.availableQuantity ? String(formData.availableQuantity) : ''}
+                                onChange={(e) => handleQuantityChange('availableQuantity', e.target.value)}
+                                className={cn('h-10 rounded-xl text-xs font-medium', errors.availableQuantity && 'border-rose-500')}
                             />
                             {errors.availableQuantity && <p className="text-[10px] text-rose-500 font-semibold">{errors.availableQuantity}</p>}
                         </div>
@@ -581,11 +613,11 @@ const FormDialog: React.FC<FormDialogProps> = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {isRentMode && (
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="eq-rent-price" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Giá thuê <span className="text-rose-500">*</span></Label>
+                                    <Label htmlFor="eq-rent-price" className="text-xs font-semibold text-foreground">Giá thuê <span className="text-rose-500">*</span></Label>
                                     <div className="relative">
                                         <Input
                                             id="eq-rent-price"
-                                            className={cn('h-10 rounded-xl pr-12 text-xs font-mono font-semibold', errors.rentPrice && 'border-rose-500')}
+                                            className={cn('h-10 rounded-xl pr-12 text-xs font-medium', errors.rentPrice && 'border-rose-500')}
                                             value={formatPrice(formData.rentPrice)}
                                             onChange={(e) => handlePriceChange('rentPrice', e.target.value)}
                                             placeholder="0"
@@ -597,11 +629,11 @@ const FormDialog: React.FC<FormDialogProps> = ({
                             )}
                             {isSellMode && (
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="eq-sale-price" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Giá bán <span className="text-rose-500">*</span></Label>
+                                    <Label htmlFor="eq-sale-price" className="text-xs font-semibold text-foreground">Giá bán <span className="text-rose-500">*</span></Label>
                                     <div className="relative">
                                         <Input
                                             id="eq-sale-price"
-                                            className={cn('h-10 rounded-xl pr-12 text-xs font-mono font-semibold', errors.salePrice && 'border-rose-500')}
+                                            className={cn('h-10 rounded-xl pr-12 text-xs font-medium', errors.salePrice && 'border-rose-500')}
                                             value={formatPrice(formData.salePrice)}
                                             onChange={(e) => handlePriceChange('salePrice', e.target.value)}
                                             placeholder="0"
@@ -616,7 +648,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
                     {/* Status */}
                     <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Trạng thái kho <span className="text-rose-500">*</span></Label>
+                        <Label className="text-xs font-semibold text-foreground">Trạng thái kho <span className="text-rose-500">*</span></Label>
                         <Select value={formData.status} onValueChange={(v) => onChange('status', v)}>
                             <SelectTrigger className="w-full h-10 rounded-xl text-xs font-semibold">
                                 <SelectValue />
@@ -646,7 +678,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
                     {/* Description */}
                     <div className="space-y-1.5">
-                        <Label htmlFor="eq-desc" className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Mô tả thêm</Label>
+                        <Label htmlFor="eq-desc" className="text-xs font-semibold text-foreground">Mô tả thêm</Label>
                         <Textarea
                             id="eq-desc"
                             rows={3}
@@ -659,7 +691,7 @@ const FormDialog: React.FC<FormDialogProps> = ({
 
                     {/* Image Upload */}
                     <div className="space-y-1.5 pt-1">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Hình ảnh thiết bị</Label>
+                        <Label className="text-xs font-semibold text-foreground">Hình ảnh thiết bị</Label>
                         <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/20">
                             <div className="w-16 h-16 rounded-lg border border-border/80 bg-card shrink-0 overflow-hidden flex items-center justify-center relative shadow-xs">
                                 {formData.image ? (
@@ -761,21 +793,10 @@ const EquipmentList: React.FC = () => {
             setLoading(true);
             const res = await api.get('/equipments');
             const list: Equipment[] = res.data?.data || res.data || [];
-            if (list.length === 0) {
-                setEquipments(MOCK_DEVICES);
-            } else {
-                const existingCodes = new Set(list.map((item) => item.code));
-                const combined = [...list];
-                MOCK_DEVICES.forEach((mockItem) => {
-                    if (!existingCodes.has(mockItem.code)) {
-                        combined.push(mockItem);
-                    }
-                });
-                setEquipments(combined);
-            }
+            setEquipments(list);
         } catch (err) {
             console.error(err);
-            setEquipments(MOCK_DEVICES);
+            setEquipments([]);
         } finally {
             setLoading(false);
         }
@@ -826,6 +847,7 @@ const EquipmentList: React.FC = () => {
         const newErrors: Partial<Record<keyof FormData, string>> = {};
         if (!formData.code.trim()) newErrors.code = 'Vui lòng nhập mã thiết bị';
         if (!formData.name.trim()) newErrors.name = 'Vui lòng nhập tên thiết bị';
+        if (!formData.unit.trim()) newErrors.unit = 'Vui lòng nhập hoặc chọn đơn vị';
         if (formData.totalQuantity < 0) newErrors.totalQuantity = 'Không được âm';
         if (formData.availableQuantity < 0) newErrors.availableQuantity = 'Không được âm';
         if (formData.totalQuantity < formData.availableQuantity) {
@@ -896,12 +918,12 @@ const EquipmentList: React.FC = () => {
 
         try {
             setSubmitLoading(true);
-            if (editing) {
+            if (editing && !editing._id.startsWith('sample-')) {
                 await api.patch(`/equipments/${editing._id}`, payload);
                 toast.success('Đã cập nhật thiết bị thành công!');
             } else {
                 await api.post('/equipments', payload);
-                toast.success('Đã thêm thiết bị mới thành công!');
+                toast.success('Đã lưu thiết bị thành công!');
             }
             handleModalCancel();
             fetchEquipments();
@@ -922,6 +944,12 @@ const EquipmentList: React.FC = () => {
         if (!deleteTarget) return;
         try {
             setDeleteLoading(true);
+            if (deleteTarget._id.startsWith('sample-')) {
+                setEquipments(prev => prev.filter(item => item._id !== deleteTarget._id));
+                toast.success('Đã xóa thiết bị thành công!');
+                setDeleteTarget(null);
+                return;
+            }
             await api.delete(`/equipments/${deleteTarget._id}`);
             toast.success('Đã xóa thiết bị thành công!');
             setDeleteTarget(null);

@@ -351,17 +351,17 @@ const UserEquipmentList: React.FC = () => {
 
         {/* Full Image / Lightbox Detail Modal */}
         <Dialog open={!!selectedEquipment} onOpenChange={(v) => !v && setSelectedEquipment(null)}>
-          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border border-slate-800/80 rounded-2xl bg-slate-950/95 text-slate-100 backdrop-blur-2xl shadow-2xl">
-            <DialogHeader className="px-6 py-4 border-b border-slate-800/80 bg-slate-900/50 text-left">
-              <div className="flex items-center justify-between">
-                <DialogTitle className="flex items-center gap-2.5 text-base font-extrabold text-white">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 border border-border rounded-2xl bg-card text-card-foreground shadow-2xl">
+            <DialogHeader className="px-6 pr-14 py-4 border-b border-border bg-muted/30 text-left">
+              <div className="flex items-center justify-between gap-4">
+                <DialogTitle className="flex items-center gap-2.5 text-base font-extrabold text-foreground">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     <Sparkles className="w-4 h-4" />
                   </div>
                   <span>Chi tiết sản phẩm dịch vụ</span>
                 </DialogTitle>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-xs font-mono font-bold bg-slate-800/80 text-emerald-400 border-slate-700">
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="text-xs font-mono font-bold bg-muted text-emerald-600 dark:text-emerald-400 border-border">
                     {selectedEquipment?.code}
                   </Badge>
                 </div>
@@ -372,7 +372,7 @@ const UserEquipmentList: React.FC = () => {
               <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-6 text-left">
                 {/* Left Column: Image Stage & Trust Badges (5 cols) */}
                 <div className="md:col-span-5 space-y-4">
-                  <div className="w-full h-72 lg:h-80 rounded-2xl border border-slate-800 bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 overflow-hidden relative shadow-inner group">
+                  <div className="w-full h-72 lg:h-80 rounded-2xl border border-border bg-muted/20 dark:bg-slate-900/80 flex items-center justify-center p-4 overflow-hidden relative shadow-inner group">
                     {selectedEquipment.image ? (
                       <img
                         src={selectedEquipment.image}
@@ -380,28 +380,28 @@ const UserEquipmentList: React.FC = () => {
                         className="max-h-full max-w-full object-contain drop-shadow-xl group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="flex flex-col items-center gap-2 text-slate-500">
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
                         <Box className="w-16 h-16 opacity-40" />
                         <span className="text-xs font-medium">Chưa có hình ảnh minh họa</span>
                       </div>
                     )}
-                    <span className="absolute bottom-3 right-3 text-[10px] font-bold text-slate-400 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+                    <span className="absolute bottom-3 right-3 text-[10px] font-bold text-muted-foreground bg-background/80 backdrop-blur-md px-2.5 py-1 rounded-full border border-border">
                       Sân bóng MIRA
                     </span>
                   </div>
 
                   {/* Trust Highlights */}
-                  <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80 space-y-2 text-xs text-slate-300">
-                    <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                      <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <div className="bg-muted/30 p-3.5 rounded-xl border border-border space-y-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <ShieldCheck className="w-4 h-4 shrink-0" />
                       <span>Trang thiết bị chuẩn chất lượng tại sân</span>
                     </div>
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-sky-400" />
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-sky-500" />
                       <span>Nhận & kiểm tra trực tiếp trước khi đá</span>
                     </div>
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <Clock className="w-4 h-4 shrink-0 text-amber-400" />
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 shrink-0 text-amber-500" />
                       <span>Hỗ trợ đổi size / chủng loại linh hoạt</span>
                     </div>
                   </div>
@@ -412,12 +412,12 @@ const UserEquipmentList: React.FC = () => {
                   <div className="space-y-4">
                     {/* Status & Category Badge */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-xs px-3 py-1">
+                      <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold text-xs px-3 py-1">
                         {MODE_LABELS[selectedEquipment.mode] || selectedEquipment.mode}
                       </Badge>
                       <Badge
                         variant={selectedEquipment.availableQuantity > 0 ? "default" : "destructive"}
-                        className={selectedEquipment.availableQuantity > 0 ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : ""}
+                        className={selectedEquipment.availableQuantity > 0 ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30" : ""}
                       >
                         {selectedEquipment.availableQuantity > 0 ? `Còn hàng (${selectedEquipment.availableQuantity} ${selectedEquipment.unit})` : "Hết hàng"}
                       </Badge>
@@ -425,31 +425,31 @@ const UserEquipmentList: React.FC = () => {
 
                     {/* Product Name */}
                     <div>
-                      <h2 className="text-xl lg:text-2xl font-black text-white leading-tight">
+                      <h2 className="text-xl lg:text-2xl font-black text-foreground leading-tight">
                         {selectedEquipment.name}
                       </h2>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Đơn vị tính: <span className="font-bold text-slate-200">{selectedEquipment.unit}</span>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Đơn vị tính: <span className="font-bold text-foreground">{selectedEquipment.unit}</span>
                       </p>
                     </div>
 
                     {/* Price Showcase Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {(selectedEquipment.mode === "rent" || selectedEquipment.mode === "both") && (
-                        <div className="bg-emerald-950/40 border border-emerald-500/30 p-3.5 rounded-xl space-y-1">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">Giá thuê sân</span>
-                          <div className="text-xl font-extrabold text-emerald-400 font-mono">
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-xl space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Giá thuê sân</span>
+                          <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
                             {(selectedEquipment.rentPrice || 0).toLocaleString("vi-VN")}<span className="text-xs ml-0.5">đ</span>
-                            <span className="text-xs font-normal text-slate-400 font-sans"> / {selectedEquipment.unit}</span>
+                            <span className="text-xs font-normal text-muted-foreground font-sans"> / {selectedEquipment.unit}</span>
                           </div>
                         </div>
                       )}
                       {(selectedEquipment.mode === "sell" || selectedEquipment.mode === "both") && (
-                        <div className="bg-amber-950/40 border border-amber-500/30 p-3.5 rounded-xl space-y-1">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">Giá mua trực tiếp</span>
-                          <div className="text-xl font-extrabold text-amber-400 font-mono">
+                        <div className="bg-amber-500/10 border border-amber-500/20 p-3.5 rounded-xl space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block">Giá mua trực tiếp</span>
+                          <div className="text-xl font-extrabold text-amber-600 dark:text-amber-400 font-mono">
                             {(selectedEquipment.salePrice || 0).toLocaleString("vi-VN")}<span className="text-xs ml-0.5">đ</span>
-                            <span className="text-xs font-normal text-slate-400 font-sans"> / {selectedEquipment.unit}</span>
+                            <span className="text-xs font-normal text-muted-foreground font-sans"> / {selectedEquipment.unit}</span>
                           </div>
                         </div>
                       )}
@@ -458,10 +458,10 @@ const UserEquipmentList: React.FC = () => {
                     {/* Description */}
                     {selectedEquipment.description && (
                       <div className="space-y-1.5">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
                           Mô tả chi tiết sản phẩm
                         </span>
-                        <div className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 whitespace-pre-line max-h-36 overflow-y-auto custom-scrollbar">
+                        <div className="text-xs text-foreground leading-relaxed bg-muted/30 p-3.5 rounded-xl border border-border whitespace-pre-line max-h-36 overflow-y-auto custom-scrollbar">
                           {selectedEquipment.description}
                         </div>
                       </div>
@@ -469,9 +469,9 @@ const UserEquipmentList: React.FC = () => {
                   </div>
 
                   {/* Stock Status Bar */}
-                  <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Tồn kho khả dụng:</span>
-                    <span className="font-mono font-bold text-white">
+                  <div className="bg-muted/40 p-3 rounded-xl border border-border flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Tồn kho khả dụng:</span>
+                    <span className="font-mono font-bold text-foreground">
                       {selectedEquipment.availableQuantity} / {selectedEquipment.totalQuantity} {selectedEquipment.unit}
                     </span>
                   </div>
@@ -479,7 +479,7 @@ const UserEquipmentList: React.FC = () => {
               </div>
             )}
 
-            <DialogFooter className="px-6 py-4 border-t border-slate-800/80 bg-slate-900/40 flex items-center justify-end">
+            <DialogFooter className="px-6 py-4 border-t border-border bg-muted/20 flex items-center justify-end">
               <Button
                 onClick={() => setSelectedEquipment(null)}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-6 rounded-xl shadow-lg transition-all"
